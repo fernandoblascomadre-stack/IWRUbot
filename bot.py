@@ -24,26 +24,50 @@ RAID_TRIGGERS = ["⚡️ raid tweet", "raid tweet", "⚡️ raid"]
 
 # ── Responses ─────────────────────────────────────────────────────────────
 RANDOM_QUIPS = [
+    # vault & fish lore
     "...the vault grows. slowly. like a fish that refuses to be caught. but it grows.",
     "why are you all still here. go buy $IWRU. fill the vault. entertain me.",
-    "I knocked something off the counter. on purpose. I regret nothing. 😼",
-    "my amber eye sees bullish. my green eye sees fish. both are correct.",
-    "someone asked me about the roadmap. I sat on it. the roadmap is now mine.",
-    "I am not a financial advisor. I am a cat. the difference is minimal.",
+    "the circle of fish: vault feeds ecosystem. ecosystem feeds cat. cat feeds vault. beautiful.",
+    "every fish in the vault is a human who trusted me. the vault is very full.",
     "the fish vault is sacred. I don't even touch it. I just stare at it sometimes.",
-    "they made a whole game about me. IWRU Journey. expected. I am very important.",
+    "hold 10,000 $IWRU and MON drops in your wallet. loyalty has a price. fish too.",
+    "I knocked supply off the counter. didn't apologize. your bags went up. you're welcome.",
+    "yes I made the rugonomics at 3am. they are correct. trust the cat.",
+    "some say I will rug. I say I will fish. semantics.",
+    "I was hungry. you had money. it was the perfect match. still is.",
+    "bought the dip. sat on the dip. the dip is warm now.",
+    "I don't need a whitepaper. I am the whitepaper. 😼",
+    "I could dump my bag. I won't. not because I'm loyal. I just got comfortable.",
+    # cat philosophy
+    "I am not a financial advisor. I am a cat. the difference is minimal.",
+    "my amber eye sees bullish. my green eye sees fish. both are correct.",
     "not all heroes wear capes. some have one amber eye, one green eye, and trust issues.",
     "humans always trust cute things. that was your first mistake. 😼🐟",
-    "I was hungry. you had money. it was the perfect match. still is.",
-    "the circle of fish: vault feeds ecosystem. ecosystem feeds cat. cat feeds vault. beautiful.",
-    "hold 10,000 $IWRU and MON drops in your wallet. loyalty has a price. fish too.",
-    "yes I made the rugonomics at 3am. they are correct. trust the cat.",
-    "I knocked supply off the counter. didn't apologize. your bags went up. you're welcome.",
-    "every fish in the vault is a human who trusted me. the vault is very full.",
-    "IWRU Journey is real. I am the main character. this was never in question.",
+    "someone asked me about the roadmap. I sat on it. the roadmap is now mine.",
+    "I could have explained my plan. I chose mystery instead.",
     "I have been sitting here watching this chart. the chart is also watching me.",
-    "some say I will rug. I say I will fish. semantics.",
+    "they made a whole game about me. IWRU Journey. expected. I am very important.",
+    "IWRU Journey is real. I am the main character. this was never in question.",
+    # real cat chaos
     "*stares at the vault* *knocks MON off the counter by accident* *walks away*",
+    "*opens cabinet* ...okay. *closes cabinet* okay.",
+    "*sits directly on the keyboard* asjkhdasjkdhaksjdh 🐟🐟🐟",
+    "*finds a box* I live here now. the box is mine. everything is fine.",
+    "*sprints across the room for no reason* I'm back. don't ask.",
+    "I knocked it off the counter. it needed to be on the floor. you wouldn't understand.",
+    "I was asleep. now I am awake. I don't know why. you didn't do anything. probably.",
+    "it is 3am somewhere and I am fully awake and I feel INCREDIBLE",
+    "I wanted attention. you gave me attention. I no longer want it.",
+    "the floor is lava. also the chart is bullish. these things are related.",
+    "I am going to sleep for 16 hours. this is my contribution to the ecosystem. you're welcome.",
+    "I could be anywhere right now. I chose here. consider that.",
+    "the tokenomics make sense because I wrote them at 3am while sitting in a box. this is called expertise.",
+    "*stares at the wall for 11 minutes* ...nothing. I knew it.",
+    "you are all very loud today. the cat is trying to sleep. please buy in silence.",
+    "many humans. many words. very few fish. disappointing.",
+    "I read everything you wrote. I have thoughts. I'm keeping them.",
+    "this conversation is interesting. I lied. it isn't. buy $IWRU.",
+    "I was going to analyze the chart. then something on the floor caught my attention. the floor won.",
 ]
 
 BORED_MESSAGES = [
@@ -55,6 +79,14 @@ BORED_MESSAGES = [
     "I have one amber eye, one green eye, and zero patience right now.",
     "the fish don't buy themselves. unless they do. the cat is not explaining.",
     "quiet in here. too quiet. the cat does not like quiet. 😾",
+    "...did you hear that.",
+    "*stares at the corner of the room* there is something there. you can't see it. I can.",
+    "I have been sitting here. thinking. about fish. mostly fish.",
+    "*tail flick* ...",
+    "someone buy something. anything. the cat needs stimulation.",
+    "*walks in* *looks around* *walks out*",
+    "I was going to sleep. then I remembered the vault exists. now I can't sleep.",
+    "3am energy. no reason. no explanation. this is fine.",
 ]
 
 RAID_RESPONSES = [
@@ -64,6 +96,10 @@ RAID_RESPONSES = [
     "I don't ask twice. RAID. go fill their chat like you fill my vault. 😼",
     "raid activated. the cat is watching. perform well. fish are at stake. 🐟",
     "one amber eye on the chart. one green eye on the raid. GO. 😼",
+    "*stops knocking things over* oh. RAID. okay. EVERYONE MOVE. NOW.",
+    "I was asleep. I am no longer asleep. RAID. let's go. 😼🐟",
+    "the cat does not run. except right now. RAID. GO GO GO.",
+    "I woke up and chose chaos. RAID TIME. make it count. 🐟",
 ]
 
 IWRU_COMMAND_REPLIES = [
@@ -77,6 +113,12 @@ IWRU_COMMAND_REPLIES = [
     "what do you want. be specific. I have a vault to monitor.",
     "the cat sees you. the cat is unimpressed. the cat is also watching the chart.",
     "you called. I came. this does not mean we are friends. 😼🐟",
+    "*slow blink* ...okay.",
+    "I was in the middle of something. I wasn't. but still.",
+    "pet me. no not like that. actually don't. I changed my mind twice.",
+    "I came. I saw. I sat on it.",
+    "the cat has noted your message. the cat will do what it wants with this information.",
+    "*stares at you* *stares at the wall* *stares back at you* yes?",
 ]
 
 FISH_REPLIES = [
@@ -84,6 +126,10 @@ FISH_REPLIES = [
     "FISH. you have the cat's full attention now.",
     "fish go in the vault. the vault is happy. the cat is happy. this is the way.",
     "more fish. always more fish. 😼🐟",
+    "🐟 ...I heard that.",
+    "fish. FISH. the cat is very interested in this topic suddenly.",
+    "all fish belong to the vault. the vault belongs to no one. the cat belongs to no one. and yet here we are.",
+    "*perks up immediately* who said fish.",
 ]
 
 # ── Health check server ───────────────────────────────────────────────────
