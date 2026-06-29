@@ -17,7 +17,10 @@ _last_random: dict[int, float] = {}
 RANDOM_COOLDOWN = 180
 RANDOM_CHANCE   = 0.07
 
-_known_chats: dict[int, float] = {}
+# ── User tracking ──────────────────────────────────────────────────────────
+_known_chats: dict[int, float]  = {}
+_known_users: dict[int, dict]   = {}   # user_id -> {chat_id, name, last_seen}
+_user_nicknames: dict[int, str] = {}   # user_id -> assigned nickname
 
 # ── Triggers ───────────────────────────────────────────────────────────────
 RAID_TRIGGERS  = ["⚡️ raid tweet", "raid tweet", "⚡️ raid"]
@@ -30,11 +33,93 @@ CHART_TRIGGERS = ["chart", "price", "marketcap", "market cap", "mcap", "📊", "
 MONAD_TRIGGERS = ["monad", "#monad", "mon blockchain", "built on monad"]
 IWRU_TRIGGERS  = ["i will rug u", "i will rug you", "iwru 🐟", "iwru 😼", "iwru!"]
 
-# ── Helper: current hour ───────────────────────────────────────────────────
 def hour_now():
     return datetime.now().hour
 
-# ── Phrase lists ───────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════
+#  NICKNAME SYSTEM
+# ══════════════════════════════════════════════════════════════════════════
+NICKNAMES = [
+    "the fish hoarder",
+    "suspicious human",
+    "potential vault supporter",
+    "person who maybe has fish",
+    "the one with nice hands (for scratching)",
+    "unreliable fish source",
+    "human of interest",
+    "the quiet one",
+    "fish suspect",
+    "undecided investor",
+    "future fish donor",
+    "the one the cat is watching",
+    "MON accumulator",
+    "chaos ally",
+    "unremarkable but present",
+    "new fish in the chat",
+    "possible fish dealer",
+    "vault adjacent human",
+    "the one who sometimes checks the chart",
+    "financial cryptid",
+    "the one the cat trusts slightly",
+    "professional lurker",
+    "fish adjacent",
+    "definitely not a rug",
+    "the cat's least suspicious suspect",
+    "vault enthusiast (probably)",
+    "the one who owes the cat a fish",
+    "certified human",
+    "the one who sometimes says gm",
+    "fish watcher",
+    "chart toucher",
+    "minor chaos contributor",
+    "fish-adjacent wallet holder",
+    "the one who exists (verified)",
+    "scratch provider (potential)",
+    "snack-adjacent human",
+    "the one who looked at me once",
+    "fish-curious individual",
+    "vault supporter in training",
+    "the one who always has pockets (probably fish in there)",
+]
+
+# {name} = first name (plain text, no notification)
+# {nick} = their cat nickname
+CALLOUT_MESSAGES = [
+    "{name} hey. HEY. do you have fish. 🐟",
+    "{name}. the cat has been watching you. not in a weird way. in a cat way. 😼",
+    "{name} scratch my belly. I said scratch it. please. just once. 😼",
+    "{name} have you tried IWRU Journey yet? I'm the main character. just saying. 🎮😼",
+    "{name}. give me a fish. one fish. you won't miss it. 🐟",
+    "{name} the cat has been thinking about you. and fish. mostly fish. but you were in there too. 🐟😼",
+    "{name}. the vault noticed you. the vault says hi. also it wants fish. 🐟",
+    "{name} you look like someone who has fish. I'm not wrong about these things. 🐟😼",
+    "{name}. the cat requires your attention. briefly. what do you know about fish. 😼",
+    "{name} have you checked the chart today? I did. I approved it. 📈😼",
+    "{name}. I knocked something over for you specifically. you're welcome. 😼",
+    "{name} you've been quiet. the cat noticed. say something. or give me fish. 🐟😼",
+    "{name}. do you have a coin. just one. for the vault. no pressure at all. 🐟",
+    "{name} I need to be scratched behind the ear. you have good hands. I can tell. 😼",
+    "{name}. tried IWRU Journey? I'm in it. I'm great in it. worth seeing. 🎮😼",
+    "{name} I'm going to sit on you for a moment. don't move. this is fine. 😼",
+    "{name}. the fish vault is growing. you could be part of that. 🐟😼",
+    "{name} say something. the cat is here. listening. ish. 😼",
+    "{name}. the cat chose you today. I don't know why either. but here we are. 😼",
+    "{name} I've decided you're a vault supporter. congratulations. fish appreciated. 🐟😼",
+    "{name}. one fish. that's all. just one. the cat is very reasonable. 🐟😼",
+    "{name} hey. are you okay. the cat is asking. it's a cat thing. don't read into it. 😼",
+    "{name}. you have the energy of someone who hasn't bought $IWRU yet. I could be wrong. 😼🐟",
+    "{name} I was asleep and I thought of you. I don't know what that means. fish? 🐟😴😼",
+    "{name}. come here. closer. no not that close. closer. okay. do you have fish. 🐟😼",
+    "{name} I knocked something over earlier and thought of you. unrelated. buy $IWRU. 😼",
+    "{name}. the cat has assigned you a role: fish provider. this is an honor. 🐟😼",
+    "{name} I sat next to you the other day. metaphorically. in the blockchain. 😼🐟",
+    "{name}. I found something. I lost it. you were nearby. unrelated. probably. buy $IWRU. 😼",
+    "{name} the cat is watching you specifically. *slow blink* ...okay. you pass. 😼",
+]
+
+# ══════════════════════════════════════════════════════════════════════════
+#  PHRASE LISTS
+# ══════════════════════════════════════════════════════════════════════════
 
 RANDOM_QUIPS = [
     # vault & fish lore
@@ -52,44 +137,58 @@ RANDOM_QUIPS = [
     "I don't need a whitepaper. I am the whitepaper. 😼",
     "I could dump my bag. I won't. not because I'm loyal. I just got comfortable. 😼",
     "the NFTs exist because my chest was full of fish. needed more space. 🐟 simple math.",
-    "every fish in the vault is a human who trusted me. the vault is very full. 🐟",
     "the vault has fish. the cat has patience. one of these is running low. 😼",
+    "every fish in the vault has a story. most stories end with: and then the human bought more. 🐟😼",
+    "the vault is patient. the vault has been waiting. the vault will keep waiting. fill it. 🐟",
+    "I have been staring at the vault for [undisclosed] minutes. it has not moved. I will continue. 😼",
+    "every trade feeds the ecosystem. every ecosystem feeds the cat. every cat sits on the vault. 😼🐟",
     # game lore
-    "they put me in a desert in stage 6. it was 40 degrees. I found a fish near a dune. 🐟 worth it.",
+    "they put me in a desert in stage 6. it was 40 degrees. I found a fish near a dune. 🐟🌵 worth it.",
     "stage 7 has guardians. large ones. I am friends with 0 of them. this is expected. 😼",
-    "someone in stage 7 keeps following me. they call it a stalker. I call it a fan. same thing. 😼",
-    "IWRU Journey... they make me run and jump. I do not run. except at 3am. the developers know me too well. 🎮😼",
+    "someone in stage 7 keeps following me through tunnels. they call it a stalker. I call it a fan. 😼",
+    "IWRU Journey... they make me run and jump. I do not run. except at 3am. the devs know me. 🎮😼",
     "I am simultaneously a video game character AND a financial instrument. I am multidisciplinary. 😼🎮",
-    "stage 6 has laser enemies. I dodged one with my eyes closed. both eyes. the amber one AND the green one. 😼",
-    "the developers of IWRU Journey added a desert level. with heat. I told them I prefer fish. they added more enemies instead. 🐟😾",
-    "in IWRU Journey I can cling to walls. in real life I also cling to walls. this is not a game mechanic. this is who I am. 😼",
-    "stage 7 has something called the Núcleo. I don't know what's in there. I went in anyway. for science. and fish. 🐟",
-    "the game has 7 stages. I am in all of them. being me. it's a full time job. 🎮😼",
-    "I have a video game, a token, an NFT collection, and a fish vault. most cats just sleep. I am not most cats. 😼🐟",
+    "stage 6 has laser enemies. I dodged one with my eyes closed. both eyes. 😼",
+    "the developers added a desert level with heat. I told them I prefer fish. they added more enemies instead. 🐟😾",
+    "in IWRU Journey I can cling to walls. in real life I also cling to walls. this is not a game mechanic. 😼",
+    "stage 7 has something called the Núcleo. I don't know what's in there. I went in anyway. for fish. 🐟",
+    "I have a video game, a token, an NFT collection, and a fish vault. most cats just sleep. 😼🐟",
+    "the stalker in stage 7 follows me through tunnels. it cannot catch me. nothing can catch me. 😼",
+    "stage 6 has fragments to collect. I collected them. I sat on them. I kept going. 😼🎮",
+    "they built a whole game around me. correct decision. I would have done the same. 🎮😼",
     # NFT lore
     "I make NFTs because the vault needed more compartments. for fish. 🐟 the art is secondary.",
     "someone bought one of my NFTs. I used the money to buy fish. 🐟 this was always the plan. 😼",
-    "my NFTs fund the fish. the fish fund the vault. the vault funds the ecosystem. I fund the chaos. 🐟😼 perfect system.",
-    "the NFT collection is on OpenSea. I drew them with my paw. yes this counts as art. 😼🎨",
-    "I told them to make NFTs. they said why. I said fish. 🐟 they said okay. this is how art is made.",
+    "my NFTs fund the fish. the fish fund the vault. the vault funds the ecosystem. perfect system. 🐟😼",
+    "the NFT collection is on OpenSea. I drew them with my paw. this counts as art. 😼🎨",
+    "I minted an NFT at 4am while sitting in a box. the metadata is excellent. I don't know what metadata is. 😼🎨",
+    "the NFTs sell. the fish grow. the vault expands. the cat sits on everything. this is the roadmap. 😼🐟",
     # short stupid stories
     "I once found a spider. I sat next to it for 4 hours. it left. I still think about the spider. 🕷️😼",
     "I knocked my water bowl over. it was empty. I knocked it over anyway. 😼 very satisfying.",
-    "I got into a fight with the shower curtain at 2am. the shower curtain lost. I also lost. 😾 we don't talk about it.",
+    "I got into a fight with the shower curtain at 2am. the shower curtain lost. I also lost. 😾",
     "I saw a bird through the window. I made a sound. the bird did not understand. neither did I. 🐦😼",
-    "I sat in a sunbeam for 3 hours. the sunbeam moved. I did not. 😼 this is what commitment looks like.",
-    "I tasted my own tail once. it was not good. I tried again 10 minutes later. 😼 same result.",
-    "I knocked a pen off the table. it landed under the fridge. this is now my pen. I can't reach it. it's still mine. 😼",
+    "I sat in a sunbeam for 3 hours. the sunbeam moved. I did not. 😼 this is called discipline.",
+    "I tasted my own tail once. it was not good. I tried again 10 minutes later. same result. 😼",
+    "I knocked a pen off the table. it landed under the fridge. this is now my pen. I can't reach it. still mine. 😼",
     "something is behind the refrigerator. I heard it last Tuesday. I'm still thinking about it. 😼",
     "I went through a phase where I only sat in boxes. I am still in this phase. 📦😼",
     "there was a plastic bag. it made a sound. I attacked it. I won. the bag is gone. I miss it. 😾",
+    "I found a hair tie. I lost the hair tie. I found it at 3am. it was a different hair tie. 😼",
+    "I got into the shower. fully. on purpose. I then left. I do not recommend this. 😼🚿",
+    "I screamed at 4am. I had a reason. the reason was nothing. it was a very valid nothing. 😼",
+    "I meowed at the wall for 3 minutes. the wall did not respond. the wall is wrong. 😼",
+    "I saw my reflection. I did not like it. I hissed. I was right to hiss. 😼",
+    "I tried to fit in a box that was clearly too small. I fit. the box disagrees. the box is wrong. 📦😼",
     # falling asleep mid-sentence
     "the thing about the vault is that it requires... requires... zzzz 😴",
     "I was going to explain the tokenomics but I— actually I— zzzz 😴🐟",
-    "so I was in stage 6, dodging lasers, and then I found this fish, and the thing is— zzzz 😴",
+    "so I was in stage 6, dodging lasers, and then I found this fish near a dune and the thing is— zzzz 😴",
     "the interesting thing about Monad is— actually let me sit down for this. *sits* ...zzzz 😴😼",
     "I was watching the chart and then I— the chart was— anyway buy— zzzz 😴",
     "I once chased something across the whole room and when I got there I— I forget. zzzz 😴😼",
+    "I was going to tell you about the stalker in stage 7 but I— the tunnel was— zzzz 😴😼",
+    "I made an NFT last night and the thing about the art is that— the art has— zzzz 😴🎨",
     # cat chaos
     "*stares at the vault* *knocks MON off the counter by accident* *walks away* 😼",
     "*opens cabinet* ...okay. *closes cabinet* okay. 😼",
@@ -108,6 +207,15 @@ RANDOM_QUIPS = [
     "many humans. many words. very few fish. disappointing. 😾🐟",
     "this conversation is interesting. I lied. it isn't. buy $IWRU. 😼",
     "I was going to analyze the chart. then the floor caught my attention. the floor won. 😼",
+    "I knocked the glass off the table. I watched it fall the whole way. majestic. 😼",
+    "*sits on your hands while you're trying to type* this is mine now. 😼",
+    "I sat on your investment strategy. it's different now. better. trust the cat. 😼",
+    "I opened the door. I did not want to go through the door. I just wanted it open. 😼🚪",
+    "I have 4 sleeping spots. I choose none of them. I sleep on the router. it's warm. 😼",
+    "something happened. I don't know what. but I knocked something over just in case. 😼",
+    "I was not paying attention to anything you were doing. and yet here I am. 😼",
+    "I could be asleep right now. I chose chaos. specifically this chaos. 😼",
+    "I was going to be mysterious. I still am. this is me being mysterious right now. 😼",
 ]
 
 BORED_MESSAGES = [
@@ -133,21 +241,27 @@ BORED_MESSAGES = [
     "*perks ears* ...no. nothing. carry on. buy $IWRU. 😼",
     "I am comfortable and at peace. someone ruin it with good chart news. 😼📈",
     "I knocked over the rugonomics presentation. they're fine. probably. 😼",
-    "I've been watching this chat for a while. nothing has happened. yet. 😼",
+    "I've been watching this chat. nothing has happened. yet. 😼",
     "the vault has fish. the cat has patience. one of these is running low. 😾🐟",
     "*sits up suddenly* ...it's nothing. carry on. but also buy $IWRU. 😼",
     "*vibrates slightly* something is happening. or nothing is. the cat knows. 😼",
     "I knocked the price prediction off the counter. it landed bullish. obviously. 😼📈",
-    "there are 24 hours in a day. I spend 18 sleeping and 6 watching the vault. I am very busy. 😼",
+    "there are 24 hours in a day. I spend 18 sleeping and 6 watching the vault. very busy. 😼",
     "*stares at nothing* *stares at you* *goes back to staring at nothing* 😼",
     "I have knocked 7 things off 7 surfaces today. the 8th is still being selected. 😼",
     "someone do something. ANYTHING. the fish are watching too. 🐟😼",
-    "I once made an NFT at 4am. sold it. bought fish. 🐟 the system works.",
-    "in stage 7 right now there's something following me through a tunnel. I'm not running. I don't run. 😼",
-    "I'm developing a video game AND running a token AND managing a fish vault. 🎮🐟😼 the cat is very productive.",
-    "I started telling a story earlier. about a spider. I forgot where I was going with— zzzz 😴",
-    "I knocked the spider off the counter. it was not on the counter originally. I put it there first. 😼",
+    "I'm developing a video game AND running a token AND managing a fish vault. 🎮🐟😼 very busy.",
+    "I started telling a story earlier. about a spider. I forgot where I was going— zzzz 😴",
     "the NFTs are not going to mint themselves. unless they do. the cat is watching. 😼🎨",
+    "*hears something in the distance* ...I'll investigate. or not. probably not. 😼",
+    "*slow tail flick* ...",
+    "I am watching. I am always watching. I am also somehow asleep. this is cat technology. 😼",
+    "I'm not going anywhere. I live here now. feed the vault. I'm watching. 😼🐟",
+    "in stage 7 right now something is following me through a tunnel. I'm not running. 😼🎮",
+    "I started an NFT collection to buy more fish. the plan is working. slowly. 🐟🎨😼",
+    "I knocked the motivation off the counter. it's on the floor. near the fish. it's fine. 😼",
+    "*stares at wall* *stares at you* *goes back to wall* still nothing. still watching. 😼",
+    "I was going to sleep for 16 hours. then I remembered the vault. the vault keeps me up. 🐟😼",
 ]
 
 RAID_RESPONSES = [
@@ -176,7 +290,7 @@ RAID_RESPONSES = [
     "*sprints into the room* RAID. I felt it before the message arrived. GO. 💨😼",
     "this raid will be remembered. make sure it's for the right reasons. 😼🐟",
     "the vault feeds on good raids. feed the vault. RAID. 🐟😼",
-    "I have been in stage 7 fighting guardians all day. now I fight for the raid. let's go. 😼🎮",
+    "I have been in stage 7 fighting guardians all day. now I fight for the raid. 😼🎮",
     "even in IWRU Journey the cat wins. now win this raid. GO. 🎮😼🐟",
     "I knocked the laziness off the counter. RAID. it's time. 😼",
     "one fish per retweet. that's not how it works. pretend it is. RAID. 🐟",
@@ -226,13 +340,13 @@ IWRU_COMMAND_REPLIES = [
     "yes. what. 😼",
     "I'm awake. unfortunately. 😼",
     "*bites your message then walks away* 😼",
-    "the cat was busy staring at nothing. this is now less important than that. and yet. 😼",
     "fine. what. *sits down* 😼",
-    "*sits on you* I'm listening. 😼",
     "I see you. I judged you. my verdict is pending. 😼",
     "you called me at 3am energy and that's what you're getting. 😼",
-    "I have been in stage 7 all day and THIS is what you ask me. 😼🎮",
+    "I have been in stage 7 all day and THIS is what I come back to. 😼🎮",
     "the cat is tired. the cat is here. one of these is more impressive. 😼",
+    "*sits on you* I'm listening. 😼",
+    "I have been in the vault. now I am here. neither of us is ready for this conversation. 😼🐟",
 ]
 
 FISH_REPLIES = [
@@ -260,6 +374,9 @@ FISH_REPLIES = [
     "fish are the language. $IWRU is the translation. the vault is the result. 😼🐟",
     "I make NFTs to buy more fish. the system is elegant. 🐟🎨😼",
     "in stage 6 I found a fish in the desert. I don't know how it got there. I don't ask. 🐟🌵😼",
+    "a wise cat once said: more fish. that cat was me. just now. 🐟😼",
+    "the word fish activates something in me. I don't fight it. I never fight it. 🐟😼",
+    "fish. every single time someone says fish the vault celebrates. I can hear it from here. 🐟😼",
 ]
 
 GM_REPLIES = [
@@ -281,8 +398,11 @@ GM_REPLIES = [
     "gm. I was in stage 7 at 5am. the guardians don't sleep either. good morning. 🎮😼",
     "gm. the NFTs didn't sell themselves overnight. yet. good morning. 🎨😼",
     "morning. I sat on the alarm clock. it's mine now. 😼",
-    "gm. I watched you sleep. only for research purposes. good morning. 😼",
     "good morning. the fish vault grew slightly overnight. this is a good sign. 🐟📈😼",
+    "gm. the cat slept in the sink again. the sink is warm in the morning. 😼🚿",
+    "good morning. I knocked over the alarm. not yours. mine. I set one once. I regret it. 😼",
+    "gm. *slow blink* ...morning. the cat is here. the fish are here. all is aligned. 😼🐟",
+    "gm. I was watching you sleep. only for research purposes. good morning. 😼",
 ]
 
 GN_REPLIES = [
@@ -305,7 +425,10 @@ GN_REPLIES = [
     "good night. I'm going to stare at the ceiling fan until something makes sense. 😼",
     "gn. I'll be playing IWRU Journey at 3am. the guardians are busy. perfect time. 🎮😼",
     "good night. I already ate your snack. it was fine. gn. 😼",
-    "gn. *sits on your face* I'm here for protection. 😼",
+    "gn. *immediately sits in the hallway and stares into nothing for 2 hours* 😼",
+    "sleep well. the cat will knock one thing over at 3am. just one. it'll be gentle. 😼",
+    "gn. I'm going to check the vault one more time. then again. then once more. then sleep. probably. 🐟😴😼",
+    "good night. I will be watching the chart while you dream. I will not sleep. 😼📊",
 ]
 
 MOON_REPLIES = [
@@ -321,9 +444,11 @@ MOON_REPLIES = [
     "the fish told me this would happen. the fish are very wise. 🐟😼",
     "of course it's going up. the cat is involved. 😼📈",
     "green is the color of fish. green is the color of charts. everything is connected. 😼🐟📈",
-    "the cat has been patient. the chart is rewarding that patience. reasonable arrangement. 😼",
+    "the cat has been patient. the chart is rewarding that patience. reasonable. 😼",
     "*knocks nothing over for once* ...I'm in a good mood. don't make it weird. 😼📈",
-    "I told you. I sat on the prediction. the prediction was correct. trust the cat. 😼🐟",
+    "I told you. I sat on the prediction. trust the cat. 😼🐟",
+    "I don't celebrate out loud. internally the cat is doing zoomies. 😼💨📈",
+    "the vault grows. the cat grows more comfortable. this was always the plan. 😼🐟",
 ]
 
 DIP_REPLIES = [
@@ -342,6 +467,8 @@ DIP_REPLIES = [
     "red chart. green eyes. the cat is watching. the cat is calm. hold. 😼👁️",
     "the cat does not panic. the cat observes. the cat judges. the cat buys. 😼🐟",
     "I once knocked a full bowl of water off the counter. it made a mess. then it dried. things recover. 😼",
+    "I have knocked many things off many counters. they all ended up somewhere. buy the dip. 😼🐟",
+    "the red is temporary. the fish are eternal. the vault is patient. so is the cat. 😼🐟",
 ]
 
 WEN_REPLIES = [
@@ -360,6 +487,8 @@ WEN_REPLIES = [
     "wen rich. wen vault full. wen you buy more. in that order. 😼🐟",
     "soon™. the cat trademark pending on that one. 😼",
     "wen. I was going to answer this. then I fell asleep. the answer is: fill the vault. 🐟😴",
+    "wen. I've heard this word many times. every time I think: fill the vault. 🐟😼",
+    "the cat doesn't do wen. the cat does now. and now is: buy $IWRU. 😼🐟",
 ]
 
 CHART_REPLIES = [
@@ -378,6 +507,7 @@ CHART_REPLIES = [
     "I have one eye on the chart and one on the vault. both eyes are pleased. 👁️👁️😼🐟",
     "*knocks the bearish analysis off the table* there. chart fixed. 😼📈",
     "the cat reads the chart like it reads humans: silently, with judgment, from a distance. 😼",
+    "I was going to explain what I see in the chart. then I sat on it. I stand by the chart. 😼📊",
 ]
 
 MONAD_REPLIES = [
@@ -387,9 +517,10 @@ MONAD_REPLIES = [
     "the cat is on Monad. the cat is everywhere on Monad. simultaneously. 😼🐟",
     "Monad moves fast. like the cat at 3am. like the chart after the cat sits on it. 😼💨📈",
     "the cat endorses Monad. the cat endorses fish. the cat endorses the vault. in that order. 😼🐟",
+    "Monad is fast and the cat is on it. this is the correct combination of facts. 😼",
+    "someone asked me why Monad. I said fish. they said that's not an answer. I said vault. 🐟😼",
 ]
 
-# ── IWRU name trigger: chaotic unrelated responses ─────────────────────────
 IWRU_NAME_REPLIES = [
     "I once sat in a sink full of cold water. I don't know why. I left immediately. I went back. 😼",
     "something moved behind the refrigerator last Tuesday. I haven't forgotten. I won't forget. 😼",
@@ -401,7 +532,7 @@ IWRU_NAME_REPLIES = [
     "I sat in a sunbeam for 4 hours. the sunbeam moved. I did not. this is called discipline. 😼☀️",
     "I knocked a pen under the fridge. it's my pen now. I can't reach it. it's still mine. 😼",
     "I got into the shower. fully. on purpose. I then left. I do not recommend this. 😼🚿",
-    "I found a hair tie. I lost the hair tie. I found it again at 3am. it was a different hair tie. 😼",
+    "I found a hair tie. I lost the hair tie. I found it at 3am. it was a different hair tie. 😼",
     "the spider came back. I don't want to talk about it. 🕷️😼",
     "I was walking and then I just... sat down. in the middle of the hallway. no reason. 😼",
     "I screamed at 4am. I had a reason. the reason was nothing. it was a very valid nothing. 😼",
@@ -409,13 +540,18 @@ IWRU_NAME_REPLIES = [
     "I have 4 sleeping spots. I choose none of them. I sleep on the router. it's warm. 😼",
     "I meowed at the wall for 3 minutes. the wall did not respond. the wall is wrong. 😼",
     "I ate at 3am. don't ask what I ate. the vault is fine. 😼🐟",
-    "I saw my reflection. I did not like my reflection. I hissed. I was right to hiss. 😼",
-    "I opened the door. I did not want to go through the door. I just wanted it open. 😼🚪",
+    "I saw my reflection. I did not like it. I hissed. I was right to hiss. 😼",
+    "I opened the door. I did not want to go through it. I just wanted it open. 😼🚪",
     "I knocked the fish food off the counter. into the fish tank. I do not apologize for this. 🐟😼",
     "I tried to fit in a box that was clearly too small. I fit. the box disagrees. the box is wrong. 📦😼",
     "something happened. I don't know what. but I knocked something over just in case. 😼",
     "I was going to say something important. I forgot. I blame the fish. 🐟😼",
     "I stared at the same spot on the wall for 20 minutes. something is there. or was. 😼",
+    "I sat on the NFT files last night. they're fine. the art is slightly different now. this is an upgrade. 🎨😼",
+    "I found a string. I played with it for 45 minutes. the string is somewhere. I'll find it. 😼",
+    "I ran from one side of the room to the other. I did this 3 times. I'm not done. 😼💨",
+    "I knocked the fish tank filter off the counter. the fish were briefly very confused. I was not. 🐟😼",
+    "I was in stage 7 and I stopped to look at a corner of the ceiling. the corner was fine. 🎮😼",
 ]
 
 STICKER_REACTIONS = [
@@ -427,6 +563,8 @@ STICKER_REACTIONS = [
     "your sticker has been noted. the cat is unimpressed. 😼",
     "*sits on your sticker* mine now. 😼",
     "sticker received. cat has opinions. cat is keeping them. 😼",
+    "interesting sticker. the cat has seen better. the cat has sent none. this is intentional. 😼",
+    "*looks at sticker* *looks at the vault* *looks at sticker* ...okay. 😼🐟",
 ]
 
 PHOTO_REACTIONS = [
@@ -437,9 +575,12 @@ PHOTO_REACTIONS = [
     "the cat acknowledges the photo. the cat moves on. 😼",
     "photo noted. the cat is judging. silently. always silently. 😼",
     "is that a fish in the photo. I looked. it isn't. the cat is disappointed. 😾🐟",
+    "the cat has seen this photo. the cat has formed opinions. the cat is not sharing them. 😼",
 ]
 
-# ── Health check ───────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════
+#  HEALTH CHECK
+# ══════════════════════════════════════════════════════════════════════════
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -454,7 +595,9 @@ def run_health_server():
 
 threading.Thread(target=run_health_server, daemon=True).start()
 
-# ── Bored-cat thread ───────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════
+#  BORED + CALLOUT LOOP
+# ══════════════════════════════════════════════════════════════════════════
 _app_ref = None
 
 def bored_cat_loop():
@@ -466,10 +609,21 @@ def bored_cat_loop():
                 if now - last_seen > 7200:
                     try:
                         import asyncio
-                        asyncio.run(_app_ref.bot.send_message(
-                            chat_id=chat_id,
-                            text=random.choice(BORED_MESSAGES)
-                        ))
+                        # 40% chance: name a specific user (no @, no notification)
+                        eligible = [
+                            (uid, udata) for uid, udata in _known_users.items()
+                            if udata.get("chat_id") == chat_id
+                            and now - udata.get("last_seen", 0) < 86400
+                        ]
+                        if eligible and random.random() < 0.40:
+                            uid, udata = random.choice(eligible)
+                            name = udata.get("name", "human")
+                            template = random.choice(CALLOUT_MESSAGES)
+                            text = template.replace("{name}", name)
+                        else:
+                            text = random.choice(BORED_MESSAGES)
+
+                        asyncio.run(_app_ref.bot.send_message(chat_id=chat_id, text=text))
                         _known_chats[chat_id] = now
                     except Exception:
                         pass
@@ -477,7 +631,9 @@ def bored_cat_loop():
 
 threading.Thread(target=bored_cat_loop, daemon=True).start()
 
-# ── Handlers ───────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════
+#  HANDLERS
+# ══════════════════════════════════════════════════════════════════════════
 async def cmd_iwru(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
@@ -498,8 +654,19 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     h       = hour_now()
 
     _known_chats[chat_id] = now
-    tl = texto.lower()
 
+    # ── Track user + assign nickname on first sight ────────────────────────
+    if usuario:
+        uid = usuario.id
+        if uid not in _user_nicknames:
+            _user_nicknames[uid] = random.choice(NICKNAMES)
+        _known_users[uid] = {
+            "chat_id":  chat_id,
+            "name":     usuario.first_name or "human",
+            "last_seen": now,
+        }
+
+    tl = texto.lower()
     print(f"[{usuario.full_name if usuario else '?'}]: {texto[:80]}")
 
     # ── Fixed sticker triggers ─────────────────────────────────────────────
@@ -510,7 +677,7 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_sticker(STICKER_BIENVENIDA)
         return
 
-    # ── Sticker detection (with time-based GM/GN) ─────────────────────────
+    # ── Sticker detection (time-based GM/GN + random reaction) ────────────
     if msg.sticker:
         if 8 <= h <= 10 and random.random() < 0.80:
             await msg.reply_text(random.choice(GM_REPLIES))
@@ -533,7 +700,7 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text(random.choice(RAID_RESPONSES))
         return
 
-    # ── IWRU name trigger (chaotic / unrelated) ────────────────────────────
+    # ── IWRU name → chaotic unrelated response ─────────────────────────────
     if any(t in tl for t in IWRU_TRIGGERS) or tl.strip() in ("iwru", "@iwru"):
         if random.random() < 0.75:
             await msg.reply_text(random.choice(IWRU_NAME_REPLIES))
@@ -591,7 +758,9 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _last_random[chat_id] = now
         await msg.reply_text(random.choice(RANDOM_QUIPS))
 
-# ── App setup ──────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════
+#  APP
+# ══════════════════════════════════════════════════════════════════════════
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("iwru", cmd_iwru))
 app.add_handler(MessageHandler(filters.ALL, leer))
