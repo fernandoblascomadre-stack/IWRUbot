@@ -1,11 +1,15 @@
+import asyncio
 import os
 import random
+import re
 import threading
 import time
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+
+TWEET_URL_RE = re.compile(r'https?://(x|twitter)\.com/\S+')
 
 TOKEN = os.environ["TOKEN"]
 
@@ -608,7 +612,6 @@ def bored_cat_loop():
             for chat_id, last_seen in list(_known_chats.items()):
                 if now - last_seen > 7200:
                     try:
-                        import asyncio
                         # 40% chance: name a specific user (no @, no notification)
                         eligible = [
                             (uid, udata) for uid, udata in _known_users.items()
@@ -698,6 +701,12 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not texto:
+        return
+
+    # ── Tweet URL → raid response with delay ──────────────────────────────
+    if TWEET_URL_RE.search(texto):
+        await asyncio.sleep(5)
+        await msg.reply_text(random.choice(RAID_RESPONSES))
         return
 
     # ── Raid ───────────────────────────────────────────────────────────────
