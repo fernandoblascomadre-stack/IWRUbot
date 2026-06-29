@@ -14,8 +14,8 @@ STICKER_BIENVENIDA = "CAACAgQAAyEFAATmBptiAAIbdGpCtXLR4nqSl707gZNKRYI7MUZOAAJBIA
 
 # ── Cooldown ───────────────────────────────────────────────────────────────
 _last_random: dict[int, float] = {}
-RANDOM_COOLDOWN = 180
-RANDOM_CHANCE   = 0.07
+RANDOM_COOLDOWN = 90
+RANDOM_CHANCE   = 0.18
 
 # ── User tracking ──────────────────────────────────────────────────────────
 _known_chats: dict[int, float]  = {}
@@ -23,7 +23,7 @@ _known_users: dict[int, dict]   = {}   # user_id -> {chat_id, name, last_seen}
 _user_nicknames: dict[int, str] = {}   # user_id -> assigned nickname
 
 # ── Triggers ───────────────────────────────────────────────────────────────
-RAID_TRIGGERS  = ["⚡️ raid tweet", "raid tweet", "⚡️ raid"]
+RAID_TRIGGERS  = ["⚡️ raid tweet", "raid tweet", "⚡️ raid", "raidtweet", "raid!"]
 GM_TRIGGERS    = ["gm", "good morning", "morning fam", "buenos días", "gm everyone", "gm fam", "rise and shine"]
 GN_TRIGGERS    = ["gn", "good night", "goodnight", "buenas noches", "gn everyone", "sleep well", "going to sleep"]
 MOON_TRIGGERS  = ["moon", "🚀", "pump", "pumping", "mooning", "ath", "all time high", "bullish", "we're going up", "to the moon"]
@@ -639,6 +639,11 @@ async def cmd_iwru(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     await update.message.reply_text(random.choice(IWRU_COMMAND_REPLIES))
 
+async def cmd_raid(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message:
+        return
+    await update.message.reply_text(random.choice(RAID_RESPONSES))
+
 async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global _app_ref
     _app_ref = context.application
@@ -683,12 +688,12 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await msg.reply_text(random.choice(GM_REPLIES))
         elif 22 <= h <= 23 and random.random() < 0.80:
             await msg.reply_text(random.choice(GN_REPLIES))
-        elif random.random() < 0.12:
+        elif random.random() < 0.25:
             await msg.reply_text(random.choice(STICKER_REACTIONS))
         return
 
     # ── Photo reactions ────────────────────────────────────────────────────
-    if msg.photo and random.random() < 0.10:
+    if msg.photo and random.random() < 0.22:
         await msg.reply_text(random.choice(PHOTO_REACTIONS))
         return
 
@@ -702,47 +707,47 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ── IWRU name → chaotic unrelated response ─────────────────────────────
     if any(t in tl for t in IWRU_TRIGGERS) or tl.strip() in ("iwru", "@iwru"):
-        if random.random() < 0.75:
+        if random.random() < 0.90:
             await msg.reply_text(random.choice(IWRU_NAME_REPLIES))
             return
 
     # ── GM ─────────────────────────────────────────────────────────────────
-    if any(tl.startswith(t) or tl == t for t in GM_TRIGGERS) and random.random() < 0.60:
+    if any(tl.startswith(t) or tl == t for t in GM_TRIGGERS) and random.random() < 0.85:
         await msg.reply_text(random.choice(GM_REPLIES))
         return
 
     # ── GN ─────────────────────────────────────────────────────────────────
-    if any(tl.startswith(t) or tl == t for t in GN_TRIGGERS) and random.random() < 0.60:
+    if any(tl.startswith(t) or tl == t for t in GN_TRIGGERS) and random.random() < 0.85:
         await msg.reply_text(random.choice(GN_REPLIES))
         return
 
     # ── Moon / pump ────────────────────────────────────────────────────────
-    if any(t in tl for t in MOON_TRIGGERS) and random.random() < 0.35:
+    if any(t in tl for t in MOON_TRIGGERS) and random.random() < 0.60:
         await msg.reply_text(random.choice(MOON_REPLIES))
         return
 
     # ── Dip / dump ─────────────────────────────────────────────────────────
-    if any(t in tl for t in DIP_TRIGGERS) and random.random() < 0.35:
+    if any(t in tl for t in DIP_TRIGGERS) and random.random() < 0.60:
         await msg.reply_text(random.choice(DIP_REPLIES))
         return
 
     # ── Wen ────────────────────────────────────────────────────────────────
-    if any(t in tl for t in WEN_TRIGGERS) and random.random() < 0.70:
+    if any(t in tl for t in WEN_TRIGGERS) and random.random() < 0.90:
         await msg.reply_text(random.choice(WEN_REPLIES))
         return
 
     # ── Chart / price ──────────────────────────────────────────────────────
-    if any(t in tl for t in CHART_TRIGGERS) and random.random() < 0.30:
+    if any(t in tl for t in CHART_TRIGGERS) and random.random() < 0.55:
         await msg.reply_text(random.choice(CHART_REPLIES))
         return
 
     # ── Monad ──────────────────────────────────────────────────────────────
-    if any(t in tl for t in MONAD_TRIGGERS) and random.random() < 0.50:
+    if any(t in tl for t in MONAD_TRIGGERS) and random.random() < 0.75:
         await msg.reply_text(random.choice(MONAD_REPLIES))
         return
 
     # ── Fish ───────────────────────────────────────────────────────────────
-    if "fish" in tl and random.random() < 0.55:
+    if "fish" in tl and random.random() < 0.80:
         await msg.reply_text(random.choice(FISH_REPLIES))
         return
 
@@ -763,6 +768,7 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ══════════════════════════════════════════════════════════════════════════
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("iwru", cmd_iwru))
+app.add_handler(CommandHandler("raid", cmd_raid))
 app.add_handler(MessageHandler(filters.ALL, leer))
 
 print("======================================")
