@@ -20,7 +20,7 @@ RANDOM_CHANCE   = 0.07  # 7% per message
 _known_chats: dict[int, float] = {}   # chat_id → last activity timestamp
 
 # ── Raid triggers (add your raid bot's exact phrase here) ─────────────────
-RAID_TRIGGERS = ["raid", "🚨", "raiding", "raid time", "let's raid", "lets raid"]
+RAID_TRIGGERS = ["⚡️ raid tweet", "raid tweet", "⚡️ raid"]
 
 # ── Responses ─────────────────────────────────────────────────────────────
 RANDOM_QUIPS = [
