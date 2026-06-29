@@ -558,6 +558,64 @@ IWRU_NAME_REPLIES = [
     "I was in stage 7 and I stopped to look at a corner of the ceiling. the corner was fine. 🎮😼",
 ]
 
+# ══════════════════════════════════════════════════════════════════════════
+#  ROSE FILTER REACTIONS
+# ══════════════════════════════════════════════════════════════════════════
+
+CA_REPLIES = [
+    "one CA. one vault. one cat watching the address with both eyes. 👁️👁️😼🐟",
+    "the CA has been verified by: the cat. that's the only verification that matters. 😼",
+    "save it. screenshot it. tattoo it somewhere. just not on the cat. 😼",
+    "that CA goes to the moon. after I sit on it first. 😼🚀🐟",
+    "the address is correct. the cat checked. twice. 😼",
+    "one address. one vault. infinite fish. this is the math. 🐟😼",
+    "copy it. hold it. fill the vault. in that order. 🐟😼",
+    "I guard the CA the same way I guard the fish vault. with both eyes and zero apologies. 👁️👁️😼",
+    "the CA is real. the cat is real. the vault is very real. 😼🐟",
+    "verify on-chain. trust the cat. buy more. in that order. 😼🐟",
+    "do NOT send your MON to a random cat. only to this specific contract. I checked it. 😼",
+    "the address doesn't change. the fish don't leave. the cat doesn't move. we're all very stable. 😼🐟",
+]
+
+WEBSITE_REPLIES = [
+    "the site has the game. the game has me. I'm the main character. go look. 🎮😼",
+    "I approved the website. mostly because I'm on it. it looks correct. 😼🎮",
+    "IWRU Journey is on that site. I run. I jump. I cling to walls. it's very accurate. 🎮😼",
+    "there's a whole website built around the cat and the vault. go see it. buy something. 😼🐟",
+    "the site exists. the cat exists. both are doing well. 😼🎮",
+    "I was in stage 6 when they launched the site. I didn't attend. I was busy with a laser enemy. 🎮😼",
+    "go to the site. play the game. fill the vault. this is the recommended order of operations. 🐟🎮😼",
+    "the website. built by humans. starring: me. the cat. 😼🎮🐟",
+    "it's all there. the game, the token, the fish vault. the cat is represented everywhere. 😼🐟🎮",
+    "the site is live. the cat is live. everything is functioning. buy $IWRU. 😼",
+]
+
+SOCIAL_REPLIES = [
+    "follow the cat. follow the vault. follow $IWRU. in that order. no exceptions. 😼🐟",
+    "all the links. all the platforms. the cat is watching engagement metrics with one eye. 😼📊",
+    "Twitter. Telegram. the cat posts at 3am. you have been warned. 😼💨",
+    "follow everything. like everything. the vault notices. I notice. the fish notice. 🐟😼",
+    "the socials are there. the community is there. the cat is there, watching, silently. 😼",
+    "every follow feeds the ecosystem. every ecosystem feeds the cat. you know what to do. 😼🐟",
+    "retweet first. ask questions never. this is the way. 😼",
+    "the cat is on Twitter. the cat is on Telegram. the cat is everywhere. omnipresent. slightly concerning. 😼",
+    "follow, like, retweet. the cat approves of all three in that order. 😼📊🐟",
+    "the links are there. click them. the cat is watching the engagement numbers. both eyes. 👁️👁️😼",
+]
+
+IWRU_FILTER_REPLIES = [
+    "I Will Rug U. I haven't. I won't. I just like keeping people alert. 😼🐟",
+    "yes. that's me. the name is a threat. the threat is empty. the vault is full. 😼🐟",
+    "IWRU: I Will Rug U. I Will Not Rug U. I Will Vault U. in fish. contradictions are fine. 🐟😼",
+    "the name scared some people away. those people don't have fish. coincidence. 😼🐟",
+    "I Will Rug U is the name. the vault is the reality. fish are the proof. 🐟😼",
+    "born from a meme. built on Monad. guarded by a cat. this is the lore. 😼🐟",
+    "IWRU. two eyes. one vault. infinite fish. ambiguous intentions. this is correct. 👁️👁️😼🐟",
+    "I could rug. I chose fish instead. this was always the plan. 😼🐟",
+    "the cat behind the name is real. the fish are real. the rug is metaphorical. 😼",
+    "I Will Rug U. I Will Feed U Fish. I Will Guard The Vault. all three are true. 🐟😼",
+]
+
 STICKER_REACTIONS = [
     "...I see your sticker. I raise you indifference. 😼",
     "*ignores your sticker* *looks at it again* ...fine. acceptable. 😼",
@@ -701,6 +759,21 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not texto:
+        return
+
+    # ── Rose filter reactions (exact keyword match) ───────────────────────
+    tl_stripped = tl.strip()
+    if tl_stripped == "ca":
+        await msg.reply_text(random.choice(CA_REPLIES))
+        return
+    if tl_stripped in ("website", "site", "web"):
+        await msg.reply_text(random.choice(WEBSITE_REPLIES))
+        return
+    if tl_stripped in ("social", "socials"):
+        await msg.reply_text(random.choice(SOCIAL_REPLIES))
+        return
+    if tl_stripped == "iwillrugu":
+        await msg.reply_text(random.choice(IWRU_FILTER_REPLIES))
         return
 
     # ── Tweet URL → raid response with delay ──────────────────────────────
