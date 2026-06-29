@@ -1,4 +1,6 @@
 import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
 
@@ -6,6 +8,21 @@ TOKEN = os.environ["TOKEN"]
 
 STICKER_COMPRA = "CAACAgQAAyEFAATmBptiAAIbc2pCtW0Cin0rkU6CFSGyVqWmQYbMAAILIQACaEkIUnVRn_2NEtPVPAQ"
 STICKER_BIENVENIDA = "CAACAgQAAyEFAATmBptiAAIbdGpCtXLR4nqSl707gZNKRYI7MUZOAAJBIAACRh8JUh_nOBSMnXM1PAQ"
+
+# Health check server — Render requires a web process to bind a port
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+    def log_message(self, format, *args):
+        pass
+
+def run_health_server():
+    port = int(os.environ.get("PORT", 8080))
+    HTTPServer(("0.0.0.0", port), HealthHandler).serve_forever()
+
+threading.Thread(target=run_health_server, daemon=True).start()
 
 async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
@@ -39,7 +56,6 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
 app = ApplicationBuilder().token(TOKEN).build()
-
 app.add_handler(MessageHandler(filters.ALL, leer))
 
 print("======================================")
