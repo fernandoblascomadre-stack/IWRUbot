@@ -1,3 +1,4 @@
+import asyncio
 import os
 import random
 import re
@@ -17,8 +18,8 @@ STICKER_BIENVENIDA = "CAACAgQAAyEFAATmBptiAAIbdGpCtXLR4nqSl707gZNKRYI7MUZOAAJBIA
 
 # ── Cooldown ───────────────────────────────────────────────────────────────
 _last_random: dict[int, float] = {}
-RANDOM_COOLDOWN = 600   # 10 min entre quips espontáneos
-RANDOM_CHANCE   = 0.08  # 8% de probabilidad
+RANDOM_COOLDOWN = 360   # 6 min entre quips espontáneos
+RANDOM_CHANCE   = 0.12  # 12% de probabilidad (x2 entre 2-5am)
 
 # ── User tracking ──────────────────────────────────────────────────────────
 _known_chats: dict[int, float]  = {}
@@ -27,6 +28,10 @@ _user_nicknames: dict[int, str] = {}
 
 # ── Bot username cache ─────────────────────────────────────────────────────
 _bot_username: str | None = None
+
+# ── Message counter → chaos burst cada N mensajes ─────────────────────────
+_msg_counter: dict[int, int] = {}
+_next_trigger: dict[int, int] = {}
 
 # ── Triggers ───────────────────────────────────────────────────────────────
 RAID_TRIGGERS  = ["⚡️ raid tweet", "raid tweet", "⚡️ raid", "raidtweet", "raid!"]
@@ -631,6 +636,76 @@ PHOTO_REACTIONS = [
 ]
 
 # ══════════════════════════════════════════════════════════════════════════
+#  CHAOS BURSTS  (contador de mensajes → el gato irrumpe)
+# ══════════════════════════════════════════════════════════════════════════
+CHAOS_BURSTS = [
+    "😼",
+    "🐟",
+    "...",
+    "😼🐟",
+    "😾",
+    "🐟🐟",
+    "📦",
+    "😴",
+    "😼💨",
+    "🐟🐟🐟",
+    "😼📈",
+    "*tail flick*",
+    "*stares* 😼",
+    "*slow blink* 😼",
+    "*knocks something over* 😼",
+    "*sits* 😼",
+    "*walks away* 😼",
+    "*perks up* 😼",
+    "*yawns* 😴😼",
+    "hmm. 😼",
+    "no. 😼",
+    "fine. 😼",
+    "interesting. 😼",
+    "...noted. 😼",
+    "okay. 😼",
+    "...anyway. 😼",
+    "asjkdhaksjdh 🐟",
+    "*sits on keyboard* asjkdh 😼",
+    "*stares at you* 😼",
+    "...🐟",
+    "😼 *walks away*",
+    "🐟 ...yes.",
+    "*opens door* *doesn't go through* *closes door* 😼",
+    "*vibrates slightly* 😼",
+    "I was here. I left. I'm back. don't ask. 😼",
+    "*finds a corner* 😼",
+    "...something moved. 😼",
+    "*hears nothing* *fully alert* 😼",
+    "the cat was here. briefly. 😼",
+]
+
+FOLLOWUP_MESSAGES = [
+    "...actually. 😼",
+    "wait. 😼",
+    "no. nevermind. 😼",
+    "also fish. 🐟",
+    "...hmm. 😼",
+    "*walks away slowly* 😼",
+    "that's all. 😼",
+    "...still watching. 😼",
+    "I said what I said. 😼",
+    "don't @ me. 😼",
+    "okay I'm done. 😼",
+    "...mostly. 😼",
+    "*sits down* 😼",
+    "carry on. 😼",
+    "...buy $IWRU. 😼",
+    "never mind. 😼",
+    "I lied. I'm still here. 😼",
+    "🐟",
+    "...that is all. 😼",
+    "*looks away* 😼",
+    "I have nothing to add. I added it anyway. 😼",
+    "...the vault grows. 🐟",
+]
+
+# ══════════════════════════════════════════════════════════════════════════
 #  HEALTH CHECK
 # ══════════════════════════════════════════════════════════════════════════
 class HealthHandler(BaseHTTPRequestHandler):
@@ -652,8 +727,11 @@ threading.Thread(target=run_health_server, daemon=True).start()
 # ══════════════════════════════════════════════════════════════════════════
 async def bored_cat_job(context: ContextTypes.DEFAULT_TYPE):
     now = time.time()
+    h   = hour_now()
+    # chat inactivo umbral: 45min de noche, 90min de día
+    inactivity = 2700 if 2 <= h <= 5 else 5400
     for chat_id, last_seen in list(_known_chats.items()):
-        if now - last_seen > 7200:
+        if now - last_seen > inactivity:
             try:
                 eligible = [
                     (uid, udata) for uid, udata in _known_users.items()
@@ -670,6 +748,12 @@ async def bored_cat_job(context: ContextTypes.DEFAULT_TYPE):
                 _known_chats[chat_id] = now
             except Exception as e:
                 print(f"[bored_cat_job] chat {chat_id}: {e}", flush=True)
+    # replanificar con intervalo aleatorio (más frecuente de noche)
+    if 2 <= h <= 5:
+        delay = random.uniform(1800, 3600)   # 30-60 min de noche
+    else:
+        delay = random.uniform(2700, 6300)   # 45-105 min de día
+    context.application.job_queue.run_once(bored_cat_job, delay)
 
 # ══════════════════════════════════════════════════════════════════════════
 #  HANDLERS
@@ -712,6 +796,18 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tl = texto.lower()
     print(f"[{usuario.full_name if usuario else '?'}]: {texto[:80]}", flush=True)
 
+    # ── Contador de mensajes → chaos burst ────────────────────────────────
+    _msg_counter[chat_id] = _msg_counter.get(chat_id, 0) + 1
+    if chat_id not in _next_trigger:
+        _next_trigger[chat_id] = random.randint(12, 22)
+    if _msg_counter[chat_id] >= _next_trigger[chat_id]:
+        _msg_counter[chat_id] = 0
+        _next_trigger[chat_id] = random.randint(12, 22)
+        if random.random() < 0.60:
+            await asyncio.sleep(random.uniform(1.0, 3.5))
+            await msg.reply_text(random.choice(CHAOS_BURSTS))
+            return
+
     # ── nadfun bot triggers (exact text from the other bot) ───────────────
     if "IWRU Buy!" in texto:
         await msg.reply_sticker(STICKER_COMPRA)
@@ -722,16 +818,20 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ── Sticker ────────────────────────────────────────────────────────────
     if msg.sticker:
-        if 8 <= h <= 10 and random.random() < 0.35:
+        if 8 <= h <= 10 and random.random() < 0.45:
+            await asyncio.sleep(random.uniform(0.5, 2.0))
             await msg.reply_text(random.choice(GM_REPLIES))
-        elif 22 <= h <= 23 and random.random() < 0.35:
+        elif 22 <= h <= 23 and random.random() < 0.45:
+            await asyncio.sleep(random.uniform(0.5, 2.0))
             await msg.reply_text(random.choice(GN_REPLIES))
-        elif random.random() < 0.08:
+        elif random.random() < 0.15:
+            await asyncio.sleep(random.uniform(0.5, 1.5))
             await msg.reply_text(random.choice(STICKER_REACTIONS))
         return
 
     # ── Photo ──────────────────────────────────────────────────────────────
-    if msg.photo and random.random() < 0.07:
+    if msg.photo and random.random() < 0.12:
+        await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(PHOTO_REACTIONS))
         return
 
@@ -753,9 +853,8 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text(random.choice(IWRU_FILTER_REPLIES))
         return
 
-    # ── Tweet URL → raid response with delay ──────────────────────────────
+    # ── Tweet URL → raid response con delay ───────────────────────────────
     if TWEET_URL_RE.search(texto):
-        import asyncio
         await asyncio.sleep(5)
         await msg.reply_text(random.choice(RAID_RESPONSES))
         return
@@ -765,63 +864,87 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text(random.choice(RAID_RESPONSES))
         return
 
-    # ── IWRU name → chaotic unrelated response ────────────────────────────
+    # ── IWRU name → respuesta caótica sin relación ────────────────────────
     if any(t in tl for t in IWRU_TRIGGERS) or tl.strip() in ("iwru", "@iwru"):
-        if random.random() < 0.45:
+        if random.random() < 0.60:
+            await asyncio.sleep(random.uniform(1.0, 3.0))
             await msg.reply_text(random.choice(IWRU_NAME_REPLIES))
+            if random.random() < 0.10:
+                await asyncio.sleep(random.uniform(4, 7))
+                await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
             return
 
     # ── GM ─────────────────────────────────────────────────────────────────
-    if any(tl.startswith(t) or tl == t for t in GM_TRIGGERS) and random.random() < 0.30:
+    if any(tl.startswith(t) or tl == t for t in GM_TRIGGERS) and random.random() < 0.45:
+        await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(random.choice(GM_REPLIES))
         return
 
     # ── GN ─────────────────────────────────────────────────────────────────
-    if any(tl.startswith(t) or tl == t for t in GN_TRIGGERS) and random.random() < 0.30:
+    if any(tl.startswith(t) or tl == t for t in GN_TRIGGERS) and random.random() < 0.45:
+        await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(random.choice(GN_REPLIES))
         return
 
     # ── Moon / pump ────────────────────────────────────────────────────────
-    if any(t in tl for t in MOON_TRIGGERS) and random.random() < 0.20:
+    if any(t in tl for t in MOON_TRIGGERS) and random.random() < 0.32:
+        await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(MOON_REPLIES))
+        if random.random() < 0.10:
+            await asyncio.sleep(random.uniform(4, 7))
+            await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
         return
 
     # ── Dip / dump ─────────────────────────────────────────────────────────
-    if any(t in tl for t in DIP_TRIGGERS) and random.random() < 0.20:
+    if any(t in tl for t in DIP_TRIGGERS) and random.random() < 0.32:
+        await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(DIP_REPLIES))
+        if random.random() < 0.10:
+            await asyncio.sleep(random.uniform(4, 7))
+            await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
         return
 
     # ── Wen ────────────────────────────────────────────────────────────────
-    if any(t in tl for t in WEN_TRIGGERS) and random.random() < 0.40:
+    if any(t in tl for t in WEN_TRIGGERS) and random.random() < 0.55:
+        await asyncio.sleep(random.uniform(1.0, 2.5))
         await msg.reply_text(random.choice(WEN_REPLIES))
         return
 
     # ── Chart / price ──────────────────────────────────────────────────────
-    if any(t in tl for t in CHART_TRIGGERS) and random.random() < 0.18:
+    if any(t in tl for t in CHART_TRIGGERS) and random.random() < 0.28:
+        await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(CHART_REPLIES))
         return
 
     # ── Monad ──────────────────────────────────────────────────────────────
-    if any(t in tl for t in MONAD_TRIGGERS) and random.random() < 0.25:
+    if any(t in tl for t in MONAD_TRIGGERS) and random.random() < 0.38:
+        await asyncio.sleep(random.uniform(1.0, 2.5))
         await msg.reply_text(random.choice(MONAD_REPLIES))
         return
 
     # ── Fish ───────────────────────────────────────────────────────────────
-    if "fish" in tl and random.random() < 0.35:
+    if "fish" in tl and random.random() < 0.50:
+        await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(random.choice(FISH_REPLIES))
+        if random.random() < 0.10:
+            await asyncio.sleep(random.uniform(4, 7))
+            await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
         return
 
     # ── Direct @mention ────────────────────────────────────────────────────
     if _bot_username is None:
         _bot_username = (await context.bot.get_me()).username
     if f"@{_bot_username}".lower() in tl:
+        await asyncio.sleep(random.uniform(1.0, 2.5))
         await msg.reply_text(random.choice(IWRU_COMMAND_REPLIES))
         return
 
-    # ── Random quip ────────────────────────────────────────────────────────
+    # ── Random quip (boost x2 entre 2-5am) ────────────────────────────────
+    night_boost = 2.0 if 2 <= h <= 5 else 1.0
     last = _last_random.get(chat_id, 0)
-    if now - last > RANDOM_COOLDOWN and random.random() < RANDOM_CHANCE:
+    if now - last > RANDOM_COOLDOWN and random.random() < RANDOM_CHANCE * night_boost:
         _last_random[chat_id] = now
+        await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(RANDOM_QUIPS))
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -832,7 +955,7 @@ def build_app():
     a.add_handler(CommandHandler("iwru", cmd_iwru))
     a.add_handler(CommandHandler("raid", cmd_raid))
     a.add_handler(MessageHandler(filters.ALL, leer))
-    a.job_queue.run_repeating(bored_cat_job, interval=7200, first=7200)
+    a.job_queue.run_once(bored_cat_job, random.uniform(2700, 5400))
     return a
 
 print("======================================", flush=True)
