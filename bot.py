@@ -782,7 +782,24 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     h       = hour_now()
 
     _known_chats[chat_id] = now
+    tl = texto.lower()
 
+    # ── nadfun / rose: siempre primero, antes de todo, incluye bots ───────
+    if "iwru buy" in tl:
+        print(f"[STICKER_COMPRA] de {usuario.username if usuario else '?'}: {texto[:100]!r}", flush=True)
+        await msg.reply_sticker(STICKER_COMPRA)
+        return
+    if "new human detected" in tl:
+        print(f"[STICKER_BIENVENIDA] de {usuario.username if usuario else '?'}: {texto[:100]!r}", flush=True)
+        await msg.reply_sticker(STICKER_BIENVENIDA)
+        return
+
+    # ── ignorar el resto de mensajes de otros bots ─────────────────────────
+    if usuario and usuario.is_bot:
+        print(f"[BOT {usuario.username or '?'}]: {texto[:120]!r}", flush=True)
+        return
+
+    # ── tracking de usuarios humanos ───────────────────────────────────────
     if usuario:
         uid = usuario.id
         if uid not in _user_nicknames:
@@ -793,52 +810,20 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "last_seen": now,
         }
 
-    tl = texto.lower()
     print(f"[{usuario.full_name if usuario else '?'}]: {texto[:80]}", flush=True)
 
-    # ── nadfun / rose triggers — SIEMPRE primero, nunca se bloquean ───────
-    if "iwru buy" in tl:
-        await msg.reply_sticker(STICKER_COMPRA)
-        return
-    if "new human detected" in tl:
-        await msg.reply_sticker(STICKER_BIENVENIDA)
+    # ── Tweet URL → raid (siempre, antes del contador) ────────────────────
+    if TWEET_URL_RE.search(texto):
+        await asyncio.sleep(5)
+        await msg.reply_text(random.choice(RAID_RESPONSES))
         return
 
-    # ── Contador de mensajes → chaos burst ────────────────────────────────
-    _msg_counter[chat_id] = _msg_counter.get(chat_id, 0) + 1
-    if chat_id not in _next_trigger:
-        _next_trigger[chat_id] = random.randint(12, 22)
-    if _msg_counter[chat_id] >= _next_trigger[chat_id]:
-        _msg_counter[chat_id] = 0
-        _next_trigger[chat_id] = random.randint(12, 22)
-        if random.random() < 0.60:
-            await asyncio.sleep(random.uniform(1.0, 3.5))
-            await msg.reply_text(random.choice(CHAOS_BURSTS))
-            return
-
-    # ── Sticker ────────────────────────────────────────────────────────────
-    if msg.sticker:
-        if 8 <= h <= 10 and random.random() < 0.45:
-            await asyncio.sleep(random.uniform(0.5, 2.0))
-            await msg.reply_text(random.choice(GM_REPLIES))
-        elif 22 <= h <= 23 and random.random() < 0.45:
-            await asyncio.sleep(random.uniform(0.5, 2.0))
-            await msg.reply_text(random.choice(GN_REPLIES))
-        elif random.random() < 0.15:
-            await asyncio.sleep(random.uniform(0.5, 1.5))
-            await msg.reply_text(random.choice(STICKER_REACTIONS))
+    # ── Raid (siempre, antes del contador) ────────────────────────────────
+    if any(t in tl for t in RAID_TRIGGERS):
+        await msg.reply_text(random.choice(RAID_RESPONSES))
         return
 
-    # ── Photo ──────────────────────────────────────────────────────────────
-    if msg.photo and random.random() < 0.12:
-        await asyncio.sleep(random.uniform(1.0, 3.0))
-        await msg.reply_text(random.choice(PHOTO_REACTIONS))
-        return
-
-    if not texto:
-        return
-
-    # ── Rose filter reactions (exact keyword match) ───────────────────────
+    # ── Rose filter exact matches (siempre) ───────────────────────────────
     tl_stripped = tl.strip()
     if tl_stripped == "ca":
         await msg.reply_text(random.choice(CA_REPLIES))
@@ -853,80 +838,103 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text(random.choice(IWRU_FILTER_REPLIES))
         return
 
-    # ── Tweet URL → raid response con delay ───────────────────────────────
-    if TWEET_URL_RE.search(texto):
-        await asyncio.sleep(5)
-        await msg.reply_text(random.choice(RAID_RESPONSES))
+    # ── Contador de mensajes → chaos burst ────────────────────────────────
+    _msg_counter[chat_id] = _msg_counter.get(chat_id, 0) + 1
+    if chat_id not in _next_trigger:
+        _next_trigger[chat_id] = random.randint(10, 18)
+    if _msg_counter[chat_id] >= _next_trigger[chat_id]:
+        _msg_counter[chat_id] = 0
+        _next_trigger[chat_id] = random.randint(10, 18)
+        if random.random() < 0.65:
+            await asyncio.sleep(random.uniform(1.0, 3.5))
+            await msg.reply_text(random.choice(CHAOS_BURSTS))
+            return
+
+    # ── Sticker ────────────────────────────────────────────────────────────
+    if msg.sticker:
+        if 8 <= h <= 10 and random.random() < 0.55:
+            await asyncio.sleep(random.uniform(0.5, 2.0))
+            await msg.reply_text(random.choice(GM_REPLIES))
+        elif 22 <= h <= 23 and random.random() < 0.55:
+            await asyncio.sleep(random.uniform(0.5, 2.0))
+            await msg.reply_text(random.choice(GN_REPLIES))
+        elif random.random() < 0.20:
+            await asyncio.sleep(random.uniform(0.5, 1.5))
+            await msg.reply_text(random.choice(STICKER_REACTIONS))
         return
 
-    # ── Raid ───────────────────────────────────────────────────────────────
-    if any(t in tl for t in RAID_TRIGGERS):
-        await msg.reply_text(random.choice(RAID_RESPONSES))
+    # ── Photo ──────────────────────────────────────────────────────────────
+    if msg.photo and random.random() < 0.15:
+        await asyncio.sleep(random.uniform(1.0, 3.0))
+        await msg.reply_text(random.choice(PHOTO_REACTIONS))
         return
 
-    # ── IWRU name → respuesta caótica sin relación ────────────────────────
-    if any(t in tl for t in IWRU_TRIGGERS) or tl.strip() in ("iwru", "@iwru"):
-        if random.random() < 0.60:
+    if not texto:
+        return
+
+    # ── IWRU name ──────────────────────────────────────────────────────────
+    if any(t in tl for t in IWRU_TRIGGERS) or tl_stripped in ("iwru", "@iwru"):
+        if random.random() < 0.65:
             await asyncio.sleep(random.uniform(1.0, 3.0))
             await msg.reply_text(random.choice(IWRU_NAME_REPLIES))
-            if random.random() < 0.10:
+            if random.random() < 0.12:
                 await asyncio.sleep(random.uniform(4, 7))
                 await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
             return
 
     # ── GM ─────────────────────────────────────────────────────────────────
-    if any(tl.startswith(t) or tl == t for t in GM_TRIGGERS) and random.random() < 0.45:
+    if any(tl.startswith(t) or tl == t for t in GM_TRIGGERS) and random.random() < 0.60:
         await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(random.choice(GM_REPLIES))
         return
 
     # ── GN ─────────────────────────────────────────────────────────────────
-    if any(tl.startswith(t) or tl == t for t in GN_TRIGGERS) and random.random() < 0.45:
+    if any(tl.startswith(t) or tl == t for t in GN_TRIGGERS) and random.random() < 0.60:
         await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(random.choice(GN_REPLIES))
         return
 
     # ── Moon / pump ────────────────────────────────────────────────────────
-    if any(t in tl for t in MOON_TRIGGERS) and random.random() < 0.32:
+    if any(t in tl for t in MOON_TRIGGERS) and random.random() < 0.45:
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(MOON_REPLIES))
-        if random.random() < 0.10:
+        if random.random() < 0.12:
             await asyncio.sleep(random.uniform(4, 7))
             await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
         return
 
     # ── Dip / dump ─────────────────────────────────────────────────────────
-    if any(t in tl for t in DIP_TRIGGERS) and random.random() < 0.32:
+    if any(t in tl for t in DIP_TRIGGERS) and random.random() < 0.45:
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(DIP_REPLIES))
-        if random.random() < 0.10:
+        if random.random() < 0.12:
             await asyncio.sleep(random.uniform(4, 7))
             await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
         return
 
     # ── Wen ────────────────────────────────────────────────────────────────
-    if any(t in tl for t in WEN_TRIGGERS) and random.random() < 0.55:
+    if any(t in tl for t in WEN_TRIGGERS) and random.random() < 0.65:
         await asyncio.sleep(random.uniform(1.0, 2.5))
         await msg.reply_text(random.choice(WEN_REPLIES))
         return
 
     # ── Chart / price ──────────────────────────────────────────────────────
-    if any(t in tl for t in CHART_TRIGGERS) and random.random() < 0.28:
+    if any(t in tl for t in CHART_TRIGGERS) and random.random() < 0.40:
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(CHART_REPLIES))
         return
 
     # ── Monad ──────────────────────────────────────────────────────────────
-    if any(t in tl for t in MONAD_TRIGGERS) and random.random() < 0.38:
+    if any(t in tl for t in MONAD_TRIGGERS) and random.random() < 0.50:
         await asyncio.sleep(random.uniform(1.0, 2.5))
         await msg.reply_text(random.choice(MONAD_REPLIES))
         return
 
     # ── Fish ───────────────────────────────────────────────────────────────
-    if "fish" in tl and random.random() < 0.50:
+    if "fish" in tl and random.random() < 0.65:
         await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(random.choice(FISH_REPLIES))
-        if random.random() < 0.10:
+        if random.random() < 0.12:
             await asyncio.sleep(random.uniform(4, 7))
             await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
         return
