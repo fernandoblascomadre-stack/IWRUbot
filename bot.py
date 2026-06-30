@@ -6,7 +6,7 @@ import threading
 import time
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from telegram import Bot, Update
+from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
 TWEET_URL_RE = re.compile(r'https?://(x|twitter)\.com/\S+')
@@ -956,11 +956,34 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ══════════════════════════════════════════════════════════════════════════
 #  APP
 # ══════════════════════════════════════════════════════════════════════════
+def _delete_webhook_http():
+    import urllib.request, json
+    url = f"https://api.telegram.org/bot{TOKEN}/deleteWebhook?drop_pending_updates=true"
+    try:
+        with urllib.request.urlopen(url, timeout=10) as r:
+            data = json.loads(r.read())
+            print(f"[startup] deleteWebhook → {data}", flush=True)
+    except Exception as e:
+        print(f"[startup] deleteWebhook error: {e}", flush=True)
+
+async def _conflict_handler(update, context):
+    from telegram.error import Conflict
+    if isinstance(context.error, Conflict):
+        print(f"[conflict] {context.error} — borrando webhook...", flush=True)
+        try:
+            await context.bot.delete_webhook(drop_pending_updates=True)
+            print("[conflict] webhook borrado, polling continuará", flush=True)
+        except Exception as e:
+            print(f"[conflict] error al borrar: {e}", flush=True)
+    else:
+        print(f"[error] {context.error}", flush=True)
+
 def build_app():
     a = ApplicationBuilder().token(TOKEN).build()
     a.add_handler(CommandHandler("iwru", cmd_iwru))
     a.add_handler(CommandHandler("raid", cmd_raid))
     a.add_handler(MessageHandler(filters.ALL, leer))
+    a.add_error_handler(_conflict_handler)
     a.job_queue.run_once(bored_cat_job, random.uniform(2700, 5400))
     return a
 
@@ -968,19 +991,12 @@ print("======================================", flush=True)
 print("      IWRU BOT — I WILL RUG U", flush=True)
 print("======================================", flush=True)
 
-async def _delete_webhook():
-    async with Bot(TOKEN) as b:
-        info = await b.get_webhook_info()
-        if info.url:
-            await b.delete_webhook(drop_pending_updates=True)
-            print("[startup] webhook borrado", flush=True)
-
-asyncio.run(_delete_webhook())
-
-time.sleep(35)  # wait for old Render instance to die
+_delete_webhook_http()
+time.sleep(35)
 
 while True:
     try:
+        _delete_webhook_http()
         app = build_app()
         app.run_polling(drop_pending_updates=True)
         break
