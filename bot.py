@@ -705,6 +705,18 @@ FOLLOWUP_MESSAGES = [
     "...the vault grows. 🐟",
 ]
 
+NAD_LINK = "https://nad.fun/tokens/0xaCCD61772BCd3717546f141382b68b6D2EF17777"
+NAD_CA   = "0xaCCD61772BCd3717546f141382b68b6D2EF17777"
+
+MONAD_REMINDERS = [
+    f"$IWRU is live on Monad. don't say the cat didn't warn you. 😼\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
+    f"in case you forgot — the cat is tokenized 🐟\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
+    f"*drops fish on floor* $IWRU. Monad. now. 😼\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
+    f"the cat has been deployed on Monad blockchain. act accordingly. 🐟\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
+    f"$IWRU — launched. live. on Monad. what are you waiting for. 😼\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
+    f"friendly reminder from the cat: $IWRU is tradeable 🐟\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
+]
+
 SOCIAL_LINKS = (
     "🐦 https://x.com/DjangoUnchain06\n"
     "📸 https://www.instagram.com/iwillrug_u/\n"
@@ -778,6 +790,16 @@ async def social_reminder_job(context: ContextTypes.DEFAULT_TYPE):
             print(f"[social_reminder_job] chat {chat_id}: {e}", flush=True)
     # ~3 veces al día: replanificar cada 7-9 horas
     context.application.job_queue.run_once(social_reminder_job, random.uniform(25200, 32400))
+
+async def monad_reminder_job(context: ContextTypes.DEFAULT_TYPE):
+    text = random.choice(MONAD_REMINDERS)
+    for chat_id in list(_known_chats.keys()):
+        try:
+            await context.bot.send_message(chat_id=chat_id, text=text)
+        except Exception as e:
+            print(f"[monad_reminder_job] chat {chat_id}: {e}", flush=True)
+    # ~2 veces al día: replanificar cada 11-13 horas
+    context.application.job_queue.run_once(monad_reminder_job, random.uniform(39600, 46800))
 
 # ══════════════════════════════════════════════════════════════════════════
 #  HANDLERS
@@ -1012,7 +1034,8 @@ def build_app():
     a.add_handler(MessageHandler(filters.ALL, leer))
     a.add_error_handler(_conflict_handler)
     a.job_queue.run_once(bored_cat_job, random.uniform(2700, 5400))
-    a.job_queue.run_once(social_reminder_job, random.uniform(10800, 21600))  # primer recordatorio: 3-6h
+    a.job_queue.run_once(social_reminder_job, random.uniform(10800, 21600))   # primer recordatorio: 3-6h
+    a.job_queue.run_once(monad_reminder_job, random.uniform(7200, 18000))    # primer recordatorio: 2-5h
     return a
 
 print("======================================", flush=True)
