@@ -705,6 +705,23 @@ FOLLOWUP_MESSAGES = [
     "...the vault grows. 🐟",
 ]
 
+SOCIAL_LINKS = (
+    "🐦 https://x.com/DjangoUnchain06\n"
+    "📸 https://www.instagram.com/iwillrug_u/\n"
+    "🟠 https://www.reddit.com/r/Iwillrugu/"
+)
+
+SOCIAL_REMINDERS = [
+    f"pssst... a follow, a like, a repost. the cat asks for so little. 😼\n\n{SOCIAL_LINKS}",
+    f"*taps paw on table* 🐟 follow. like. repost. the cat will not forget.\n\n{SOCIAL_LINKS}",
+    f"attention humans 📢 the cat needs your engagement energy.\n\n{SOCIAL_LINKS}",
+    f"3 clicks. that's all. follow, like, repost. the cat is watching. 😼\n\n{SOCIAL_LINKS}",
+    f"daily reminder from the cat: spread the word 🐟\n\n{SOCIAL_LINKS}",
+    f"the algorithm hungers. feed it. 😼\n\n{SOCIAL_LINKS}",
+    f"*stares at you* ... you know what to do.\n\n{SOCIAL_LINKS}",
+    f"the cat has spoken. go follow. go like. go repost. 😼\n\n{SOCIAL_LINKS}",
+]
+
 # ══════════════════════════════════════════════════════════════════════════
 #  HEALTH CHECK
 # ══════════════════════════════════════════════════════════════════════════
@@ -751,6 +768,16 @@ async def bored_cat_job(context: ContextTypes.DEFAULT_TYPE):
     else:
         delay = random.uniform(2700, 6300)   # 45-105 min de día
     context.application.job_queue.run_once(bored_cat_job, delay)
+
+async def social_reminder_job(context: ContextTypes.DEFAULT_TYPE):
+    text = random.choice(SOCIAL_REMINDERS)
+    for chat_id in list(_known_chats.keys()):
+        try:
+            await context.bot.send_message(chat_id=chat_id, text=text)
+        except Exception as e:
+            print(f"[social_reminder_job] chat {chat_id}: {e}", flush=True)
+    # ~3 veces al día: replanificar cada 7-9 horas
+    context.application.job_queue.run_once(social_reminder_job, random.uniform(25200, 32400))
 
 # ══════════════════════════════════════════════════════════════════════════
 #  HANDLERS
@@ -985,6 +1012,7 @@ def build_app():
     a.add_handler(MessageHandler(filters.ALL, leer))
     a.add_error_handler(_conflict_handler)
     a.job_queue.run_once(bored_cat_job, random.uniform(2700, 5400))
+    a.job_queue.run_once(social_reminder_job, random.uniform(10800, 21600))  # primer recordatorio: 3-6h
     return a
 
 print("======================================", flush=True)
