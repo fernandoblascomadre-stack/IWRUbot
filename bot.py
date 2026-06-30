@@ -796,6 +796,14 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tl = texto.lower()
     print(f"[{usuario.full_name if usuario else '?'}]: {texto[:80]}", flush=True)
 
+    # ── nadfun / rose triggers — SIEMPRE primero, nunca se bloquean ───────
+    if "iwru buy" in tl:
+        await msg.reply_sticker(STICKER_COMPRA)
+        return
+    if "new human detected" in tl:
+        await msg.reply_sticker(STICKER_BIENVENIDA)
+        return
+
     # ── Contador de mensajes → chaos burst ────────────────────────────────
     _msg_counter[chat_id] = _msg_counter.get(chat_id, 0) + 1
     if chat_id not in _next_trigger:
@@ -807,14 +815,6 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await asyncio.sleep(random.uniform(1.0, 3.5))
             await msg.reply_text(random.choice(CHAOS_BURSTS))
             return
-
-    # ── nadfun bot triggers (exact text from the other bot) ───────────────
-    if "IWRU Buy!" in texto:
-        await msg.reply_sticker(STICKER_COMPRA)
-        return
-    if "New human detected" in texto:
-        await msg.reply_sticker(STICKER_BIENVENIDA)
-        return
 
     # ── Sticker ────────────────────────────────────────────────────────────
     if msg.sticker:
