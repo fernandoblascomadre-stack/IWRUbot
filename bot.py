@@ -781,7 +781,6 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     now     = time.time()
     h       = hour_now()
 
-    _known_chats[chat_id] = now
     tl = texto.lower()
 
     # ── nadfun / rose: siempre primero, antes de todo, incluye bots ───────
@@ -799,7 +798,9 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"[BOT {usuario.username or '?'}]: {texto[:120]!r}", flush=True)
         return
 
-    # ── tracking de usuarios humanos ───────────────────────────────────────
+    # ── solo mensajes humanos a partir de aquí ────────────────────────────
+    _known_chats[chat_id] = now
+
     if usuario:
         uid = usuario.id
         if uid not in _user_nicknames:
@@ -811,6 +812,28 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
 
     print(f"[{usuario.full_name if usuario else '?'}]: {texto[:80]}", flush=True)
+
+    # ── Sticker ────────────────────────────────────────────────────────────
+    if msg.sticker:
+        if 8 <= h <= 10 and random.random() < 0.55:
+            await asyncio.sleep(random.uniform(0.5, 2.0))
+            await msg.reply_text(random.choice(GM_REPLIES))
+        elif 22 <= h <= 23 and random.random() < 0.55:
+            await asyncio.sleep(random.uniform(0.5, 2.0))
+            await msg.reply_text(random.choice(GN_REPLIES))
+        elif random.random() < 0.20:
+            await asyncio.sleep(random.uniform(0.5, 1.5))
+            await msg.reply_text(random.choice(STICKER_REACTIONS))
+        return
+
+    # ── Photo ──────────────────────────────────────────────────────────────
+    if msg.photo and random.random() < 0.15:
+        await asyncio.sleep(random.uniform(1.0, 3.0))
+        await msg.reply_text(random.choice(PHOTO_REACTIONS))
+        return
+
+    if not texto:
+        return
 
     # ── Tweet URL → raid (siempre, antes del contador) ────────────────────
     if TWEET_URL_RE.search(texto):
@@ -849,28 +872,6 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await asyncio.sleep(random.uniform(1.0, 3.5))
             await msg.reply_text(random.choice(CHAOS_BURSTS))
             return
-
-    # ── Sticker ────────────────────────────────────────────────────────────
-    if msg.sticker:
-        if 8 <= h <= 10 and random.random() < 0.55:
-            await asyncio.sleep(random.uniform(0.5, 2.0))
-            await msg.reply_text(random.choice(GM_REPLIES))
-        elif 22 <= h <= 23 and random.random() < 0.55:
-            await asyncio.sleep(random.uniform(0.5, 2.0))
-            await msg.reply_text(random.choice(GN_REPLIES))
-        elif random.random() < 0.20:
-            await asyncio.sleep(random.uniform(0.5, 1.5))
-            await msg.reply_text(random.choice(STICKER_REACTIONS))
-        return
-
-    # ── Photo ──────────────────────────────────────────────────────────────
-    if msg.photo and random.random() < 0.15:
-        await asyncio.sleep(random.uniform(1.0, 3.0))
-        await msg.reply_text(random.choice(PHOTO_REACTIONS))
-        return
-
-    if not texto:
-        return
 
     # ── IWRU name ──────────────────────────────────────────────────────────
     if any(t in tl for t in IWRU_TRIGGERS) or tl_stripped in ("iwru", "@iwru"):
