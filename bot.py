@@ -2,9 +2,11 @@ import asyncio
 import os
 import random
 import re
+import threading
 import time
 from datetime import datetime
-from telegram import Update
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from telegram import Bot, Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
 TWEET_URL_RE = re.compile(r'https?://(x|twitter)\.com/\S+')
@@ -704,6 +706,20 @@ FOLLOWUP_MESSAGES = [
 ]
 
 # ══════════════════════════════════════════════════════════════════════════
+#  HEALTH CHECK
+# ══════════════════════════════════════════════════════════════════════════
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200); self.end_headers(); self.wfile.write(b"OK")
+    def log_message(self, *a):
+        pass
+
+threading.Thread(
+    target=lambda: HTTPServer(("0.0.0.0", int(os.environ.get("PORT", 10000))), HealthHandler).serve_forever(),
+    daemon=True,
+).start()
+
+# ══════════════════════════════════════════════════════════════════════════
 #  BORED + CALLOUT JOB  (PTB JobQueue — runs inside the bot's event loop)
 # ══════════════════════════════════════════════════════════════════════════
 async def bored_cat_job(context: ContextTypes.DEFAULT_TYPE):
@@ -952,14 +968,22 @@ print("======================================", flush=True)
 print("      IWRU BOT — I WILL RUG U", flush=True)
 print("======================================", flush=True)
 
-PORT        = int(os.environ.get("PORT", 10000))
-WEBHOOK_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://iwrubot.onrender.com")
+async def _delete_webhook():
+    async with Bot(TOKEN) as b:
+        info = await b.get_webhook_info()
+        if info.url:
+            await b.delete_webhook(drop_pending_updates=True)
+            print("[startup] webhook borrado", flush=True)
 
-app = build_app()
-app.run_webhook(
-    listen="0.0.0.0",
-    port=PORT,
-    webhook_url=f"{WEBHOOK_URL}/{TOKEN}",
-    url_path=TOKEN,
-    drop_pending_updates=True,
-)
+asyncio.run(_delete_webhook())
+
+time.sleep(35)  # wait for old Render instance to die
+
+while True:
+    try:
+        app = build_app()
+        app.run_polling(drop_pending_updates=True)
+        break
+    except Exception as e:
+        print(f"[restart] {e} — retrying in 35s", flush=True)
+        time.sleep(35)
