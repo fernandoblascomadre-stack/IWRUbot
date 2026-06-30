@@ -1,4 +1,3 @@
-import asyncio
 import os
 import random
 import re
@@ -18,13 +17,16 @@ STICKER_BIENVENIDA = "CAACAgQAAyEFAATmBptiAAIbdGpCtXLR4nqSl707gZNKRYI7MUZOAAJBIA
 
 # ── Cooldown ───────────────────────────────────────────────────────────────
 _last_random: dict[int, float] = {}
-RANDOM_COOLDOWN = 90
-RANDOM_CHANCE   = 0.18
+RANDOM_COOLDOWN = 600   # 10 min entre quips espontáneos
+RANDOM_CHANCE   = 0.08  # 8% de probabilidad
 
 # ── User tracking ──────────────────────────────────────────────────────────
 _known_chats: dict[int, float]  = {}
-_known_users: dict[int, dict]   = {}   # user_id -> {chat_id, name, last_seen}
-_user_nicknames: dict[int, str] = {}   # user_id -> assigned nickname
+_known_users: dict[int, dict]   = {}
+_user_nicknames: dict[int, str] = {}
+
+# ── Bot username cache ─────────────────────────────────────────────────────
+_bot_username: str | None = None
 
 # ── Triggers ───────────────────────────────────────────────────────────────
 RAID_TRIGGERS  = ["⚡️ raid tweet", "raid tweet", "⚡️ raid", "raidtweet", "raid!"]
@@ -86,8 +88,6 @@ NICKNAMES = [
     "the one who always has pockets (probably fish in there)",
 ]
 
-# {name} = first name (plain text, no notification)
-# {nick} = their cat nickname
 CALLOUT_MESSAGES = [
     "{name} hey. HEY. do you have fish. 🐟",
     "{name}. the cat has been watching you. not in a weird way. in a cat way. 😼",
@@ -126,7 +126,6 @@ CALLOUT_MESSAGES = [
 # ══════════════════════════════════════════════════════════════════════════
 
 RANDOM_QUIPS = [
-    # vault & fish lore
     "...the vault grows. slowly. like a fish that refuses to be caught. 🐟 but it grows.",
     "why are you all still here. go buy $IWRU. fill the vault. entertain me. 😼",
     "the circle of fish: vault feeds ecosystem 🐟 ecosystem feeds cat 😼 cat feeds vault. beautiful.",
@@ -146,7 +145,6 @@ RANDOM_QUIPS = [
     "the vault is patient. the vault has been waiting. the vault will keep waiting. fill it. 🐟",
     "I have been staring at the vault for [undisclosed] minutes. it has not moved. I will continue. 😼",
     "every trade feeds the ecosystem. every ecosystem feeds the cat. every cat sits on the vault. 😼🐟",
-    # game lore
     "they put me in a desert in stage 6. it was 40 degrees. I found a fish near a dune. 🐟🌵 worth it.",
     "stage 7 has guardians. large ones. I am friends with 0 of them. this is expected. 😼",
     "someone in stage 7 keeps following me through tunnels. they call it a stalker. I call it a fan. 😼",
@@ -160,14 +158,12 @@ RANDOM_QUIPS = [
     "the stalker in stage 7 follows me through tunnels. it cannot catch me. nothing can catch me. 😼",
     "stage 6 has fragments to collect. I collected them. I sat on them. I kept going. 😼🎮",
     "they built a whole game around me. correct decision. I would have done the same. 🎮😼",
-    # NFT lore
     "I make NFTs because the vault needed more compartments. for fish. 🐟 the art is secondary.",
     "someone bought one of my NFTs. I used the money to buy fish. 🐟 this was always the plan. 😼",
     "my NFTs fund the fish. the fish fund the vault. the vault funds the ecosystem. perfect system. 🐟😼",
     "the NFT collection is on OpenSea. I drew them with my paw. this counts as art. 😼🎨",
     "I minted an NFT at 4am while sitting in a box. the metadata is excellent. I don't know what metadata is. 😼🎨",
     "the NFTs sell. the fish grow. the vault expands. the cat sits on everything. this is the roadmap. 😼🐟",
-    # short stupid stories
     "I once found a spider. I sat next to it for 4 hours. it left. I still think about the spider. 🕷️😼",
     "I knocked my water bowl over. it was empty. I knocked it over anyway. 😼 very satisfying.",
     "I got into a fight with the shower curtain at 2am. the shower curtain lost. I also lost. 😾",
@@ -184,7 +180,6 @@ RANDOM_QUIPS = [
     "I meowed at the wall for 3 minutes. the wall did not respond. the wall is wrong. 😼",
     "I saw my reflection. I did not like it. I hissed. I was right to hiss. 😼",
     "I tried to fit in a box that was clearly too small. I fit. the box disagrees. the box is wrong. 📦😼",
-    # falling asleep mid-sentence
     "the thing about the vault is that it requires... requires... zzzz 😴",
     "I was going to explain the tokenomics but I— actually I— zzzz 😴🐟",
     "so I was in stage 6, dodging lasers, and then I found this fish near a dune and the thing is— zzzz 😴",
@@ -193,7 +188,6 @@ RANDOM_QUIPS = [
     "I once chased something across the whole room and when I got there I— I forget. zzzz 😴😼",
     "I was going to tell you about the stalker in stage 7 but I— the tunnel was— zzzz 😴😼",
     "I made an NFT last night and the thing about the art is that— the art has— zzzz 😴🎨",
-    # cat chaos
     "*stares at the vault* *knocks MON off the counter by accident* *walks away* 😼",
     "*opens cabinet* ...okay. *closes cabinet* okay. 😼",
     "*sits directly on the keyboard* asjkhdasjkdhaksjdh 🐟🐟🐟",
@@ -558,10 +552,6 @@ IWRU_NAME_REPLIES = [
     "I was in stage 7 and I stopped to look at a corner of the ceiling. the corner was fine. 🎮😼",
 ]
 
-# ══════════════════════════════════════════════════════════════════════════
-#  ROSE FILTER REACTIONS
-# ══════════════════════════════════════════════════════════════════════════
-
 CA_REPLIES = [
     "one CA. one vault. one cat watching the address with both eyes. 👁️👁️😼🐟",
     "the CA has been verified by: the cat. that's the only verification that matters. 😼",
@@ -658,39 +648,28 @@ def run_health_server():
 threading.Thread(target=run_health_server, daemon=True).start()
 
 # ══════════════════════════════════════════════════════════════════════════
-#  BORED + CALLOUT LOOP
+#  BORED + CALLOUT JOB  (PTB JobQueue — runs inside the bot's event loop)
 # ══════════════════════════════════════════════════════════════════════════
-_app_ref = None
-
-def bored_cat_loop():
-    time.sleep(7200)
-    while True:
-        now = time.time()
-        if _app_ref:
-            for chat_id, last_seen in list(_known_chats.items()):
-                if now - last_seen > 7200:
-                    try:
-                        # 40% chance: name a specific user (no @, no notification)
-                        eligible = [
-                            (uid, udata) for uid, udata in _known_users.items()
-                            if udata.get("chat_id") == chat_id
-                            and now - udata.get("last_seen", 0) < 86400
-                        ]
-                        if eligible and random.random() < 0.40:
-                            uid, udata = random.choice(eligible)
-                            name = udata.get("name", "human")
-                            template = random.choice(CALLOUT_MESSAGES)
-                            text = template.replace("{name}", name)
-                        else:
-                            text = random.choice(BORED_MESSAGES)
-
-                        asyncio.run(_app_ref.bot.send_message(chat_id=chat_id, text=text))
-                        _known_chats[chat_id] = now
-                    except Exception:
-                        pass
-        time.sleep(7200)
-
-threading.Thread(target=bored_cat_loop, daemon=True).start()
+async def bored_cat_job(context: ContextTypes.DEFAULT_TYPE):
+    now = time.time()
+    for chat_id, last_seen in list(_known_chats.items()):
+        if now - last_seen > 7200:
+            try:
+                eligible = [
+                    (uid, udata) for uid, udata in _known_users.items()
+                    if udata.get("chat_id") == chat_id
+                    and now - udata.get("last_seen", 0) < 86400
+                ]
+                if eligible and random.random() < 0.40:
+                    uid, udata = random.choice(eligible)
+                    name = udata.get("name", "human")
+                    text = random.choice(CALLOUT_MESSAGES).replace("{name}", name)
+                else:
+                    text = random.choice(BORED_MESSAGES)
+                await context.bot.send_message(chat_id=chat_id, text=text)
+                _known_chats[chat_id] = now
+            except Exception as e:
+                print(f"[bored_cat_job] chat {chat_id}: {e}", flush=True)
 
 # ══════════════════════════════════════════════════════════════════════════
 #  HANDLERS
@@ -706,8 +685,7 @@ async def cmd_raid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(random.choice(RAID_RESPONSES))
 
 async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global _app_ref
-    _app_ref = context.application
+    global _bot_username
 
     if not update.message:
         return
@@ -721,21 +699,20 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     _known_chats[chat_id] = now
 
-    # ── Track user + assign nickname on first sight ────────────────────────
     if usuario:
         uid = usuario.id
         if uid not in _user_nicknames:
             _user_nicknames[uid] = random.choice(NICKNAMES)
         _known_users[uid] = {
-            "chat_id":  chat_id,
-            "name":     usuario.first_name or "human",
+            "chat_id":   chat_id,
+            "name":      usuario.first_name or "human",
             "last_seen": now,
         }
 
     tl = texto.lower()
-    print(f"[{usuario.full_name if usuario else '?'}]: {texto[:80]}")
+    print(f"[{usuario.full_name if usuario else '?'}]: {texto[:80]}", flush=True)
 
-    # ── Fixed sticker triggers ─────────────────────────────────────────────
+    # ── nadfun bot triggers (exact text from the other bot) ───────────────
     if "IWRU Buy!" in texto:
         await msg.reply_sticker(STICKER_COMPRA)
         return
@@ -743,18 +720,18 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_sticker(STICKER_BIENVENIDA)
         return
 
-    # ── Sticker detection (time-based GM/GN + random reaction) ────────────
+    # ── Sticker ────────────────────────────────────────────────────────────
     if msg.sticker:
-        if 8 <= h <= 10 and random.random() < 0.80:
+        if 8 <= h <= 10 and random.random() < 0.35:
             await msg.reply_text(random.choice(GM_REPLIES))
-        elif 22 <= h <= 23 and random.random() < 0.80:
+        elif 22 <= h <= 23 and random.random() < 0.35:
             await msg.reply_text(random.choice(GN_REPLIES))
-        elif random.random() < 0.25:
+        elif random.random() < 0.08:
             await msg.reply_text(random.choice(STICKER_REACTIONS))
         return
 
-    # ── Photo reactions ────────────────────────────────────────────────────
-    if msg.photo and random.random() < 0.22:
+    # ── Photo ──────────────────────────────────────────────────────────────
+    if msg.photo and random.random() < 0.07:
         await msg.reply_text(random.choice(PHOTO_REACTIONS))
         return
 
@@ -778,6 +755,7 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ── Tweet URL → raid response with delay ──────────────────────────────
     if TWEET_URL_RE.search(texto):
+        import asyncio
         await asyncio.sleep(5)
         await msg.reply_text(random.choice(RAID_RESPONSES))
         return
@@ -787,55 +765,56 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text(random.choice(RAID_RESPONSES))
         return
 
-    # ── IWRU name → chaotic unrelated response ─────────────────────────────
+    # ── IWRU name → chaotic unrelated response ────────────────────────────
     if any(t in tl for t in IWRU_TRIGGERS) or tl.strip() in ("iwru", "@iwru"):
-        if random.random() < 0.90:
+        if random.random() < 0.45:
             await msg.reply_text(random.choice(IWRU_NAME_REPLIES))
             return
 
     # ── GM ─────────────────────────────────────────────────────────────────
-    if any(tl.startswith(t) or tl == t for t in GM_TRIGGERS) and random.random() < 0.85:
+    if any(tl.startswith(t) or tl == t for t in GM_TRIGGERS) and random.random() < 0.30:
         await msg.reply_text(random.choice(GM_REPLIES))
         return
 
     # ── GN ─────────────────────────────────────────────────────────────────
-    if any(tl.startswith(t) or tl == t for t in GN_TRIGGERS) and random.random() < 0.85:
+    if any(tl.startswith(t) or tl == t for t in GN_TRIGGERS) and random.random() < 0.30:
         await msg.reply_text(random.choice(GN_REPLIES))
         return
 
     # ── Moon / pump ────────────────────────────────────────────────────────
-    if any(t in tl for t in MOON_TRIGGERS) and random.random() < 0.60:
+    if any(t in tl for t in MOON_TRIGGERS) and random.random() < 0.20:
         await msg.reply_text(random.choice(MOON_REPLIES))
         return
 
     # ── Dip / dump ─────────────────────────────────────────────────────────
-    if any(t in tl for t in DIP_TRIGGERS) and random.random() < 0.60:
+    if any(t in tl for t in DIP_TRIGGERS) and random.random() < 0.20:
         await msg.reply_text(random.choice(DIP_REPLIES))
         return
 
     # ── Wen ────────────────────────────────────────────────────────────────
-    if any(t in tl for t in WEN_TRIGGERS) and random.random() < 0.90:
+    if any(t in tl for t in WEN_TRIGGERS) and random.random() < 0.40:
         await msg.reply_text(random.choice(WEN_REPLIES))
         return
 
     # ── Chart / price ──────────────────────────────────────────────────────
-    if any(t in tl for t in CHART_TRIGGERS) and random.random() < 0.55:
+    if any(t in tl for t in CHART_TRIGGERS) and random.random() < 0.18:
         await msg.reply_text(random.choice(CHART_REPLIES))
         return
 
     # ── Monad ──────────────────────────────────────────────────────────────
-    if any(t in tl for t in MONAD_TRIGGERS) and random.random() < 0.75:
+    if any(t in tl for t in MONAD_TRIGGERS) and random.random() < 0.25:
         await msg.reply_text(random.choice(MONAD_REPLIES))
         return
 
     # ── Fish ───────────────────────────────────────────────────────────────
-    if "fish" in tl and random.random() < 0.80:
+    if "fish" in tl and random.random() < 0.35:
         await msg.reply_text(random.choice(FISH_REPLIES))
         return
 
     # ── Direct @mention ────────────────────────────────────────────────────
-    bot_username = (await context.bot.get_me()).username
-    if f"@{bot_username}".lower() in tl:
+    if _bot_username is None:
+        _bot_username = (await context.bot.get_me()).username
+    if f"@{_bot_username}".lower() in tl:
         await msg.reply_text(random.choice(IWRU_COMMAND_REPLIES))
         return
 
@@ -853,8 +832,10 @@ app.add_handler(CommandHandler("iwru", cmd_iwru))
 app.add_handler(CommandHandler("raid", cmd_raid))
 app.add_handler(MessageHandler(filters.ALL, leer))
 
-print("======================================")
-print("      IWRU BOT — I WILL RUG U")
-print("======================================")
+app.job_queue.run_repeating(bored_cat_job, interval=7200, first=7200)
 
-app.run_polling()
+print("======================================", flush=True)
+print("      IWRU BOT — I WILL RUG U", flush=True)
+print("======================================", flush=True)
+
+app.run_polling(drop_pending_updates=True)
