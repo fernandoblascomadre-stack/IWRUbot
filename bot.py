@@ -598,6 +598,19 @@ SOCIAL_REPLIES = [
     "the links are there. click them. the cat is watching the engagement numbers. both eyes. 👁️👁️😼",
 ]
 
+FILTER_REPLIES = [
+    "filters? the cat has filtered out all bad vibes and most humans. 😼",
+    "add $IWRU to your filters. add fish to your diet. in that order. 🐟😼",
+    "the cat passes all filters. by walking directly through them. 😼",
+    "filters are just cages with extra steps. the cat ignores both. 😼🐟",
+    "I tried using a filter once. it filtered out a fish. never again. 🐟😼",
+    "add to filters? bold of you to assume the cat can be filtered. 😼",
+    "the only filter that matters: is it $IWRU? yes. add it. done. 😼🐟",
+    "filter: $IWRU. result: vault grows. fish appears. cat nods. 😼🐟",
+    "a filter walked into a bar. the cat was already there. 😼",
+    "yes yes add the cat to your watchlist. the cat is already watching you. 👁️😼",
+]
+
 IWRU_FILTER_REPLIES = [
     "I Will Rug U. I haven't. I won't. I just like keeping people alert. 😼🐟",
     "yes. that's me. the name is a threat. the threat is empty. the vault is full. 😼🐟",
@@ -934,15 +947,23 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ── Rose filter exact matches (siempre) ───────────────────────────────
     tl_stripped = tl.strip()
     if tl_stripped == "ca":
+        await asyncio.sleep(random.uniform(1.5, 4.0))
         await msg.reply_text(random.choice(CA_REPLIES))
         return
     if tl_stripped in ("website", "site", "web"):
+        await asyncio.sleep(random.uniform(1.5, 4.0))
         await msg.reply_text(random.choice(WEBSITE_REPLIES))
         return
     if tl_stripped in ("social", "socials"):
+        await asyncio.sleep(random.uniform(1.5, 4.0))
         await msg.reply_text(random.choice(SOCIAL_REPLIES))
         return
+    if tl_stripped in ("filters", "filter"):
+        await asyncio.sleep(random.uniform(1.5, 4.0))
+        await msg.reply_text(random.choice(FILTER_REPLIES))
+        return
     if tl_stripped == "iwillrugu":
+        await asyncio.sleep(random.uniform(1.5, 4.0))
         await msg.reply_text(random.choice(IWRU_FILTER_REPLIES))
         return
 
