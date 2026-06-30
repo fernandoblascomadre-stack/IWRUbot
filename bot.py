@@ -827,15 +827,26 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ══════════════════════════════════════════════════════════════════════════
 #  APP
 # ══════════════════════════════════════════════════════════════════════════
-app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(CommandHandler("iwru", cmd_iwru))
-app.add_handler(CommandHandler("raid", cmd_raid))
-app.add_handler(MessageHandler(filters.ALL, leer))
-
-app.job_queue.run_repeating(bored_cat_job, interval=7200, first=7200)
+def build_app():
+    a = ApplicationBuilder().token(TOKEN).build()
+    a.add_handler(CommandHandler("iwru", cmd_iwru))
+    a.add_handler(CommandHandler("raid", cmd_raid))
+    a.add_handler(MessageHandler(filters.ALL, leer))
+    a.job_queue.run_repeating(bored_cat_job, interval=7200, first=7200)
+    return a
 
 print("======================================", flush=True)
 print("      IWRU BOT — I WILL RUG U", flush=True)
 print("======================================", flush=True)
 
-app.run_polling(drop_pending_updates=True)
+# wait for previous Render instance to die before polling
+time.sleep(20)
+
+while True:
+    try:
+        app = build_app()
+        app.run_polling(drop_pending_updates=True)
+        break
+    except Exception as e:
+        print(f"[restart] {e} — retrying in 20s", flush=True)
+        time.sleep(20)
