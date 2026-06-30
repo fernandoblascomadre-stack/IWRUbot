@@ -726,6 +726,16 @@ GAME_REMINDERS = [
     "the cat built a game. the least you can do is play it. 🐟\n\n🎮 https://iwillrugu.com/",
 ]
 
+NFT_REMINDERS = [
+    "the cat has NFTs. on OpenSea. to buy fish. inflation is real. 😼\n\n🎨 https://opensea.io/collection/i-will-rug-u",
+    "fish prices are rising. the cat needs your support. 🐟\n\n🎨 NFT collection → https://opensea.io/collection/i-will-rug-u",
+    "did you know the cat has a verified NFT collection? to fund the fish fund. 😼\n\n🎨 https://opensea.io/collection/i-will-rug-u",
+    "the cat is proud. the cat has art. the cat also needs fish money. 🐟\n\n🎨 https://opensea.io/collection/i-will-rug-u",
+    "inflation is hitting the fish market hard. consider buying a cat NFT. 😼\n\n🎨 https://opensea.io/collection/i-will-rug-u",
+    "*proudly displays NFT collection* the cat is cultured. and hungry. 🐟\n\n🎨 https://opensea.io/collection/i-will-rug-u",
+    "every NFT sold = one more fish for the cat. do the right thing. 😼\n\n🎨 https://opensea.io/collection/i-will-rug-u",
+]
+
 SOCIAL_LINKS = (
     "🐦 https://x.com/DjangoUnchain06\n"
     "📸 https://www.instagram.com/iwillrug_u/\n"
@@ -819,6 +829,16 @@ async def game_reminder_job(context: ContextTypes.DEFAULT_TYPE):
             print(f"[game_reminder_job] chat {chat_id}: {e}", flush=True)
     # ~2 veces al día: replanificar cada 11-13 horas
     context.application.job_queue.run_once(game_reminder_job, random.uniform(39600, 46800))
+
+async def nft_reminder_job(context: ContextTypes.DEFAULT_TYPE):
+    text = random.choice(NFT_REMINDERS)
+    for chat_id in list(_known_chats.keys()):
+        try:
+            await context.bot.send_message(chat_id=chat_id, text=text)
+        except Exception as e:
+            print(f"[nft_reminder_job] chat {chat_id}: {e}", flush=True)
+    # ~2 veces al día: replanificar cada 11-13 horas
+    context.application.job_queue.run_once(nft_reminder_job, random.uniform(39600, 46800))
 
 # ══════════════════════════════════════════════════════════════════════════
 #  HANDLERS
@@ -1055,7 +1075,8 @@ def build_app():
     a.job_queue.run_once(bored_cat_job, random.uniform(2700, 5400))
     a.job_queue.run_once(social_reminder_job, random.uniform(10800, 21600))   # primer recordatorio: 3-6h
     a.job_queue.run_once(monad_reminder_job, random.uniform(7200, 18000))     # primer recordatorio: 2-5h
-    a.job_queue.run_once(game_reminder_job, random.uniform(14400, 25200))    # primer recordatorio: 4-7h
+    a.job_queue.run_once(game_reminder_job, random.uniform(14400, 25200))     # primer recordatorio: 4-7h
+    a.job_queue.run_once(nft_reminder_job, random.uniform(21600, 32400))     # primer recordatorio: 6-9h
     return a
 
 print("======================================", flush=True)
