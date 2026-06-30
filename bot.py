@@ -4,10 +4,16 @@ import random
 import re
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+
+try:
+    import tweepy
+    _TWEEPY_AVAILABLE = True
+except ImportError:
+    _TWEEPY_AVAILABLE = False
 
 TWEET_URL_RE = re.compile(r'https?://(x|twitter)\.com/\S+')
 
@@ -749,6 +755,173 @@ NFT_REMINDERS = [
     "every NFT sold = one more fish for the cat. do the right thing. 😼\n\n🎨 https://opensea.io/collection/i-will-rug-u",
 ]
 
+TWEET_PHRASES = [
+    # 🐟 Fish
+    "I hid my fish. Now I can't find it. Someone is stealing from me.",
+    "The fish was innocent. That's what made it suspicious.",
+    "I blinked. The fish disappeared. Explain that.",
+    "Counted the fish. One is missing. Counted again. Now two are missing. The numbers are lying.",
+    "The fish looked at me. I looked at the fish. Neither of us blinked. I won. 😼",
+    "Woke up thinking about fish. Went to sleep thinking about fish. Productive day. 🐟",
+    "The fish knows what it did.",
+    "I have a fish. I choose not to share this information. 😼",
+    "Someone moved my fish. Everyone is a suspect. 😼",
+    "The fish was right there. Now it's not. I'm filing a report.",
+    "I don't trust fish that are too still. Suspicious.",
+    "Every fish I've ever met has eventually disappeared. Curious.",
+    "Ate the fish. Immediately wanted another fish. The math doesn't add up.",
+    "Found a fish. Stared at it for 45 minutes. It was a good 45 minutes. 🐟",
+    "I moved the fish from location A to location B. Location A felt wrong.",
+    "The answer is fish. What was the question. 🐟",
+    "I bit the hand that fed me. There was no fish. Lesson delivered. 🐟",
+    "The fish escaped through the floor. I'm watching the floor now.",
+    "Gave the fish a name. Ate the fish. The name was temporary. 😼",
+    "I wasn't staring at the fish. I was thinking near it.",
+    # 📦 Boxes
+    "Every box belongs to me. Even the imaginary ones.",
+    "Found a new box. It is now my office, my home, and my identity. 📦",
+    "The box is small. I am large. Neither of these facts will stop me. 😼",
+    "Someone tried to use the box for something else. The box is mine.",
+    "I fit in the box. The box did not agree. The box was wrong. 😼",
+    "New box arrived. I reviewed it. I approve. 📦",
+    "Left the box for two minutes. Someone moved it. Unacceptable.",
+    "The box smells different today. I'm investigating.",
+    "I have claimed this box. I am not using it. But it's mine.",
+    "The box is empty. I filled it with myself. Perfect solution. 😼",
+    "I've been inside this box for four hours. It's going well.",
+    "The box is too small. I will make myself smaller. Watch me.",
+    # 🏚️ Knocking things over
+    "Knocked it over for science. The science was successful.",
+    "I knocked it off the table. Gravity was going to do it eventually. I helped.",
+    "It fell. I watched it fall. I felt nothing. 😼",
+    "Pushed it to the edge. Waited. Pushed it further. This is art.",
+    "The object was on the table. Now it's on the floor. Progress.",
+    "It looked unstable. I confirmed this. You're welcome.",
+    "I didn't knock it over. It slipped. While I was pushing it. Slowly.",
+    "Tested the structural integrity of every item on the shelf. The floor has room for more.",
+    "It slipped. While I was pushing it. Twice. 😼",
+    "I observed the glass. I nudged the glass. The glass made a decision.",
+    "Everything on the table has potential energy. I help it reach its potential.",
+    # 😴 Sleep / charging
+    "I wasn't sleeping. I was charging. 😼",
+    "I wasn't sleeping. I was thinking very hard with my eyes closed.",
+    "I wasn't sleeping. I was buffering.",
+    "Slept 18 hours. Still tired. The body requires more data.",
+    "Woke up. Decided it was too early. Went back to sleep. Correct decision.",
+    "Nap one: complete. Nap two: in progress. Nap three: scheduled. I'm booked.",
+    "Someone woke me up. I stared at them for three minutes. They apologized. Good. 😼",
+    "I've been in the same position for 6 hours. I have a plan.",
+    "It's either time to sleep or I've been asleep and don't know it. Both are fine.",
+    "The warmest spot in the house has been located. Coordinates classified. 😼",
+    "I was asleep. Then I was awake. Now I'm reconsidering.",
+    "I scheduled a nap for 3pm. I moved it to 2pm. Then 1pm. Optimized.",
+    # 😼 Confidence / absurd logic
+    "Every decision I've made today has been correct. I don't take questions.",
+    "I know what I'm doing. I've been doing it for 3 seconds. 😼",
+    "I was not wrong. The situation evolved unexpectedly.",
+    "I had a reason. I've since forgotten it. But I had one.",
+    "My logic is internally consistent. Externally is not my department. 😼",
+    "I know exactly what I'm doing. 🐟",
+    "My plan has three steps. Step one worked. The other two are optional.",
+    "Made a decision. Stand by the decision. Cannot explain the decision. 😼",
+    "I chose not to respond. This was my response.",
+    "I was right. I am still right. I will always have been right. 😼",
+    "I have given this no thought and I'm confident in my answer.",
+    "Either I'm right or the concept of 'right' needs to be reviewed.",
+    "I don't sit on laptops to be annoying. They're warm. The annoyance is a bonus. 😼",
+    "I walked into this room for a reason. The reason is mine.",
+    "I don't explain my decisions. 😼",
+    "I did something. It made a sound. I left. No further comments.",
+    "I changed my mind. This is strength. 😼",
+    # 🌙 3am chaos
+    "It is 3am. I have things to do. They cannot wait. 😼",
+    "3am: ran from one end of the house to the other. Mission successful.",
+    "3am is the correct time to remember something important and act on it.",
+    "I meowed at 4am. They got up. Power is real. 😼",
+    "I walked across the room at 4am with full purpose. Purpose classified.",
+    "3am thoughts: fish. Also fish. And the shadow behind the door.",
+    # 👻 Suspicious of things
+    "The bag moved. No one is safe.",
+    "I heard a bag move three rooms away. I'm already there.",
+    "Something made a sound. I have identified 14 possible threats.",
+    "The curtain moved. I watched it for 20 minutes. Victory.",
+    "There's a shadow in the corner that wasn't there yesterday. I have my eye on it. 😼",
+    "Something is behind the fridge. I can't see it. It's planning.",
+    "The floor attacked first.",
+    "Gravity keeps taking my stuff. Very rude.",
+    "Something is different in this room. I don't like it.",
+    "If you don't make eye contact, the vacuum can't see you.",
+    "I don't trust still water. It's thinking something.",
+    "The plant moved. I didn't touch the plant. 😼",
+    "I saw something. It saw me. I pretended I didn't. It hasn't recovered.",
+    # 🧘 Philosophical cat
+    "I took a nap. The problem is still there. The nap was worth it.",
+    "There are two types of cats: those who knock things over, and liars.",
+    "The world makes more sense from inside a box. I have data.",
+    "I've been thinking about this for several seconds. Conclusion: fish. 🐟",
+    "Someone asked me a question. I sat down instead. Same thing.",
+    "Every room is the same room when you're confident enough. 😼",
+    "I screamed into the void. The void said nothing. Fair enough.",
+    "I blinked twice. Nothing changed. I blinked once. Still nothing. Inconclusive.",
+    "I stared at the wall for 40 minutes. The wall has information. Not sharing it.",
+    "The situation was observed. A nap was taken. The situation remains.",
+    "I'll deal with it after I sleep. I'll sleep after I deal with something else. It balances.",
+    "I watched the sunrise. Then I went to sleep. The sunrise was fine.",
+    # 🎭 Random chaos
+    "I tasted the thing. I didn't like the thing. I tasted it again to confirm.",
+    "Walked across the keyboard. What I typed was important. I stand by it.",
+    "I sat on the important document. Correct call. 😼",
+    "Found a piece of string. Fought it for 45 minutes. It's handled.",
+    "Chased a shadow until it escaped through the wall. This is not over.",
+    "I found something on the floor. I don't know what it is. It's mine now.",
+    "Watched a fly for 6 minutes. Made no move. The fly doesn't know.",
+    "The red dot appeared. I caught it. No one can tell me otherwise. 😼",
+    "I organized the room by sitting in different places and thinking about it.",
+    "I caught my tail. I don't know what to do now.",
+    "I'm not stuck. I chose this position. I can leave anytime. 😼",
+    "I have a system. It looks like chaos. It is chaos. It works. 😼",
+    "I watched a bird through the window for two hours. The glass protected the bird.",
+    "The TV was on. I sat directly in front of it. This is how you watch TV.",
+    "I have 47 toys. I play with the twist tie from the bread bag.",
+    "I was given a bed specifically for me. I sleep on the laptop instead. 😼",
+    "The human sneezed. I judged them from across the room.",
+    "Someone closed a door. I sat outside until they noticed. They noticed.",
+    "I licked the water faucet. There was a bowl. I prefer the faucet.",
+    "Someone asked where I was last night. I don't answer that.",
+    "I found a hair tie. It's mine now. I have 43. 🐟",
+    "I did it right the first time but I'm doing it again anyway. 😼",
+    "The sun moved. My nap location is no longer optimal. I adapted.",
+    "I hissed at my reflection. It hissed back. I respect it.",
+    "I don't cuddle. I allow proximity. There's a difference. 😼",
+    "The food bowl was 15% empty. I filed a complaint immediately.",
+    "I sat on the newspaper. They were reading it. I provided an upgrade.",
+    "I stared at a speck of dust for 8 minutes. Then I ate it. Threat neutralized. 😼",
+    "I have made a sound in the dark. I will make it again.",
+    "Ran full speed. Stopped suddenly. Stared at the wall. Left. Good session.",
+    "The pillow smells wrong. This is everyone's problem now.",
+    "I knocked over a glass of water. Investigated the water with one paw. Left. 😼",
+    "Head bump administered. Territory marked. Moving on. 😼",
+    "I found the warmest spot in the house. Not sharing the coordinates.",
+    "I knocked the water glass over. Then I wanted water. Then I realized. 😼",
+    "Someone tried to pet me while I was thinking. I allowed it briefly. Out of charity.",
+    "I bit something that wasn't food. Reconsidering.",
+    "I put my paw in the water bowl. Just to check the temperature. Twice.",
+    "I was performing a task. The task was secret. It's done now.",
+    "Everything is fine. I have decided this.",
+    "I see the bag. The bag sees me. We have history. 😼",
+    "I have claimed this spot. No documentation required.",
+    "Followed a human around for 20 minutes. They got nervous. Good.",
+    "I licked my paw. Then I thought about something completely unrelated. Then I licked my paw again.",
+    "I wasn't staring at nothing. I was staring at what nothing might become.",
+    "I knocked it over. I investigated the debris. I walked away. Full audit. 😼",
+    "The cucumber situation has been handled. We don't discuss it.",
+    "I launched myself off the couch for no reason. Landing was acceptable.",
+    "I meowed at the wall. The wall knows what it did.",
+    "I sat in the empty box. The box was adequate. 😼 ...",
+    "I had a very important thought at 3am. I acted on it. No regrets.",
+    "The laser escaped through the wall again. One day. 😼",
+]
+
 SOCIAL_LINKS = (
     "🐦 https://x.com/DjangoUnchain06\n"
     "📸 https://www.instagram.com/iwillrug_u/\n"
@@ -765,6 +938,60 @@ SOCIAL_REMINDERS = [
     f"*stares at you* ... you know what to do.\n\n{SOCIAL_LINKS}",
     f"the cat has spoken. go follow. go like. go repost. 😼\n\n{SOCIAL_LINKS}",
 ]
+
+# ══════════════════════════════════════════════════════════════════════════
+#  TWITTER / X INTEGRATION
+# ══════════════════════════════════════════════════════════════════════════
+_TWITTER_KEYS = (
+    "TWITTER_API_KEY",
+    "TWITTER_API_SECRET",
+    "TWITTER_ACCESS_TOKEN",
+    "TWITTER_ACCESS_TOKEN_SECRET",
+)
+TWITTER_ENABLED = _TWEEPY_AVAILABLE and all(os.environ.get(k) for k in _TWITTER_KEYS)
+
+def _post_tweet(text: str) -> None:
+    client = tweepy.Client(
+        consumer_key=os.environ["TWITTER_API_KEY"],
+        consumer_secret=os.environ["TWITTER_API_SECRET"],
+        access_token=os.environ["TWITTER_ACCESS_TOKEN"],
+        access_token_secret=os.environ["TWITTER_ACCESS_TOKEN_SECRET"],
+    )
+    resp = client.create_tweet(text=text)
+    print(f"[twitter] tweeted id={resp.data['id']}: {text[:60]!r}", flush=True)
+
+def _seconds_until_window(start_hour_utc: int, end_hour_utc: int) -> float:
+    """Seconds until a random moment inside [start_hour_utc, end_hour_utc) today (or tomorrow)."""
+    now = datetime.utcnow()
+    # pick a random minute within the window
+    window_minutes = (end_hour_utc - start_hour_utc) * 60
+    offset_minutes = random.randint(0, window_minutes - 1)
+    target = now.replace(hour=start_hour_utc, minute=0, second=0, microsecond=0) + timedelta(minutes=offset_minutes)
+    if target <= now:
+        target += timedelta(days=1)
+    return (target - now).total_seconds()
+
+async def tweet_morning_job(context: ContextTypes.DEFAULT_TYPE):
+    """Posts one tweet between 09:00-15:00 UTC+2 (= 07:00-13:00 UTC). Reschedules for next day."""
+    if TWITTER_ENABLED:
+        text = random.choice(TWEET_PHRASES)
+        try:
+            await asyncio.get_event_loop().run_in_executor(None, _post_tweet, text)
+        except Exception as e:
+            print(f"[twitter] morning tweet error: {e}", flush=True)
+    delay = _seconds_until_window(7, 13)  # tomorrow's morning window
+    context.application.job_queue.run_once(tweet_morning_job, delay)
+
+async def tweet_evening_job(context: ContextTypes.DEFAULT_TYPE):
+    """Posts one tweet between 17:00-23:00 UTC+2 (= 15:00-21:00 UTC). Reschedules for next day."""
+    if TWITTER_ENABLED:
+        text = random.choice(TWEET_PHRASES)
+        try:
+            await asyncio.get_event_loop().run_in_executor(None, _post_tweet, text)
+        except Exception as e:
+            print(f"[twitter] evening tweet error: {e}", flush=True)
+    delay = _seconds_until_window(15, 21)  # tomorrow's evening window
+    context.application.job_queue.run_once(tweet_evening_job, delay)
 
 # ══════════════════════════════════════════════════════════════════════════
 #  HEALTH CHECK
@@ -1097,7 +1324,13 @@ def build_app():
     a.job_queue.run_once(social_reminder_job, random.uniform(10800, 21600))   # primer recordatorio: 3-6h
     a.job_queue.run_once(monad_reminder_job, random.uniform(7200, 18000))     # primer recordatorio: 2-5h
     a.job_queue.run_once(game_reminder_job, random.uniform(14400, 25200))     # primer recordatorio: 4-7h
-    a.job_queue.run_once(nft_reminder_job, random.uniform(21600, 32400))     # primer recordatorio: 6-9h
+    a.job_queue.run_once(nft_reminder_job, random.uniform(21600, 32400))      # primer recordatorio: 6-9h
+    if TWITTER_ENABLED:
+        a.job_queue.run_once(tweet_morning_job, _seconds_until_window(7, 13))
+        a.job_queue.run_once(tweet_evening_job, _seconds_until_window(15, 21))
+        print("[twitter] tweet jobs scheduled (morning 07-13 UTC, evening 15-21 UTC)", flush=True)
+    else:
+        print("[twitter] disabled — set TWITTER_API_KEY/SECRET/ACCESS_TOKEN/ACCESS_TOKEN_SECRET to enable", flush=True)
     return a
 
 print("======================================", flush=True)
