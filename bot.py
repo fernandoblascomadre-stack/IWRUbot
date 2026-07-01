@@ -50,6 +50,20 @@ CHART_TRIGGERS = ["chart", "price", "marketcap", "market cap", "mcap", "📊", "
 MONAD_TRIGGERS = ["monad", "#monad", "mon blockchain", "built on monad"]
 IWRU_TRIGGERS  = ["i will rug u", "i will rug you", "iwru 🐟", "iwru 😼", "iwru!"]
 
+def _contains_word(text: str, triggers: list[str]) -> bool:
+    """True if any trigger appears as a whole word/phrase in text (not embedded inside a longer word)."""
+    for t in triggers:
+        if not any(c.isalnum() for c in t):
+            if t in text:
+                return True
+        elif re.search(rf'(?<!\w){re.escape(t)}(?!\w)', text):
+            return True
+    return False
+
+def _starts_with_word(text: str, triggers: list[str]) -> bool:
+    """True if text starts with a trigger as a whole word/phrase (not a prefix of a longer word)."""
+    return any(re.match(rf'{re.escape(t)}(?!\w)', text) for t in triggers)
+
 def hour_now():
     return datetime.now().hour
 
@@ -1631,19 +1645,19 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
     # ── GM ─────────────────────────────────────────────────────────────────
-    if any(tl.startswith(t) or tl == t for t in GM_TRIGGERS) and random.random() < 0.60:
+    if _starts_with_word(tl, GM_TRIGGERS) and random.random() < 0.60:
         await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(random.choice(GM_REPLIES))
         return
 
     # ── GN ─────────────────────────────────────────────────────────────────
-    if any(tl.startswith(t) or tl == t for t in GN_TRIGGERS) and random.random() < 0.60:
+    if _starts_with_word(tl, GN_TRIGGERS) and random.random() < 0.60:
         await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(random.choice(GN_REPLIES))
         return
 
     # ── Moon / pump ────────────────────────────────────────────────────────
-    if any(t in tl for t in MOON_TRIGGERS) and random.random() < 0.45:
+    if _contains_word(tl, MOON_TRIGGERS) and random.random() < 0.45:
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(MOON_REPLIES))
         if random.random() < 0.12:
@@ -1652,7 +1666,7 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # ── Dip / dump ─────────────────────────────────────────────────────────
-    if any(t in tl for t in DIP_TRIGGERS) and random.random() < 0.45:
+    if _contains_word(tl, DIP_TRIGGERS) and random.random() < 0.45:
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(DIP_REPLIES))
         if random.random() < 0.12:
