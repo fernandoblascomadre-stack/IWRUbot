@@ -1687,13 +1687,13 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # ── Chart / price ──────────────────────────────────────────────────────
-    if any(t in tl for t in CHART_TRIGGERS) and random.random() < 0.40:
+    if _contains_word(tl, CHART_TRIGGERS) and random.random() < 0.40:
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(CHART_REPLIES))
         return
 
     # ── Monad ──────────────────────────────────────────────────────────────
-    if any(t in tl for t in MONAD_TRIGGERS) and random.random() < 0.50:
+    if _contains_word(tl, MONAD_TRIGGERS) and random.random() < 0.50:
         await asyncio.sleep(random.uniform(1.0, 2.5))
         await msg.reply_text(random.choice(MONAD_REPLIES))
         return
