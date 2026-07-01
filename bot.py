@@ -1519,13 +1519,17 @@ async def nft_reminder_job(context: ContextTypes.DEFAULT_TYPE):
 # ══════════════════════════════════════════════════════════════════════════
 #  HANDLERS
 # ══════════════════════════════════════════════════════════════════════════
+def _is_other_topic(msg) -> bool:
+    """True if msg belongs to a forum topic other than General ('The Bowl')."""
+    return bool(getattr(msg, "is_topic_message", False))
+
 async def cmd_iwru(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
+    if not update.message or _is_other_topic(update.message):
         return
     await update.message.reply_text(random.choice(IWRU_COMMAND_REPLIES))
 
 async def cmd_raid(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
+    if not update.message or _is_other_topic(update.message):
         return
     await update.message.reply_text(random.choice(RAID_RESPONSES))
 
@@ -1535,7 +1539,10 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
 
-    msg     = update.message
+    msg = update.message
+    if _is_other_topic(msg):
+        return
+
     usuario = msg.from_user
     texto   = (msg.text or msg.caption or "").strip()
     chat_id = msg.chat_id
