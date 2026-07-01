@@ -1394,14 +1394,20 @@ def _post_tweet(text: str) -> None:
     resp = client.create_tweet(text=text)
     print(f"[twitter] tweeted id={resp.data['id']}: {text[:60]!r}", flush=True)
 
-def _seconds_until_window(start_hour_utc: int, end_hour_utc: int) -> float:
-    """Seconds until a random moment inside [start_hour_utc, end_hour_utc) today (or tomorrow)."""
+def _seconds_until_window(start_hour_utc: int, end_hour_utc: int, *, force_next_day: bool = False) -> float:
+    """Seconds until a random moment inside [start_hour_utc, end_hour_utc) today (or tomorrow).
+
+    force_next_day=True always targets tomorrow's window, even if today's window hasn't
+    passed yet. Needed when rescheduling right after firing: "now" is still inside today's
+    window, so without this the next random pick could land later the same day instead of
+    tomorrow, causing two posts in the same slot hours (or minutes) apart.
+    """
     now = datetime.utcnow()
     # pick a random minute within the window
     window_minutes = (end_hour_utc - start_hour_utc) * 60
     offset_minutes = random.randint(0, window_minutes - 1)
     target = now.replace(hour=start_hour_utc, minute=0, second=0, microsecond=0) + timedelta(minutes=offset_minutes)
-    if target <= now:
+    if force_next_day or target <= now:
         target += timedelta(days=1)
     return (target - now).total_seconds()
 
@@ -1418,7 +1424,7 @@ async def tweet_slot_job(context: ContextTypes.DEFAULT_TYPE):
             await asyncio.get_event_loop().run_in_executor(None, _post_tweet, text)
         except Exception as e:
             print(f"[twitter] tweet error (slot {slot_start:02d}-{slot_end:02d}h UTC): {e}", flush=True)
-    delay = _seconds_until_window(slot_start, slot_end)  # tomorrow's same slot
+    delay = _seconds_until_window(slot_start, slot_end, force_next_day=True)  # tomorrow's same slot
     context.application.job_queue.run_once(tweet_slot_job, delay, data=(slot_start, slot_end))
 
 # ══════════════════════════════════════════════════════════════════════════
