@@ -19,6 +19,10 @@ TWEET_URL_RE = re.compile(r'https?://(x|twitter)\.com/\S+')
 
 TOKEN = os.environ["TOKEN"]
 
+# chats pre-registrados por env var (KNOWN_CHAT_IDS="-1003859192674,-100...") para que
+# el bot sepa dónde hablar desde el arranque, sin depender de recibir un mensaje primero
+KNOWN_CHAT_IDS = [int(x) for x in os.environ.get("KNOWN_CHAT_IDS", "").replace(" ", "").split(",") if x]
+
 STICKER_COMPRA     = "CAACAgQAAyEFAATmBptiAAIbc2pCtW0Cin0rkU6CFSGyVqWmQYbMAAILIQACaEkIUnVRn_2NEtPVPAQ"
 STICKER_BIENVENIDA = "CAACAgQAAyEFAATmBptiAAIbdGpCtXLR4nqSl707gZNKRYI7MUZOAAJBIAACRh8JUh_nOBSMnXM1PAQ"
 
@@ -1752,6 +1756,10 @@ def build_app():
     a.add_handler(CommandHandler("raid", cmd_raid))
     a.add_handler(MessageHandler(filters.ALL, leer))
     a.add_error_handler(_conflict_handler)
+    for cid in KNOWN_CHAT_IDS:
+        _known_chats.setdefault(cid, time.time())
+    if KNOWN_CHAT_IDS:
+        print(f"[startup] pre-registered chats: {KNOWN_CHAT_IDS}", flush=True)
     a.job_queue.run_once(bored_cat_job, random.uniform(2700, 5400))
     a.job_queue.run_once(social_reminder_job, random.uniform(10800, 21600))   # primer recordatorio: 3-6h
     a.job_queue.run_once(monad_reminder_job, random.uniform(7200, 18000))     # primer recordatorio: 2-5h
