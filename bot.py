@@ -1447,10 +1447,9 @@ threading.Thread(
 async def bored_cat_job(context: ContextTypes.DEFAULT_TYPE):
     now = time.time()
     h   = hour_now()
-    # chat inactivo umbral: 45min de noche, 90min de día
-    inactivity = 2700 if 2 <= h <= 5 else 5400
-    for chat_id, last_seen in list(_known_chats.items()):
-        if now - last_seen > inactivity:
+    # habla por su cuenta con cierta probabilidad, sin importar si el chat está activo
+    for chat_id in list(_known_chats.keys()):
+        if random.random() < 0.50:
             try:
                 eligible = [
                     (uid, udata) for uid, udata in _known_users.items()
@@ -1464,7 +1463,6 @@ async def bored_cat_job(context: ContextTypes.DEFAULT_TYPE):
                 else:
                     text = random.choice(BORED_MESSAGES)
                 await context.bot.send_message(chat_id=chat_id, text=text)
-                _known_chats[chat_id] = now
             except Exception as e:
                 print(f"[bored_cat_job] chat {chat_id}: {e}", flush=True)
     # replanificar con intervalo aleatorio (más frecuente de noche)
