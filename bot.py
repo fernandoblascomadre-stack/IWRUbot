@@ -29,7 +29,7 @@ STICKER_BIENVENIDA = "CAACAgQAAyEFAATmBptiAAIbdGpCtXLR4nqSl707gZNKRYI7MUZOAAJBIA
 # ── Cooldown ───────────────────────────────────────────────────────────────
 _last_random: dict[int, float] = {}
 RANDOM_COOLDOWN = 360   # 6 min entre quips espontáneos
-RANDOM_CHANCE   = 0.12  # 12% de probabilidad (x2 entre 2-5am)
+RANDOM_CHANCE   = 0.096  # -20% relativo (era 0.12) (x2 entre 2-5am)
 
 # ── User tracking ──────────────────────────────────────────────────────────
 _known_chats: dict[int, float]  = {}
@@ -2347,14 +2347,14 @@ async def bored_cat_job(context: ContextTypes.DEFAULT_TYPE):
     h   = hour_now()
     # habla por su cuenta con cierta probabilidad, sin importar si el chat está activo
     for chat_id in list(_known_chats.keys()):
-        if random.random() < 0.44:  # 50% base, -12% relativo
+        if random.random() < 0.352:  # 50% base, -12% y luego -20% relativo
             try:
                 eligible = [
                     (uid, udata) for uid, udata in _known_users.items()
                     if udata.get("chat_id") == chat_id
                     and now - udata.get("last_seen", 0) < 86400
                 ]
-                if eligible and random.random() < 0.40:
+                if eligible and random.random() < 0.32:  # -20% (era 0.40)
                     uid, udata = random.choice(eligible)
                     name = udata.get("name", "human")
                     text = random.choice(CALLOUT_MESSAGES).replace("{name}", name)
@@ -2377,8 +2377,8 @@ async def social_reminder_job(context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=chat_id, text=text)
         except Exception as e:
             print(f"[social_reminder_job] chat {chat_id}: {e}", flush=True)
-    # ~3 veces al día: replanificar cada 7-9 horas
-    context.application.job_queue.run_once(social_reminder_job, random.uniform(25200, 32400))
+    # -20% frecuencia: replanificar cada 8.75-11.25 horas (era 7-9h)
+    context.application.job_queue.run_once(social_reminder_job, random.uniform(31500, 40500))
 
 async def monad_reminder_job(context: ContextTypes.DEFAULT_TYPE):
     text = random.choice(MONAD_REMINDERS)
@@ -2387,8 +2387,8 @@ async def monad_reminder_job(context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=chat_id, text=text)
         except Exception as e:
             print(f"[monad_reminder_job] chat {chat_id}: {e}", flush=True)
-    # ~2 veces al día: replanificar cada 11-13 horas
-    context.application.job_queue.run_once(monad_reminder_job, random.uniform(39600, 46800))
+    # -20% frecuencia: replanificar cada 13.75-16.25 horas (era 11-13h)
+    context.application.job_queue.run_once(monad_reminder_job, random.uniform(49500, 58500))
 
 async def game_reminder_job(context: ContextTypes.DEFAULT_TYPE):
     text = random.choice(GAME_REMINDERS)
@@ -2397,8 +2397,8 @@ async def game_reminder_job(context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=chat_id, text=text)
         except Exception as e:
             print(f"[game_reminder_job] chat {chat_id}: {e}", flush=True)
-    # ~2 veces al día: replanificar cada 11-13 horas
-    context.application.job_queue.run_once(game_reminder_job, random.uniform(39600, 46800))
+    # -20% frecuencia: replanificar cada 13.75-16.25 horas (era 11-13h)
+    context.application.job_queue.run_once(game_reminder_job, random.uniform(49500, 58500))
 
 async def nft_reminder_job(context: ContextTypes.DEFAULT_TYPE):
     text = random.choice(NFT_REMINDERS)
@@ -2407,8 +2407,8 @@ async def nft_reminder_job(context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=chat_id, text=text)
         except Exception as e:
             print(f"[nft_reminder_job] chat {chat_id}: {e}", flush=True)
-    # ~2 veces al día: replanificar cada 11-13 horas
-    context.application.job_queue.run_once(nft_reminder_job, random.uniform(39600, 46800))
+    # -20% frecuencia: replanificar cada 13.75-16.25 horas (era 11-13h)
+    context.application.job_queue.run_once(nft_reminder_job, random.uniform(49500, 58500))
 
 # ══════════════════════════════════════════════════════════════════════════
 #  HANDLERS
@@ -2477,19 +2477,19 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ── Sticker ────────────────────────────────────────────────────────────
     if msg.sticker:
-        if 8 <= h <= 10 and random.random() < 0.55:
+        if 8 <= h <= 10 and random.random() < 0.44:  # -20% (era 0.55)
             await asyncio.sleep(random.uniform(0.5, 2.0))
             await msg.reply_text(random.choice(GM_REPLIES))
-        elif 22 <= h <= 23 and random.random() < 0.55:
+        elif 22 <= h <= 23 and random.random() < 0.44:  # -20% (era 0.55)
             await asyncio.sleep(random.uniform(0.5, 2.0))
             await msg.reply_text(random.choice(GN_REPLIES))
-        elif random.random() < 0.20:
+        elif random.random() < 0.16:  # -20% (era 0.20)
             await asyncio.sleep(random.uniform(0.5, 1.5))
             await msg.reply_text(random.choice(STICKER_REACTIONS))
         return
 
     # ── Photo ──────────────────────────────────────────────────────────────
-    if msg.photo and random.random() < 0.15:
+    if msg.photo and random.random() < 0.12:  # -20% (era 0.15)
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(PHOTO_REACTIONS))
         return
@@ -2538,74 +2538,74 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if _msg_counter[chat_id] >= _next_trigger[chat_id]:
         _msg_counter[chat_id] = 0
         _next_trigger[chat_id] = random.randint(10, 18)
-        if random.random() < 0.65:
+        if random.random() < 0.52:  # -20% (era 0.65)
             await asyncio.sleep(random.uniform(1.0, 3.5))
             await msg.reply_text(random.choice(CHAOS_BURSTS))
             return
 
     # ── IWRU name ──────────────────────────────────────────────────────────
     if any(t in tl for t in IWRU_TRIGGERS) or tl_stripped in ("iwru", "@iwru"):
-        if random.random() < 0.65:
+        if random.random() < 0.52:  # -20% (era 0.65)
             await asyncio.sleep(random.uniform(1.0, 3.0))
             await msg.reply_text(random.choice(IWRU_NAME_REPLIES))
-            if random.random() < 0.12:
+            if random.random() < 0.096:  # -20% (era 0.12)
                 await asyncio.sleep(random.uniform(4, 7))
                 await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
             return
 
     # ── GM ─────────────────────────────────────────────────────────────────
-    if _starts_with_word(tl, GM_TRIGGERS) and random.random() < 0.60:
+    if _starts_with_word(tl, GM_TRIGGERS) and random.random() < 0.48:  # -20% (era 0.60)
         await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(random.choice(GM_REPLIES))
         return
 
     # ── GN ─────────────────────────────────────────────────────────────────
-    if _starts_with_word(tl, GN_TRIGGERS) and random.random() < 0.60:
+    if _starts_with_word(tl, GN_TRIGGERS) and random.random() < 0.48:  # -20% (era 0.60)
         await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(random.choice(GN_REPLIES))
         return
 
     # ── Moon / pump ────────────────────────────────────────────────────────
-    if _contains_word(tl, MOON_TRIGGERS) and random.random() < 0.45:
+    if _contains_word(tl, MOON_TRIGGERS) and random.random() < 0.36:  # -20% (era 0.45)
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(MOON_REPLIES))
-        if random.random() < 0.12:
+        if random.random() < 0.096:  # -20% (era 0.12)
             await asyncio.sleep(random.uniform(4, 7))
             await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
         return
 
     # ── Dip / dump ─────────────────────────────────────────────────────────
-    if _contains_word(tl, DIP_TRIGGERS) and random.random() < 0.45:
+    if _contains_word(tl, DIP_TRIGGERS) and random.random() < 0.36:  # -20% (era 0.45)
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(DIP_REPLIES))
-        if random.random() < 0.12:
+        if random.random() < 0.096:  # -20% (era 0.12)
             await asyncio.sleep(random.uniform(4, 7))
             await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
         return
 
     # ── Wen ────────────────────────────────────────────────────────────────
-    if any(t in tl for t in WEN_TRIGGERS) and random.random() < 0.65:
+    if any(t in tl for t in WEN_TRIGGERS) and random.random() < 0.52:  # -20% (era 0.65)
         await asyncio.sleep(random.uniform(1.0, 2.5))
         await msg.reply_text(random.choice(WEN_REPLIES))
         return
 
     # ── Chart / price ──────────────────────────────────────────────────────
-    if _contains_word(tl, CHART_TRIGGERS) and random.random() < 0.40:
+    if _contains_word(tl, CHART_TRIGGERS) and random.random() < 0.32:  # -20% (era 0.40)
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(CHART_REPLIES))
         return
 
     # ── Monad ──────────────────────────────────────────────────────────────
-    if _contains_word(tl, MONAD_TRIGGERS) and random.random() < 0.50:
+    if _contains_word(tl, MONAD_TRIGGERS) and random.random() < 0.40:  # -20% (era 0.50)
         await asyncio.sleep(random.uniform(1.0, 2.5))
         await msg.reply_text(random.choice(MONAD_REPLIES))
         return
 
     # ── Fish ───────────────────────────────────────────────────────────────
-    if "fish" in tl and random.random() < 0.65:
+    if "fish" in tl and random.random() < 0.52:  # -20% (era 0.65)
         await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(random.choice(FISH_REPLIES))
-        if random.random() < 0.12:
+        if random.random() < 0.096:  # -20% (era 0.12)
             await asyncio.sleep(random.uniform(4, 7))
             await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
         return
