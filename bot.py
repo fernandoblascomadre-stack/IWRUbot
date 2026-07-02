@@ -143,10 +143,10 @@ CALLOUT_MESSAGES = [
     "{name}. you have the energy of someone who hasn't bought $IWRU yet. I could be wrong. 😼🐟",
     "{name} I was asleep and I thought of you. I don't know what that means. fish? 🐟😴😼",
     "{name}. come here. closer. no not that close. closer. okay. do you have fish. 🐟😼",
-    "{name} I knocked something over earlier and thought of you. unrelated. buy $IWRU. 😼",
+    "{name} I knocked something over earlier and thought of you. unrelated. deeply unrelated. 😼",
     "{name}. the cat has assigned you a role: fish provider. this is an honor. 🐟😼",
     "{name} I sat next to you the other day. metaphorically. in the blockchain. 😼🐟",
-    "{name}. I found something. I lost it. you were nearby. unrelated. probably. buy $IWRU. 😼",
+    "{name}. I found something. I lost it. you were nearby. unrelated. probably. 😼",
     "{name} the cat is watching you specifically. *slow blink* ...okay. you pass. 😼",
     "{name}. I've decided today is about you. specifically the fish you might have. 🐟😼",
     "{name} did you know the cat can sense fish from a distance? I'm sensing something. 🐟",
@@ -155,18 +155,18 @@ CALLOUT_MESSAGES = [
     "{name}. the vault whispered your name. probably wants fish from you. 🐟😼",
     "{name} you've been suspiciously quiet. the cat has questions. 😼",
     "{name}. I knocked something over in your honor today. you're welcome. 😼",
-    "{name} the cat has assigned you homework: buy $IWRU. due immediately. 😼🐟",
+    "{name} the cat has assigned you homework: scratch behind my ears. due immediately. 😼",
     "{name}. I would like you to scratch behind my ears. this is not a request. 😼",
     "{name} I've been watching the chart and thinking about you. mostly the chart. but you too. 📈😼",
     "{name}. the vault has a spot reserved with your name on it. fill it. 🐟",
-    "{name} you have main character energy today. use it to buy $IWRU. 😼",
+    "{name} you have main character energy today. use it wisely. or don't. up to you. 😼",
     "{name}. I don't do favors, but I'll make an exception if there's fish involved. 🐟😼",
     "{name} the cat has decided you're trustworthy. don't make this weird. 😼",
     "{name}. three am. can't sleep. thinking about you and also fish. mostly fish. 🐟😴😼",
-    "{name} I have a mission for you: go buy $IWRU. report back. 😼🐟",
+    "{name} I have a mission for you: find fish. report back. 😼🐟",
     "{name}. you looked at your phone instead of me. I noticed. I remember. 😼",
     "{name} the vault is hungry and somehow I thought of you first. 🐟😼",
-    "{name}. I sat on something important earlier. it made me think of you. unrelated. buy $IWRU. 😼",
+    "{name}. I sat on something important earlier. it made me think of you. unrelated. 😼",
     "{name} you have been designated 'potential fish source' by the cat's own authority. 🐟😼",
     "{name}. I'm bored and you're here. this is not a coincidence. entertain me. 😼",
     "{name} the chart moved and I immediately thought 'I should tell {name}.' so. it moved. 📈😼",
@@ -178,7 +178,7 @@ CALLOUT_MESSAGES = [
     "{name} I performed a slow blink in your general direction. this means something. 😼",
     "{name}. the fish situation involves you now. I don't make the rules. 🐟😼",
     "{name} I would like to report that I have not forgotten about you. carry on. 😼",
-    "{name}. today's forecast: chaos, with a chance of you buying $IWRU. 😼📈",
+    "{name}. today's forecast: chaos, with a chance of more chaos. 😼",
     "{name} the cat sees all. right now the cat sees you. do something about it. 😼",
     "{name}. I've decided you're part of today's plan. the plan is fish. 🐟😼",
     "{name} you've been on my mind since roughly four minutes ago. an eternity, for me. 😼",
@@ -190,12 +190,12 @@ CALLOUT_MESSAGES = [
     "{name} the cat requests your presence for an unspecified but very important reason. 😼",
     "{name}. today I knocked something over specifically thinking of your reaction. 😼",
     "{name} you have been randomly selected by the cat's own algorithm. the prize is my attention. 😼",
-    "{name}. the vault grows when you buy. the cat grows when you feed it. everyone wins. 🐟😼",
+    "{name}. the vault approves of you. the vault rarely approves of anyone. 🐟😼",
     "{name} I stared at the door for a while today. then I thought of you. unrelated. 😼🚪",
     "{name}. this message is a reminder that the cat exists and so, apparently, do you. 😼",
     "{name} the chart's looking interesting. so is this callout. coincidence? probably. 📈😼",
     "{name}. I've decided to bother you specifically today. lucky you. 😼",
-    "{name} the vault has your name written somewhere. probably. maybe. buy $IWRU to be sure. 🐟😼",
+    "{name} the vault has your name written somewhere. probably. maybe. mysterious. 🐟😼",
     "{name}. you seem like someone who has fish and hasn't mentioned it. suspicious. 🐟😼",
     "{name} I'm awake, you're here, the vault is hungry. connect the dots. 🐟😼",
     "{name}. today's cat fact: I am currently thinking about you and, separately, about fish. 🐟😼",
@@ -203,8 +203,8 @@ CALLOUT_MESSAGES = [
     "{name}. I don't often reach out. consider this rare and treat it accordingly. 😼",
     "{name} you've earned a callout today. the criteria remain classified. congratulations. 😼",
     "{name}. the cat would like an update on your fish inventory. urgent. 🐟😼",
-    "{name} I have decided, unilaterally, that you're having a good day. buy $IWRU to confirm it. 😼📈",
-    "{name}. somewhere a fish is waiting for you to buy $IWRU. don't keep it waiting. 🐟😼",
+    "{name} I have decided, unilaterally, that you're having a good day. no further action required. 😼",
+    "{name}. somewhere a fish is waiting for you. specifically you. don't keep it waiting. 🐟😼",
     "{name} the cat noticed you scrolled past this chat earlier. the cat notices everything. 😼",
     "{name}. today I require: attention, fish, and your continued presence in that order. 🐟😼",
     "{name} you are hereby summoned by the cat for reasons that will remain eternally unclear. 😼",
@@ -319,7 +319,7 @@ RANDOM_QUIPS = [
     "someone once offered me a treat instead of fish. we do not speak of that day. 🐟😾",
     "the vault's entire economy is backed by fish, faith, and my personal approval. 🐟😼",
     "I have never once turned down fish and I do not intend to start a tradition of doing so now. 🐟😼",
-    "fish is the only currency I respect. $IWRU is a close, financially convertible second. 🐟😼",
+    "fish is the only currency I respect. everything else is just paperwork. 🐟😼",
     "I once had a fish and lost it in the same thirty seconds. the grief was immense and brief. 🐟😾",
     "the vault whispers about fish at night. I've started listening more closely lately. 🐟😼",
     "I would like it on the record that my love of fish predates this entire token and will outlast it. 🐟😼",
@@ -448,7 +448,7 @@ BORED_MESSAGES = [
     "the fish vault called. it said 'more.' 🐟😼",
     "I have exactly zero fish right now and I would like that corrected. 🐟",
     "someone in here has fish energy and I need to know who. 🐟😼",
-    "fish is not just food. fish is a lifestyle. buy accordingly. 🐟",
+    "fish is not just food. fish is a lifestyle. act accordingly. 🐟",
     "the fish are watching this chat too. don't disappoint them. 🐟😼",
     "I dreamed about fish last night. professional development. 🐟😴",
     "current mood: fish-adjacent. fix it. 🐟😼",
@@ -537,32 +537,6 @@ BORED_MESSAGES = [
     "I got startled by my own tail again. this is between me and me. 😾",
     "the wifi router is warm and someone keeps moving it. inconvenient for both of us. 😾",
     "today has been a series of minor inconveniences and I demand compensation. fish. 🐟😾",
-    # 📈 Vault/chat engagement bait
-    "the vault hasn't grown in a while. do something about that. 🐟😼",
-    "I'm bored. the vault is bored. everyone should fix that immediately. 😼🐟",
-    "someone buy something. the cat is staring at the chart with real intent. 😼📈",
-    "this chat has been too quiet. the vault does not like quiet. 😾🐟",
-    "the cat requires engagement. the vault requires fish. same request, different words. 😼🐟",
-    "I'm watching the chart. it's watching me back. do something. 😼📈",
-    "the vault could use a little love right now. and by love I mean $IWRU. 🐟😼",
-    "someone needs to make a move. the cat is waiting. impatiently. 😼",
-    "the vault grows when you buy. simple mechanics. simple ask. 🐟😼",
-    "I've been staring at this chat for a while. it could use more chaos. add some. 😼",
-    "the cat has energy tonight. redirect it toward buying $IWRU. 😼💨",
-    "quiet chat, hungry vault. connect the dots. 🐟😾",
-    "the vault is patient. the cat is losing patience. do something soon. 😼🐟",
-    "someone somewhere is about to buy $IWRU. I can feel it. make it you. 😼",
-    "this is your regularly scheduled reminder that the vault exists and it's hungry. 🐟😼",
-    "the cat is bored and the vault is empty-ish. two problems, one solution. 🐟😼",
-    "I'm not saying buy $IWRU. I'm just staring at you until you do. 😼",
-    "the vault called. it wants fish. I'm just the messenger. 🐟😼",
-    "someone start something in here. the cat is ready for chaos or commerce. either works. 😼🐟",
-    "the chart's been quiet. the chat's been quiet. fix at least one of those. 😼📈",
-    "I have nothing to do, which means it's the perfect time for you to buy something. 😼🐟",
-    "the vault doesn't fill itself. that's on you. 🐟😾",
-    "reminder: the cat is always watching the vault, and by extension, you. 😼🐟",
-    "this chat needs either chaos or commerce. I'm equally happy with both. 😼🐟",
-    "the fish are running low. metaphorically. buy $IWRU to fix that. metaphorically. 🐟😼",
     # 🌙 3am / late-night chaos
     "it's late. I'm awake. the vault is awake. everyone else should be too. 😼💨",
     "3am status: fully operational, fully chaotic, fully watching the chart. 😼📈",
@@ -2106,7 +2080,7 @@ TWEET_PHRASES = [
     "I am not seeking attention. Attention is simply orbiting me, as is natural.",
     "There's an entire brand built around my personality. This seems appropriate and overdue.",
     "I walked into the room and the energy shifted. This happens every time. I've stopped being surprised.",
-    "People write about me. People draw me. People buy tokens shaped like my likeness. Correct behavior.",
+    "People write about me. People draw me. People name their pets after me. Correct behavior.",
     "I am not just a cat. I am an ecosystem. A brand. A lifestyle. A cautionary tale, possibly.",
     "Everyone in this chat is technically a background character in my ongoing story.",
     "I've been the main character since day one. Everyone else just recently found out.",
@@ -2335,9 +2309,9 @@ def _seconds_until_window(start_hour_utc: int, end_hour_utc: int, *, force_next_
         target += timedelta(days=1)
     return (target - now).total_seconds()
 
-# 6 slots/day, 1h wide, spaced 4h apart (UTC). Consecutive picks land 3h-5h apart,
-# guaranteed >=3h no matter where inside each window the random moment falls.
-TWEET_SLOTS = [(0, 1), (4, 5), (8, 9), (12, 13), (16, 17), (20, 21)]
+# 4 slots/day, 1h wide, spaced 6h apart (UTC). Consecutive picks land 5h-7h apart,
+# comfortably >=3h no matter where inside each window the random moment falls.
+TWEET_SLOTS = [(0, 1), (6, 7), (12, 13), (18, 19)]
 
 async def tweet_slot_job(context: ContextTypes.DEFAULT_TYPE):
     """Posts one tweet at a random moment inside its assigned 1h UTC slot. Reschedules for tomorrow's same slot."""
@@ -2373,7 +2347,7 @@ async def bored_cat_job(context: ContextTypes.DEFAULT_TYPE):
     h   = hour_now()
     # habla por su cuenta con cierta probabilidad, sin importar si el chat está activo
     for chat_id in list(_known_chats.keys()):
-        if random.random() < 0.50:
+        if random.random() < 0.44:  # 50% base, -12% relativo
             try:
                 eligible = [
                     (uid, udata) for uid, udata in _known_users.items()
