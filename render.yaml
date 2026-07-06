@@ -4,6 +4,23 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: python bot.py
+    # Without this disk, Render workers get a fresh EPHEMERAL filesystem on
+    # every deploy/restart -- events.db (game history, wallets, the
+    # events_enabled on/off flag, and every dedupe flag) would silently reset
+    # to blank/disabled each time, with no error output anywhere. EVENTS_DB_PATH
+    # below MUST point inside this mount -- a relative path (or any path
+    # outside mountPath) would silently write to the ephemeral filesystem
+    # instead, looking like a fix while not actually being one.
+    disk:
+      name: iwrubot-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: TOKEN
         sync: false
+      - key: EVENTS_CHAT_ID
+        sync: false
+      - key: BOT_OWNER_ID
+        sync: false
+      - key: EVENTS_DB_PATH
+        value: /var/data/events.db

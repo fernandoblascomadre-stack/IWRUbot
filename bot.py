@@ -19,17 +19,37 @@ TWEET_URL_RE = re.compile(r'https?://(x|twitter)\.com/\S+')
 
 TOKEN = os.environ["TOKEN"]
 
-# chats pre-registrados por env var (KNOWN_CHAT_IDS="-1003859192674,-100...") para que
-# el bot sepa dónde hablar desde el arranque, sin depender de recibir un mensaje primero
-KNOWN_CHAT_IDS = [int(x) for x in os.environ.get("KNOWN_CHAT_IDS", "").replace(" ", "").split(",") if x]
+# imported after TOKEN is validated so a missing EVENTS_CHAT_ID (required by
+# events_config.py at import time) doesn't get misattributed as a core-bot
+# startup failure
+import events
+import db
 
-STICKER_COMPRA     = "CAACAgQAAyEFAATmBptiAAIbc2pCtW0Cin0rkU6CFSGyVqWmQYbMAAILIQACaEkIUnVRn_2NEtPVPAQ"
-STICKER_BIENVENIDA = "CAACAgQAAyEFAATmBptiAAIbdGpCtXLR4nqSl707gZNKRYI7MUZOAAJBIAACRh8JUh_nOBSMnXM1PAQ"
+# chats pre-registered via env var (KNOWN_CHAT_IDS="-1003859192674,-100...") so
+# the bot knows where to speak from startup, without depending on receiving a message first.
+# One malformed entry is skipped (and logged) individually rather than crashing the whole
+# list -- and the whole bot process -- at import time over a single typo.
+def _parse_known_chat_ids(raw: str) -> list[int]:
+    ids = []
+    for x in raw.replace(" ", "").split(","):
+        if not x:
+            continue
+        try:
+            ids.append(int(x))
+        except ValueError:
+            print(f"[startup] invalid KNOWN_CHAT_IDS entry {x!r}, skipping", flush=True)
+    return ids
+
+
+KNOWN_CHAT_IDS = _parse_known_chat_ids(os.environ.get("KNOWN_CHAT_IDS", ""))
+
+STICKER_BUY     = "CAACAgQAAyEFAATmBptiAAIbc2pCtW0Cin0rkU6CFSGyVqWmQYbMAAILIQACaEkIUnVRn_2NEtPVPAQ"
+STICKER_WELCOME = "CAACAgQAAyEFAATmBptiAAIbdGpCtXLR4nqSl707gZNKRYI7MUZOAAJBIAACRh8JUh_nOBSMnXM1PAQ"
 
 # ── Cooldown ───────────────────────────────────────────────────────────────
 _last_random: dict[int, float] = {}
-RANDOM_COOLDOWN = 360   # 6 min entre quips espontáneos
-RANDOM_CHANCE   = 0.096  # -20% relativo (era 0.12) (x2 entre 2-5am)
+RANDOM_COOLDOWN = 360   # 6 min between spontaneous quips
+RANDOM_CHANCE   = 0.096  # -20% relative (was 0.12) (x2 between 2-5am)
 
 # ── User tracking ──────────────────────────────────────────────────────────
 _known_chats: dict[int, float]  = {}
@@ -39,7 +59,7 @@ _user_nicknames: dict[int, str] = {}
 # ── Bot username cache ─────────────────────────────────────────────────────
 _bot_username: str | None = None
 
-# ── Message counter → chaos burst cada N mensajes ─────────────────────────
+# ── Message counter → chaos burst every N messages ─────────────────────────
 _msg_counter: dict[int, int] = {}
 _next_trigger: dict[int, int] = {}
 
@@ -49,7 +69,7 @@ GM_TRIGGERS    = ["gm", "good morning", "morning fam", "buenos días", "gm every
 GN_TRIGGERS    = ["gn", "good night", "goodnight", "buenas noches", "gn everyone", "sleep well", "going to sleep"]
 MOON_TRIGGERS  = ["moon", "🚀", "pump", "pumping", "mooning", "ath", "all time high", "bullish", "we're going up", "to the moon"]
 DIP_TRIGGERS   = ["dip", "dump", "dumping", "red", "crashed", "bleeding", "ngmi", "rekt", "it's over"]
-WEN_TRIGGERS   = ["wen ", "wen?", "when moon", "when pump", "wen lambo", "wen rich", "when rich"]
+WEN_TRIGGERS   = ["wen", "when moon", "when pump", "wen lambo", "wen rich", "when rich"]
 CHART_TRIGGERS = ["chart", "price", "marketcap", "market cap", "mcap", "📊", "📈", "📉"]
 MONAD_TRIGGERS = ["monad", "#monad", "mon blockchain", "built on monad"]
 IWRU_TRIGGERS  = ["i will rug u", "i will rug you", "iwru 🐟", "iwru 😼", "iwru!"]
@@ -1047,7 +1067,7 @@ PHOTO_REACTIONS = [
 ]
 
 # ══════════════════════════════════════════════════════════════════════════
-#  CHAOS BURSTS  (contador de mensajes → el gato irrumpe)
+#  CHAOS BURSTS  (message counter → the cat bursts in)
 # ══════════════════════════════════════════════════════════════════════════
 CHAOS_BURSTS = [
     "😼",
@@ -1122,7 +1142,7 @@ NAD_CA   = "0xaCCD61772BCd3717546f141382b68b6D2EF17777"
 MONAD_REMINDERS = [
     f"$IWRU is live on Monad. don't say the cat didn't warn you. 😼\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
     f"in case you forgot — the cat is tokenized 🐟\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
-    f"*drops fish on floor* $IWRU. Monad. now. 😼\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
+    f"drops fish on floor. $IWRU. Monad. now. 😼\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
     f"the cat has been deployed on Monad blockchain. act accordingly. 🐟\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
     f"$IWRU — launched. live. on Monad. what are you waiting for. 😼\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
     f"friendly reminder from the cat: $IWRU is tradeable 🐟\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
@@ -2314,16 +2334,42 @@ def _seconds_until_window(start_hour_utc: int, end_hour_utc: int, *, force_next_
 TWEET_SLOTS = [(0, 1), (6, 7), (12, 13), (18, 19)]
 
 async def tweet_slot_job(context: ContextTypes.DEFAULT_TYPE):
-    """Posts one tweet at a random moment inside its assigned 1h UTC slot. Reschedules for tomorrow's same slot."""
-    slot_start, slot_end = context.job.data
-    if TWITTER_ENABLED:
-        text = random.choice(TWEET_PHRASES)
-        try:
-            await asyncio.get_event_loop().run_in_executor(None, _post_tweet, text)
-        except Exception as e:
-            print(f"[twitter] tweet error (slot {slot_start:02d}-{slot_end:02d}h UTC): {e}", flush=True)
-    delay = _seconds_until_window(slot_start, slot_end, force_next_day=True)  # tomorrow's same slot
-    context.application.job_queue.run_once(tweet_slot_job, delay, data=(slot_start, slot_end))
+    """Posts one tweet at a random moment inside its assigned 1h UTC slot. Reschedules for tomorrow's same slot.
+
+    The reschedule at the end is wrapped in try/finally so ANY failure above
+    (not just the tweet-posting call, which already has its own try/except --
+    also e.g. random.choice on an empty TWEET_PHRASES) can never skip
+    rescheduling, which would otherwise silently kill this job forever until
+    the whole process restarts."""
+    try:
+        slot_start, slot_end = context.job.data
+    except Exception as e:
+        # Can't reschedule "tomorrow's same slot" without knowing the slot --
+        # this specific job instance is unrecoverable, but this should never
+        # happen since every scheduling call site always passes data=(...).
+        print(f"[twitter] tweet_slot_job: malformed job.data, cannot reschedule: {e}", flush=True)
+        return
+    try:
+        if TWITTER_ENABLED:
+            # Persisted per-slot dedupe (reusing events.py's SQLite config
+            # table -- generic key/value, safe to share as long as the key
+            # is namespaced): without this, a restart landing inside a slot
+            # AFTER it already tweeted once today recomputes a fresh random
+            # target that can still land later in that SAME window, posting
+            # a second tweet the same day -- unlike daily_event_job/
+            # event_teaser_job, which already guard against exactly this.
+            today = datetime.utcnow().date().isoformat()  # matches events.py's same convention
+            slot_key = f"last_tweet_date_{slot_start}_{slot_end}"
+            if db.get_config(slot_key) != today:
+                db.set_config(slot_key, today)  # set BEFORE posting, matching the same restart-safety reasoning
+                text = random.choice(TWEET_PHRASES)
+                try:
+                    await asyncio.get_event_loop().run_in_executor(None, _post_tweet, text)
+                except Exception as e:
+                    print(f"[twitter] tweet error (slot {slot_start:02d}-{slot_end:02d}h UTC): {e}", flush=True)
+    finally:
+        delay = _seconds_until_window(slot_start, slot_end, force_next_day=True)  # tomorrow's same slot
+        context.application.job_queue.run_once(tweet_slot_job, delay, data=(slot_start, slot_end))
 
 # ══════════════════════════════════════════════════════════════════════════
 #  HEALTH CHECK
@@ -2334,81 +2380,123 @@ class HealthHandler(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
-threading.Thread(
-    target=lambda: HTTPServer(("0.0.0.0", int(os.environ.get("PORT", 10000))), HealthHandler).serve_forever(),
-    daemon=True,
-).start()
+def _run_health_server():
+    # Binding/serve_forever failures here previously died silently in the
+    # daemon thread with no retry -- on a platform (Render) that gates
+    # container health on this exact port, that looks like a hung service
+    # from the outside while application logs look completely normal.
+    try:
+        port = int(os.environ.get("PORT", 10000))
+    except ValueError as e:
+        # Parsed once, outside the retry loop -- a malformed PORT would
+        # otherwise fail identically on every single retry forever (every
+        # 5s, permanently), which looks like a working retry mechanism in
+        # the logs while the health endpoint can never actually come up.
+        print(f"[health] invalid PORT env var ({e}), falling back to 10000", flush=True)
+        port = 10000
+    while True:
+        try:
+            HTTPServer(("0.0.0.0", port), HealthHandler).serve_forever()
+        except Exception as e:
+            print(f"[health] server crashed, retrying in 5s: {e}", flush=True)
+            time.sleep(5)
+
+
+threading.Thread(target=_run_health_server, daemon=True).start()
 
 # ══════════════════════════════════════════════════════════════════════════
 #  BORED + CALLOUT JOB  (PTB JobQueue — runs inside the bot's event loop)
 # ══════════════════════════════════════════════════════════════════════════
 async def bored_cat_job(context: ContextTypes.DEFAULT_TYPE):
-    now = time.time()
-    h   = hour_now()
-    # habla por su cuenta con cierta probabilidad, sin importar si el chat está activo
-    for chat_id in list(_known_chats.keys()):
-        if random.random() < 0.352:  # 50% base, -12% y luego -20% relativo
-            try:
-                eligible = [
-                    (uid, udata) for uid, udata in _known_users.items()
-                    if udata.get("chat_id") == chat_id
-                    and now - udata.get("last_seen", 0) < 86400
-                ]
-                if eligible and random.random() < 0.32:  # -20% (era 0.40)
-                    uid, udata = random.choice(eligible)
-                    name = udata.get("name", "human")
-                    text = random.choice(CALLOUT_MESSAGES).replace("{name}", name)
-                else:
-                    text = random.choice(BORED_MESSAGES)
-                await context.bot.send_message(chat_id=chat_id, text=text)
-            except Exception as e:
-                print(f"[bored_cat_job] chat {chat_id}: {e}", flush=True)
-    # replanificar con intervalo aleatorio (más frecuente de noche)
-    if 2 <= h <= 5:
-        delay = random.uniform(1800, 3600)   # 30-60 min de noche
-    else:
-        delay = random.uniform(2700, 6300)   # 45-105 min de día
-    context.application.job_queue.run_once(bored_cat_job, delay)
+    # The reschedule at the end is wrapped in try/finally so ANY failure above
+    # can never skip rescheduling, which would otherwise silently kill this
+    # job forever until the whole process restarts -- same pattern as
+    # tweet_slot_job/social_reminder_job/monad_reminder_job/game_reminder_job/
+    # nft_reminder_job.
+    try:
+        now = time.time()
+        # speaks up on its own with some probability, regardless of whether the chat is active
+        for chat_id in list(_known_chats.keys()):
+            if random.random() < 0.352:  # 50% base, -12% then -20% relative
+                try:
+                    eligible = [
+                        (uid, udata) for uid, udata in _known_users.items()
+                        if udata.get("chat_id") == chat_id
+                        and now - udata.get("last_seen", 0) < 86400
+                    ]
+                    if eligible and random.random() < 0.32:  # -20% (was 0.40)
+                        uid, udata = random.choice(eligible)
+                        name = udata.get("name", "human")
+                        text = random.choice(CALLOUT_MESSAGES).replace("{name}", name)
+                    else:
+                        text = random.choice(BORED_MESSAGES)
+                    await context.bot.send_message(chat_id=chat_id, text=text)
+                except Exception as e:
+                    print(f"[bored_cat_job] chat {chat_id}: {e}", flush=True)
+    finally:
+        # reschedule with a random interval (more frequent at night)
+        if 2 <= hour_now() <= 5:
+            delay = random.uniform(1800, 3600)   # 30-60 min at night
+        else:
+            delay = random.uniform(2700, 6300)   # 45-105 min during the day
+        context.application.job_queue.run_once(bored_cat_job, delay)
 
 async def social_reminder_job(context: ContextTypes.DEFAULT_TYPE):
-    text = random.choice(SOCIAL_REMINDERS)
-    for chat_id in list(_known_chats.keys()):
-        try:
-            await context.bot.send_message(chat_id=chat_id, text=text)
-        except Exception as e:
-            print(f"[social_reminder_job] chat {chat_id}: {e}", flush=True)
-    # -20% frecuencia: replanificar cada 8.75-11.25 horas (era 7-9h)
-    context.application.job_queue.run_once(social_reminder_job, random.uniform(31500, 40500))
+    # try/finally around the whole body: any failure (even random.choice on
+    # an unexpectedly empty list) must never skip the reschedule below, or
+    # this job silently stops firing forever until the process restarts.
+    try:
+        text = random.choice(SOCIAL_REMINDERS)
+        for chat_id in list(_known_chats.keys()):
+            try:
+                await context.bot.send_message(chat_id=chat_id, text=text)
+            except Exception as e:
+                print(f"[social_reminder_job] chat {chat_id}: {e}", flush=True)
+    finally:
+        # -20% frequency: reschedule every 8.75-11.25 hours (was 7-9h)
+        context.application.job_queue.run_once(social_reminder_job, random.uniform(31500, 40500))
 
 async def monad_reminder_job(context: ContextTypes.DEFAULT_TYPE):
-    text = random.choice(MONAD_REMINDERS)
-    for chat_id in list(_known_chats.keys()):
-        try:
-            await context.bot.send_message(chat_id=chat_id, text=text)
-        except Exception as e:
-            print(f"[monad_reminder_job] chat {chat_id}: {e}", flush=True)
-    # -20% frecuencia: replanificar cada 13.75-16.25 horas (era 11-13h)
-    context.application.job_queue.run_once(monad_reminder_job, random.uniform(49500, 58500))
+    try:
+        text = random.choice(MONAD_REMINDERS)
+        for chat_id in list(_known_chats.keys()):
+            try:
+                # parse_mode="Markdown" here specifically -- MONAD_REMINDERS
+                # entries use backticks around the contract address intending
+                # Telegram's tap-to-copy code formatting, which never
+                # rendered without this (safe here, unlike other send_message
+                # calls in this file, since these strings are fixed and
+                # contain no user-controlled text that could break parsing).
+                await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
+            except Exception as e:
+                print(f"[monad_reminder_job] chat {chat_id}: {e}", flush=True)
+    finally:
+        # -20% frequency: reschedule every 13.75-16.25 hours (was 11-13h)
+        context.application.job_queue.run_once(monad_reminder_job, random.uniform(49500, 58500))
 
 async def game_reminder_job(context: ContextTypes.DEFAULT_TYPE):
-    text = random.choice(GAME_REMINDERS)
-    for chat_id in list(_known_chats.keys()):
-        try:
-            await context.bot.send_message(chat_id=chat_id, text=text)
-        except Exception as e:
-            print(f"[game_reminder_job] chat {chat_id}: {e}", flush=True)
-    # -20% frecuencia: replanificar cada 13.75-16.25 horas (era 11-13h)
-    context.application.job_queue.run_once(game_reminder_job, random.uniform(49500, 58500))
+    try:
+        text = random.choice(GAME_REMINDERS)
+        for chat_id in list(_known_chats.keys()):
+            try:
+                await context.bot.send_message(chat_id=chat_id, text=text)
+            except Exception as e:
+                print(f"[game_reminder_job] chat {chat_id}: {e}", flush=True)
+    finally:
+        # -20% frequency: reschedule every 13.75-16.25 hours (was 11-13h)
+        context.application.job_queue.run_once(game_reminder_job, random.uniform(49500, 58500))
 
 async def nft_reminder_job(context: ContextTypes.DEFAULT_TYPE):
-    text = random.choice(NFT_REMINDERS)
-    for chat_id in list(_known_chats.keys()):
-        try:
-            await context.bot.send_message(chat_id=chat_id, text=text)
-        except Exception as e:
-            print(f"[nft_reminder_job] chat {chat_id}: {e}", flush=True)
-    # -20% frecuencia: replanificar cada 13.75-16.25 horas (era 11-13h)
-    context.application.job_queue.run_once(nft_reminder_job, random.uniform(49500, 58500))
+    try:
+        text = random.choice(NFT_REMINDERS)
+        for chat_id in list(_known_chats.keys()):
+            try:
+                await context.bot.send_message(chat_id=chat_id, text=text)
+            except Exception as e:
+                print(f"[nft_reminder_job] chat {chat_id}: {e}", flush=True)
+    finally:
+        # -20% frequency: reschedule every 13.75-16.25 hours (was 11-13h)
+        context.application.job_queue.run_once(nft_reminder_job, random.uniform(49500, 58500))
 
 # ══════════════════════════════════════════════════════════════════════════
 #  HANDLERS
@@ -2417,14 +2505,11 @@ def _is_other_topic(msg) -> bool:
     """True if msg belongs to a forum topic other than General ('The Bowl')."""
     return bool(getattr(msg, "is_topic_message", False))
 
-async def cmd_iwru(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or _is_other_topic(update.message):
-        return
-    await update.message.reply_text(random.choice(IWRU_COMMAND_REPLIES))
-
 async def cmd_raid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or _is_other_topic(update.message):
         return
+    if update.message.chat.type == "private":
+        return  # a raid call-to-action means nothing outside the group
     await update.message.reply_text(random.choice(RAID_RESPONSES))
 
 async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2436,79 +2521,86 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if _is_other_topic(msg):
         return
+    if msg.chat.type == "private":
+        return
 
-    usuario = msg.from_user
-    texto   = (msg.text or msg.caption or "").strip()
+    user = msg.from_user
+    text   = (msg.text or msg.caption or "").strip()
     chat_id = msg.chat_id
     now     = time.time()
     h       = hour_now()
 
-    tl = texto.lower()
+    tl = text.lower()
 
-    # ── nadfun / rose: siempre primero, antes de todo, incluye bots ───────
+    # ── nadfun / rose: always first, before everything else, includes bots ───────
     if "iwru buy" in tl:
-        print(f"[STICKER_COMPRA] de {usuario.username if usuario else '?'}: {texto[:100]!r}", flush=True)
-        await msg.reply_sticker(STICKER_COMPRA)
+        print(f"[STICKER_BUY] from {user.username if user else '?'}: {text[:100]!r}", flush=True)
+        await msg.reply_sticker(STICKER_BUY)
         return
     if "new human detected" in tl:
-        print(f"[STICKER_BIENVENIDA] de {usuario.username if usuario else '?'}: {texto[:100]!r}", flush=True)
-        await msg.reply_sticker(STICKER_BIENVENIDA)
+        print(f"[STICKER_WELCOME] from {user.username if user else '?'}: {text[:100]!r}", flush=True)
+        await msg.reply_sticker(STICKER_WELCOME)
         return
 
-    # ── ignorar el resto de mensajes de otros bots ─────────────────────────
-    if usuario and usuario.is_bot:
-        print(f"[BOT {usuario.username or '?'}]: {texto[:120]!r}", flush=True)
+    # ── ignore the rest of other bots' messages ─────────────────────────
+    if user and user.is_bot:
+        print(f"[BOT {user.username or '?'}]: {text[:120]!r}", flush=True)
         return
 
-    # ── solo mensajes humanos a partir de aquí ────────────────────────────
+    # ── only human messages from here on ────────────────────────────
     _known_chats[chat_id] = now
 
-    if usuario:
-        uid = usuario.id
+    try:
+        await events.on_group_activity(context, chat_id)
+    except Exception as e:
+        print(f"[events.on_group_activity] {e}", flush=True)
+
+    if user:
+        uid = user.id
         if uid not in _user_nicknames:
             _user_nicknames[uid] = random.choice(NICKNAMES)
         _known_users[uid] = {
             "chat_id":   chat_id,
-            "name":      usuario.first_name or "human",
+            "name":      user.first_name or "human",
             "last_seen": now,
         }
 
-    print(f"[{usuario.full_name if usuario else '?'}]: {texto[:80]}", flush=True)
+    print(f"[{user.full_name if user else '?'}]: {text[:80]}", flush=True)
 
     # ── Sticker ────────────────────────────────────────────────────────────
     if msg.sticker:
-        if 8 <= h <= 10 and random.random() < 0.44:  # -20% (era 0.55)
+        if 8 <= h <= 10 and random.random() < 0.44:  # -20% (was 0.55)
             await asyncio.sleep(random.uniform(0.5, 2.0))
             await msg.reply_text(random.choice(GM_REPLIES))
-        elif 22 <= h <= 23 and random.random() < 0.44:  # -20% (era 0.55)
+        elif 22 <= h <= 23 and random.random() < 0.44:  # -20% (was 0.55)
             await asyncio.sleep(random.uniform(0.5, 2.0))
             await msg.reply_text(random.choice(GN_REPLIES))
-        elif random.random() < 0.16:  # -20% (era 0.20)
+        elif random.random() < 0.16:  # -20% (was 0.20)
             await asyncio.sleep(random.uniform(0.5, 1.5))
             await msg.reply_text(random.choice(STICKER_REACTIONS))
         return
 
     # ── Photo ──────────────────────────────────────────────────────────────
-    if msg.photo and random.random() < 0.12:  # -20% (era 0.15)
+    if msg.photo and random.random() < 0.12:  # -20% (was 0.15)
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(PHOTO_REACTIONS))
         return
 
-    if not texto:
+    if not text:
         return
 
-    # ── Tweet URL → raid (siempre, antes del contador) ────────────────────
-    if TWEET_URL_RE.search(texto):
+    # ── Tweet URL → raid (always, before the counter) ────────────────────
+    if TWEET_URL_RE.search(text):
         await asyncio.sleep(5)
         await msg.reply_text(random.choice(RAID_RESPONSES))
         return
 
-    # ── Raid (siempre, antes del contador) ────────────────────────────────
-    if any(t in tl for t in RAID_TRIGGERS):
+    # ── Raid (always, before the counter) ────────────────────────────────
+    if _contains_word(tl, RAID_TRIGGERS):
         await msg.reply_text(random.choice(RAID_RESPONSES))
         return
 
-    # ── Rose filter exact matches (siempre) ───────────────────────────────
+    # ── Rose filter exact matches (always) ───────────────────────────────
     tl_stripped = tl.strip()
     if tl_stripped == "ca":
         await asyncio.sleep(random.uniform(1.5, 4.0))
@@ -2531,94 +2623,100 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text(random.choice(IWRU_FILTER_REPLIES))
         return
 
-    # ── Contador de mensajes → chaos burst ────────────────────────────────
+    # ── Message counter → chaos burst ────────────────────────────────
     _msg_counter[chat_id] = _msg_counter.get(chat_id, 0) + 1
     if chat_id not in _next_trigger:
         _next_trigger[chat_id] = random.randint(10, 18)
     if _msg_counter[chat_id] >= _next_trigger[chat_id]:
         _msg_counter[chat_id] = 0
         _next_trigger[chat_id] = random.randint(10, 18)
-        if random.random() < 0.52:  # -20% (era 0.65)
+        if random.random() < 0.52:  # -20% (was 0.65)
             await asyncio.sleep(random.uniform(1.0, 3.5))
             await msg.reply_text(random.choice(CHAOS_BURSTS))
             return
 
     # ── IWRU name ──────────────────────────────────────────────────────────
-    if any(t in tl for t in IWRU_TRIGGERS) or tl_stripped in ("iwru", "@iwru"):
-        if random.random() < 0.52:  # -20% (era 0.65)
+    if _contains_word(tl, IWRU_TRIGGERS) or tl_stripped in ("iwru", "@iwru"):
+        if random.random() < 0.52:  # -20% (was 0.65)
             await asyncio.sleep(random.uniform(1.0, 3.0))
             await msg.reply_text(random.choice(IWRU_NAME_REPLIES))
-            if random.random() < 0.096:  # -20% (era 0.12)
+            if random.random() < 0.096:  # -20% (was 0.12)
                 await asyncio.sleep(random.uniform(4, 7))
                 await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
             return
 
     # ── GM ─────────────────────────────────────────────────────────────────
-    if _starts_with_word(tl, GM_TRIGGERS) and random.random() < 0.48:  # -20% (era 0.60)
+    if _starts_with_word(tl, GM_TRIGGERS) and random.random() < 0.48:  # -20% (was 0.60)
         await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(random.choice(GM_REPLIES))
         return
 
     # ── GN ─────────────────────────────────────────────────────────────────
-    if _starts_with_word(tl, GN_TRIGGERS) and random.random() < 0.48:  # -20% (era 0.60)
+    if _starts_with_word(tl, GN_TRIGGERS) and random.random() < 0.48:  # -20% (was 0.60)
         await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(random.choice(GN_REPLIES))
         return
 
     # ── Moon / pump ────────────────────────────────────────────────────────
-    if _contains_word(tl, MOON_TRIGGERS) and random.random() < 0.36:  # -20% (era 0.45)
+    if _contains_word(tl, MOON_TRIGGERS) and random.random() < 0.36:  # -20% (was 0.45)
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(MOON_REPLIES))
-        if random.random() < 0.096:  # -20% (era 0.12)
+        if random.random() < 0.096:  # -20% (was 0.12)
             await asyncio.sleep(random.uniform(4, 7))
             await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
         return
 
     # ── Dip / dump ─────────────────────────────────────────────────────────
-    if _contains_word(tl, DIP_TRIGGERS) and random.random() < 0.36:  # -20% (era 0.45)
+    if _contains_word(tl, DIP_TRIGGERS) and random.random() < 0.36:  # -20% (was 0.45)
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(DIP_REPLIES))
-        if random.random() < 0.096:  # -20% (era 0.12)
+        if random.random() < 0.096:  # -20% (was 0.12)
             await asyncio.sleep(random.uniform(4, 7))
             await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
         return
 
     # ── Wen ────────────────────────────────────────────────────────────────
-    if any(t in tl for t in WEN_TRIGGERS) and random.random() < 0.52:  # -20% (era 0.65)
+    if _contains_word(tl, WEN_TRIGGERS) and random.random() < 0.52:  # -20% (was 0.65)
         await asyncio.sleep(random.uniform(1.0, 2.5))
         await msg.reply_text(random.choice(WEN_REPLIES))
         return
 
     # ── Chart / price ──────────────────────────────────────────────────────
-    if _contains_word(tl, CHART_TRIGGERS) and random.random() < 0.32:  # -20% (era 0.40)
+    if _contains_word(tl, CHART_TRIGGERS) and random.random() < 0.32:  # -20% (was 0.40)
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(random.choice(CHART_REPLIES))
         return
 
     # ── Monad ──────────────────────────────────────────────────────────────
-    if _contains_word(tl, MONAD_TRIGGERS) and random.random() < 0.40:  # -20% (era 0.50)
+    if _contains_word(tl, MONAD_TRIGGERS) and random.random() < 0.40:  # -20% (was 0.50)
         await asyncio.sleep(random.uniform(1.0, 2.5))
         await msg.reply_text(random.choice(MONAD_REPLIES))
         return
 
     # ── Fish ───────────────────────────────────────────────────────────────
-    if "fish" in tl and random.random() < 0.52:  # -20% (era 0.65)
+    if "fish" in tl and random.random() < 0.52:  # -20% (was 0.65)
         await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(random.choice(FISH_REPLIES))
-        if random.random() < 0.096:  # -20% (era 0.12)
+        if random.random() < 0.096:  # -20% (was 0.12)
             await asyncio.sleep(random.uniform(4, 7))
             await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
         return
 
     # ── Direct @mention ────────────────────────────────────────────────────
     if _bot_username is None:
-        _bot_username = (await context.bot.get_me()).username
-    if f"@{_bot_username}".lower() in tl:
+        try:
+            _bot_username = (await context.bot.get_me()).username
+        except Exception as e:
+            # Transient get_me() failure -- don't let it raise out of the
+            # whole message handler over just this one check; leave
+            # _bot_username None so it's simply retried on the next message.
+            print(f"[leer] get_me() failed: {e}", flush=True)
+    if _bot_username and f"@{_bot_username}".lower() in tl:
         await asyncio.sleep(random.uniform(1.0, 2.5))
         await msg.reply_text(random.choice(IWRU_COMMAND_REPLIES))
         return
 
-    # ── Random quip (boost x2 entre 2-5am) ────────────────────────────────
+    # ── Random quip (boost x2 between 2-5am) ────────────────────────────────
     night_boost = 2.0 if 2 <= h <= 5 else 1.0
     last = _last_random.get(chat_id, 0)
     if now - last > RANDOM_COOLDOWN and random.random() < RANDOM_CHANCE * night_boost:
@@ -2642,18 +2740,18 @@ def _delete_webhook_http():
 async def _conflict_handler(update, context):
     from telegram.error import Conflict
     if isinstance(context.error, Conflict):
-        print(f"[conflict] {context.error} — borrando webhook...", flush=True)
+        print(f"[conflict] {context.error} — deleting webhook...", flush=True)
         try:
             await context.bot.delete_webhook(drop_pending_updates=True)
-            print("[conflict] webhook borrado, polling continuará", flush=True)
+            print("[conflict] webhook deleted, polling will continue", flush=True)
         except Exception as e:
-            print(f"[conflict] error al borrar: {e}", flush=True)
+            print(f"[conflict] error deleting: {e}", flush=True)
     else:
         print(f"[error] {context.error}", flush=True)
 
 def build_app():
     a = ApplicationBuilder().token(TOKEN).build()
-    a.add_handler(CommandHandler("iwru", cmd_iwru))
+    events.register(a)
     a.add_handler(CommandHandler("raid", cmd_raid))
     a.add_handler(MessageHandler(filters.ALL, leer))
     a.add_error_handler(_conflict_handler)
@@ -2662,10 +2760,10 @@ def build_app():
     if KNOWN_CHAT_IDS:
         print(f"[startup] pre-registered chats: {KNOWN_CHAT_IDS}", flush=True)
     a.job_queue.run_once(bored_cat_job, random.uniform(2700, 5400))
-    a.job_queue.run_once(social_reminder_job, random.uniform(10800, 21600))   # primer recordatorio: 3-6h
-    a.job_queue.run_once(monad_reminder_job, random.uniform(7200, 18000))     # primer recordatorio: 2-5h
-    a.job_queue.run_once(game_reminder_job, random.uniform(14400, 25200))     # primer recordatorio: 4-7h
-    a.job_queue.run_once(nft_reminder_job, random.uniform(21600, 32400))      # primer recordatorio: 6-9h
+    a.job_queue.run_once(social_reminder_job, random.uniform(10800, 21600))   # first reminder: 3-6h
+    a.job_queue.run_once(monad_reminder_job, random.uniform(7200, 18000))     # first reminder: 2-5h
+    a.job_queue.run_once(game_reminder_job, random.uniform(14400, 25200))     # first reminder: 4-7h
+    a.job_queue.run_once(nft_reminder_job, random.uniform(21600, 32400))      # first reminder: 6-9h
     if TWITTER_ENABLED:
         for slot_start, slot_end in TWEET_SLOTS:
             a.job_queue.run_once(tweet_slot_job, _seconds_until_window(slot_start, slot_end), data=(slot_start, slot_end))
