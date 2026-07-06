@@ -886,7 +886,7 @@ async def on_private_message(update, context: ContextTypes.DEFAULT_TYPE) -> None
             await update.message.reply_text(cfg.NOT_YOUR_PRIZE_MSG)
         return  # not a pending wallet submission from this user -- ignore
 
-    if not cfg.WALLET_RE.fullmatch(text):
+    if not cfg.is_valid_wallet(text):
         await update.message.reply_text(cfg.WALLET_INVALID_MSG)
         return
 
@@ -901,7 +901,8 @@ async def on_private_message(update, context: ContextTypes.DEFAULT_TYPE) -> None
         # this write, but guards against a future refactor changing that).
         await update.message.reply_text(cfg.NOT_YOUR_PRIZE_MSG)
         return
-    await update.message.reply_text(cfg.WALLET_UPDATED_MSG if is_correction else cfg.WALLET_RECEIVED_MSG)
+    confirm_template = cfg.WALLET_UPDATED_MSG if is_correction else cfg.WALLET_RECEIVED_MSG
+    await update.message.reply_text(confirm_template.format(wallet=text))
 
     info = _event_info(active["event_key"])
     winner_display = _display_name(user)

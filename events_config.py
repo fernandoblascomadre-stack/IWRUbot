@@ -2,6 +2,8 @@ import os
 import re
 import pathlib
 
+from Crypto.Hash import keccak
+
 
 def _safe_int_env(name: str, default: int) -> int:
     """Reads an integer env var with a safe fallback -- for a value that
@@ -62,7 +64,34 @@ EVENT_BUMP_MESSAGE_THRESHOLD = _safe_int_env("EVENT_BUMP_MESSAGE_THRESHOLD", 5)
 # ══════════════════════════════════════════════════════════════════════════
 #  WALLET VALIDATION
 # ══════════════════════════════════════════════════════════════════════════
-WALLET_RE = re.compile(r'^0x[a-fA-F0-9]{40}$')
+WALLET_RE = re.compile(r'^0x[a-fA-F0-9]{40}$', re.IGNORECASE)
+
+
+def is_valid_wallet(address: str) -> bool:
+    """Shape check (WALLET_RE) first, then -- only when the address is
+    mixed-case -- verifies its EIP-55 checksum too.
+
+    Wallet apps (MetaMask etc.) normally display addresses with a specific
+    mix of upper/lowercase letters that encodes a checksum of the address
+    itself. An all-lowercase or all-uppercase address carries no checksum
+    (both are equally valid on-chain, unchanged from before this function
+    existed) and is accepted on shape alone, same as always. But a MIXED-case
+    address is claiming to carry that checksum, so verifying it catches a
+    real class of typos/bad copy-pastes automatically -- a single altered
+    character almost always breaks the checksum -- before real funds are
+    ever sent to a wrong address. This never adds a step for a winner who
+    just copy-pastes their real address correctly; it only ever rejects
+    something that was already wrong."""
+    if not WALLET_RE.fullmatch(address):
+        return False
+    hex_part = address[2:]
+    if hex_part == hex_part.lower() or hex_part == hex_part.upper():
+        return True
+    hash_hex = keccak.new(digest_bits=256, data=hex_part.lower().encode("ascii")).hexdigest()
+    for i, c in enumerate(hex_part):
+        if c.isalpha() and c.isupper() != (int(hash_hex[i], 16) >= 8):
+            return False
+    return True
 
 # ══════════════════════════════════════════════════════════════════════════
 #  ASSETS

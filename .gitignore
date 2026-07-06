@@ -1,0 +1,22 @@
+# Secrets / credentials -- never commit these
+*.env
+.env.*
+*api*key*
+Captura de pantalla*.png
+*.pem
+*.key
+
+# Local databases
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Editor/OS cruft
+.DS_Store
+Thumbs.db
