@@ -38,6 +38,20 @@ def _event_info(event_key: str) -> dict:
     return cfg.EVENTS.get(event_key, {"emoji": "", "name": event_key})
 
 
+def _row_is_legacy_photo_message(row) -> bool:
+    """True only for a row created BEFORE the sticker+text redesign, back
+    when the tracked message itself was a photo with a caption (has_image
+    meant exactly that). Every row created after that redesign always has
+    sticker_message_id set together with has_image whenever an image was
+    sent (the sticker is a separate message; the tracked message is always
+    plain text) -- so has_image=True with sticker_message_id still NULL can
+    only mean an old-style photo/caption row that predates this column.
+    Needed so editing an old still-active event (created before a deploy of
+    this change) doesn't try edit_message_text on what Telegram still
+    considers a photo message, which would fail outright."""
+    return bool(row["has_image"]) and row["sticker_message_id"] is None
+
+
 _bot_username_cache = None
 
 
@@ -156,18 +170,23 @@ _GENERATE_KEYBOARD = InlineKeyboardMarkup(
 )
 
 
-def _owner_panel_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
+def _owner_panel_keyboard(show_cancel_current: bool = False) -> InlineKeyboardMarkup:
+    """show_cancel_current adds a row to withdraw the currently-active
+    UNCLAIMED event (e.g. a manual test generation) without touching
+    events_enabled and without affecting whether today's random daily event
+    still fires -- that dedupe is tracked separately and never touched here."""
+    rows = [
         [
-            [
-                InlineKeyboardButton("🟢 Enable Events", callback_data="owner:enable"),
-                InlineKeyboardButton("🔴 Disable Events", callback_data="owner:disable"),
-            ],
-            [InlineKeyboardButton("📊 Status", callback_data="owner:status")],
-            [InlineKeyboardButton("🎁 Generate Event", callback_data="owner:generate")],
-            [InlineKeyboardButton("❌ Close", callback_data="owner:close")],
-        ]
-    )
+            InlineKeyboardButton("🟢 Enable Events", callback_data="owner:enable"),
+            InlineKeyboardButton("🔴 Disable Events", callback_data="owner:disable"),
+        ],
+        [InlineKeyboardButton("📊 Status", callback_data="owner:status")],
+        [InlineKeyboardButton("🎁 Generate Event", callback_data="owner:generate")],
+    ]
+    if show_cancel_current:
+        rows.append([InlineKeyboardButton("❌ Cancel Current Event", callback_data="owner:cancel_current")])
+    rows.append([InlineKeyboardButton("❌ Close", callback_data="owner:close")])
+    return InlineKeyboardMarkup(rows)
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -185,7 +204,7 @@ def _build_unclaimed_text(event_key: str) -> str:
         f"{info['emoji']} {info['name']}\n"
         f"{info['stars']}\n"
         f"{info['rarity_label']}\n\n"
-        f"Reward:\n{info['reward']} $IWRU\n\n"
+        f"Reward:\n{info['reward']} IWRU\n\n"
         f"{info['catch_text']}"
     )
 
@@ -244,7 +263,7 @@ async def _expire_stale_events(context: ContextTypes.DEFAULT_TYPE) -> None:
                     winner=winner_display, emoji=info["emoji"], name=info["name"]
                 )
                 try:
-                    if row["has_image"]:
+                    if _row_is_legacy_photo_message(row):
                         await context.bot.edit_message_caption(
                             chat_id=row["chat_id"], message_id=row["message_id"],
                             caption=expired_text, reply_markup=InlineKeyboardMarkup([]),
@@ -328,7 +347,7 @@ async def _expire_stale_events(context: ContextTypes.DEFAULT_TYPE) -> None:
             if fresh["chat_id"] is not None and fresh["message_id"] is not None:
                 expired_text = cfg.UNCLAIMED_EXPIRED_TEMPLATE.format(emoji=info["emoji"], name=info["name"])
                 try:
-                    if fresh["has_image"]:
+                    if _row_is_legacy_photo_message(fresh):
                         await context.bot.edit_message_caption(
                             chat_id=fresh["chat_id"], message_id=fresh["message_id"],
                             caption=expired_text, reply_markup=InlineKeyboardMarkup([]),
@@ -346,24 +365,48 @@ async def _expire_stale_events(context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def _send_event_message(context: ContextTypes.DEFAULT_TYPE, event_id: str, text: str, keyboard: InlineKeyboardMarkup):
-    """Sends one event announcement to the group -- as a photo if the event's
-    image file exists on disk, falling back to plain text otherwise. Shared by
-    _post_new_event (brand-new event) and _bump_event (reposting an existing
-    unclaimed one), so both stay in sync automatically if this logic ever
-    changes."""
+    """Sends one event announcement to the group: the artwork first, as a
+    STICKER (not a photo) if the event's sticker file exists on disk, then
+    the actual tracked message -- always plain text, carrying the caption
+    content and the Catch/Inspect keyboard. Stickers are used specifically
+    because Telegram reliably renders their transparent background; regular
+    photo/caption messages do not (Telegram frequently flattens a photo's
+    transparency onto a white canvas). Stickers can't carry a caption or a
+    keyboard at all, hence the second, separate text message.
+
+    Returns (msg, sticker_message_id) -- msg is the text message (the one
+    this whole event's row tracks and edits going forward via chat_id/
+    message_id); sticker_message_id is None if no sticker was sent.
+
+    Shared by _post_new_event (brand-new event) and _bump_event (reposting
+    an existing unclaimed one), so both stay in sync automatically if this
+    logic ever changes."""
     info = cfg.EVENTS[event_id]
-    image_path = cfg.ASSETS_DIR / info["image_filename"]
-    if image_path.is_file():
+    sticker_path = cfg.ASSETS_DIR / info["sticker_filename"]
+    sticker_message_id = None
+    if sticker_path.is_file():
         try:
-            with open(image_path, "rb") as f:
-                return await context.bot.send_photo(
-                    chat_id=cfg.EVENTS_CHAT_ID, photo=f, caption=text, reply_markup=keyboard
-                )
+            with open(sticker_path, "rb") as f:
+                sticker_msg = await context.bot.send_sticker(chat_id=cfg.EVENTS_CHAT_ID, sticker=f)
+            sticker_message_id = sticker_msg.message_id
         except Exception as e:
-            print(f"[events] failed to send image {image_path}: {e}", flush=True)
+            print(f"[events] failed to send sticker {sticker_path}: {e}", flush=True)
     # Let this raise on failure -- the caller has nothing to clean up if
-    # nothing was ever persisted/updated yet.
-    return await context.bot.send_message(chat_id=cfg.EVENTS_CHAT_ID, text=text, reply_markup=keyboard)
+    # nothing was ever persisted/updated yet. EXCEPT the sticker just sent
+    # above, if any: that one already exists in the chat and is otherwise
+    # completely untracked (its id was never returned anywhere), so a failure
+    # here specifically must clean it up first or it's stuck as a permanent,
+    # unexplained stray image with no text/keyboard ever following it.
+    try:
+        msg = await context.bot.send_message(chat_id=cfg.EVENTS_CHAT_ID, text=text, reply_markup=keyboard)
+    except Exception:
+        if sticker_message_id is not None:
+            try:
+                await context.bot.delete_message(chat_id=cfg.EVENTS_CHAT_ID, message_id=sticker_message_id)
+            except TelegramError as e:
+                print(f"[events] failed to clean up orphaned sticker after text send failure: {e}", flush=True)
+        raise
+    return msg, sticker_message_id
 
 
 async def _post_new_event(context: ContextTypes.DEFAULT_TYPE, event_id=None) -> dict:
@@ -388,17 +431,17 @@ async def _post_new_event(context: ContextTypes.DEFAULT_TYPE, event_id=None) -> 
     text = _build_unclaimed_text(event_id)
     keyboard = _event_keyboard(token)
 
-    msg = await _send_event_message(context, event_id, text, keyboard)
+    msg, sticker_message_id = await _send_event_message(context, event_id, text, keyboard)
 
     try:
         # One atomic INSERT (chat_id/message_id/display_text all included) --
         # either the row is fully created or not created at all, never
-        # partially populated. has_image is stored (not re-derived later) so
-        # a future edit with no live Message object to inspect -- e.g.
-        # auto-expiring a stale claim -- knows which edit method to use.
+        # partially populated. has_image records whether a sticker was sent
+        # alongside, so a bump later knows whether there's one to also
+        # delete/repost.
         db.create_event(
             event_id, token, info["reward"], msg.chat_id, msg.message_id, text,
-            has_image=bool(getattr(msg, "photo", None)),
+            has_image=sticker_message_id is not None, sticker_message_id=sticker_message_id,
         )
         # A brand-new event starts its own fresh bump countdown -- without
         # this, a count left over from a PREVIOUS event (claimed/expired
@@ -414,26 +457,15 @@ async def _post_new_event(context: ContextTypes.DEFAULT_TYPE, event_id=None) -> 
         # indication anything is wrong. Best-effort: mark it broken instead.
         print(f"[events] failed to persist newly-posted event: {e}", flush=True)
         try:
-            # Same conservative truncation _edit_current uses, for the same
-            # reason (Telegram's caption cap is in UTF-16 units, not Python
-            # codepoints, and astral-plane emoji count double) -- but the
-            # budget here is tighter than _edit_current's, since a fixed
-            # suffix is appended AFTER this truncation, unlike there. Leaving
-            # ~100 fewer characters of headroom keeps base + suffix safely
-            # under the 1024 UTF-16 unit cap even in the worst case where
-            # every character (in both base and the suffix) is astral-plane.
-            base = text if len(text) <= 400 else text[:350] + "…"
-            error_text = f"{base}\n\n⚠️ Registration failed -- contact the Owner."
-            if msg.photo:
-                await context.bot.edit_message_caption(
-                    chat_id=msg.chat_id, message_id=msg.message_id,
-                    caption=error_text, reply_markup=InlineKeyboardMarkup([]),
-                )
-            else:
-                await context.bot.edit_message_text(
-                    chat_id=msg.chat_id, message_id=msg.message_id,
-                    text=error_text, reply_markup=InlineKeyboardMarkup([]),
-                )
+            # msg is always the plain text message now (the sticker, if any,
+            # carries no caption/keyboard to edit at all) -- Telegram's much
+            # higher plain-text cap (4096 UTF-16 units) applies here, not the
+            # 1024-unit caption cap, so no truncation budget is needed.
+            error_text = f"{text}\n\n⚠️ Registration failed -- contact the Owner."
+            await context.bot.edit_message_text(
+                chat_id=msg.chat_id, message_id=msg.message_id,
+                text=error_text, reply_markup=InlineKeyboardMarkup([]),
+            )
         except Exception as edit_error:
             print(f"[events] also failed to mark the broken event: {edit_error}", flush=True)
         raise
@@ -471,31 +503,53 @@ async def on_group_activity(context: ContextTypes.DEFAULT_TYPE, chat_id: int) ->
 
 
 async def _bump_event(context: ContextTypes.DEFAULT_TYPE, row) -> None:
-    """Deletes the old (buried) event message and reposts a fresh copy at the
-    bottom of the chat, repointing the SAME event/token/history at the new
-    message -- nothing about the event itself changes, only where it lives in
-    the chat."""
+    """Automatic bump: only ever fires for a still-UNCLAIMED event (chat
+    activity threshold, see on_group_activity), so the CAS is always against
+    'unclaimed' specifically."""
     text = _build_unclaimed_text(row["event_key"])
     keyboard = _event_keyboard(row["token"])
+    await _reposition_event_messages(context, row, text, keyboard, expected_status="unclaimed")
 
-    msg = await _send_event_message(context, row["event_key"], text, keyboard)
 
-    # Atomic compare-and-set: if this event was claimed OR expired in the
-    # tiny window between the caller deciding to bump it and this write
-    # actually running (e.g. a concurrently-running daily_event_job's
-    # unclaimed-expiry beating this to the punch), don't repoint an event
-    # that's no longer unclaimed out from under its real current state.
+async def _reposition_event_messages(
+    context: ContextTypes.DEFAULT_TYPE, row, text: str, keyboard: InlineKeyboardMarkup, *, expected_status: str
+) -> bool:
+    """Deletes the old (buried) event message(s) and reposts a fresh copy at
+    the bottom of the chat, repointing the SAME event/token/history there --
+    nothing about the event itself changes, only where it lives in the chat.
+
+    Shared by _bump_event (automatic, unclaimed-only, triggered by chat
+    activity) and on_menu_button (triggered by someone pressing an info
+    button on this event, REGARDLESS of its current status) -- without the
+    latter, the sticker+text could be left behind, buried, while an info
+    popup about them appears fresh at the bottom, which reads as
+    disconnected/illogical. Repositioning on interaction keeps everything
+    about this event visually together."""
+    msg, sticker_message_id = await _send_event_message(context, row["event_key"], text, keyboard)
+
+    # Atomic compare-and-set against expected_status: if this event's status
+    # changed in the tiny window between the caller deciding to reposition it
+    # and this write actually running (e.g. a concurrently-running
+    # daily_event_job's unclaimed-expiry, or the Owner cancelling it),
+    # don't repoint an event out from under its real current state.
     moved = db.rebump_event(
-        row["id"], msg.chat_id, msg.message_id, bool(getattr(msg, "photo", None)),
-        expected_status="unclaimed",
+        row["id"], msg.chat_id, msg.message_id, sticker_message_id is not None,
+        expected_status=expected_status, sticker_message_id=sticker_message_id,
     )
     if not moved:
-        # The fresh copy above was already sent and is now completely
-        # untracked (never written into the DB) -- without cleaning it up
-        # here, it would sit in the chat forever as a permanently-orphaned
-        # duplicate with a live-looking Catch/Inspect keyboard, since nothing
-        # else ever learns this message exists. Best-effort: delete it, or
-        # failing that, at least strip its keyboard.
+        # The fresh copies above are already sent and now completely
+        # untracked (never written into the DB) -- without cleaning them up
+        # here, they'd sit in the chat forever: the text copy as a
+        # permanently-orphaned duplicate with a live-looking Catch/Inspect
+        # keyboard, and the sticker as an unexplained stray image, since
+        # nothing else ever learns either message exists. Best-effort:
+        # delete both, or failing that, at least strip the text copy's
+        # keyboard.
+        if sticker_message_id is not None:
+            try:
+                await context.bot.delete_message(chat_id=msg.chat_id, message_id=sticker_message_id)
+            except TelegramError as e:
+                print(f"[events] failed to delete orphaned bump sticker (event {row['id']}): {e}", flush=True)
         try:
             await context.bot.delete_message(chat_id=msg.chat_id, message_id=msg.message_id)
         except TelegramError as e:
@@ -507,7 +561,16 @@ async def _bump_event(context: ContextTypes.DEFAULT_TYPE, row) -> None:
                 )
             except TelegramError as e2:
                 print(f"[events] also failed to clear orphaned bump copy's keyboard (event {row['id']}): {e2}", flush=True)
-        return
+        return False
+
+    if row["sticker_message_id"] is not None:
+        try:
+            await context.bot.delete_message(chat_id=row["chat_id"], message_id=row["sticker_message_id"])
+        except TelegramError as e:
+            print(f"[events] failed to delete old bumped sticker (event {row['id']}): {e}", flush=True)
+            # A leftover old sticker is purely cosmetic clutter (no keyboard,
+            # no interactive element to worry about) -- nothing further to
+            # do if it can't be deleted.
 
     try:
         await context.bot.delete_message(chat_id=row["chat_id"], message_id=row["message_id"])
@@ -518,8 +581,8 @@ async def _bump_event(context: ContextTypes.DEFAULT_TYPE, row) -> None:
         # Catch/Inspect keyboard so it doesn't sit there looking clickable
         # forever once the real treasure has moved on. Uses the dedicated
         # reply-markup-only edit endpoint (not edit_message_text/caption) so
-        # the message's existing text/photo is left completely untouched --
-        # only the keyboard changes. Best-effort; if this also fails there's
+        # the message's existing text is left completely untouched -- only
+        # the keyboard changes. Best-effort; if this also fails there's
         # nothing further to do.
         try:
             await context.bot.edit_message_reply_markup(
@@ -528,6 +591,7 @@ async def _bump_event(context: ContextTypes.DEFAULT_TYPE, row) -> None:
             )
         except TelegramError as e2:
             print(f"[events] also failed to clear old bumped message's keyboard (event {row['id']}): {e2}", flush=True)
+    return True
 
 
 def _seconds_until_window(start_hour_utc: int, end_hour_utc: int, *, force_next_day: bool = False) -> float:
@@ -721,11 +785,12 @@ async def on_catch(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # current group post, leaving the actual live message stuck showing
     # "unclaimed" with a live-looking keyboard even though it's already won.
     try:
-        if fresh_check["has_image"]:
+        if _row_is_legacy_photo_message(fresh_check):
             # Same conservative UTF-16 truncation _edit_current applies --
             # calling context.bot directly here (rather than through
             # _edit_current) means that safety margin has to be reapplied by
-            # hand, not inherited for free.
+            # hand, not inherited for free. Only reachable for a row that
+            # predates the sticker+text redesign (see _row_is_legacy_photo_message).
             caption = caught_text if len(caught_text) <= 500 else caught_text[:450] + "…"
             await context.bot.edit_message_caption(
                 chat_id=fresh_check["chat_id"], message_id=fresh_check["message_id"],
@@ -944,7 +1009,7 @@ async def on_owner_paid(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # reproduced here on the far more common successful-payment path).
     if row["chat_id"] is not None and row["message_id"] is not None:
         try:
-            if row["has_image"]:
+            if _row_is_legacy_photo_message(row):
                 await context.bot.edit_message_caption(
                     chat_id=row["chat_id"], message_id=row["message_id"],
                     caption=group_text, reply_markup=InlineKeyboardMarkup([]),
@@ -1052,7 +1117,7 @@ async def on_owner_cancel(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if row["chat_id"] is not None and row["message_id"] is not None:
         group_text = cfg.CANCELLED_GROUP_TEMPLATE.format(winner=winner_display, emoji=info["emoji"], name=info["name"])
         try:
-            if row["has_image"]:
+            if _row_is_legacy_photo_message(row):
                 await context.bot.edit_message_caption(
                     chat_id=row["chat_id"], message_id=row["message_id"],
                     caption=group_text, reply_markup=InlineKeyboardMarkup([]),
@@ -1115,15 +1180,62 @@ async def on_owner_panel_button(update, context: ContextTypes.DEFAULT_TYPE) -> N
     elif action == "status":
         await query.answer()
         s = db.stats_summary()
+        active = db.get_active_event()
+        can_cancel_current = active is not None and active["status"] == "unclaimed"
         text = (
             f"{_OWNER_PANEL_TEXT}\n\n"
             f"Events Enabled: {'Yes' if db.events_enabled() else 'No'}\n"
             f"Active Event: {s['current_status']}\n"
             f"Last Winner: {s['last_winner']}\n"
             f"Total Events: {s['events_generated']}\n"
-            f"Total Distributed: {s['total_rewards_distributed']} $IWRU"
+            f"Total Distributed: {s['total_rewards_distributed']} IWRU"
         )
-        await _edit_current(query, text, _owner_panel_keyboard())
+        await _edit_current(query, text, _owner_panel_keyboard(show_cancel_current=can_cancel_current))
+
+    elif action == "cancel_current":
+        # Withdraws the currently-active UNCLAIMED event (e.g. a manual test
+        # generation) -- deliberately does NOT touch events_enabled, and does
+        # NOT touch last_auto_event_date, so today's random daily event can
+        # still fire normally on its own schedule regardless.
+        active = db.get_active_event()
+        if active is None or active["status"] != "unclaimed":
+            await query.answer("Nothing to cancel -- no unclaimed event right now.", show_alert=True)
+            s = db.stats_summary()
+            text = (
+                f"{_OWNER_PANEL_TEXT}\n\n"
+                f"Events Enabled: {'Yes' if db.events_enabled() else 'No'}\n"
+                f"Active Event: {s['current_status']}\n"
+                f"Last Winner: {s['last_winner']}\n"
+                f"Total Events: {s['events_generated']}\n"
+                f"Total Distributed: {s['total_rewards_distributed']} IWRU"
+            )
+            await _edit_current(query, text, _owner_panel_keyboard(show_cancel_current=False))
+            return
+        if not db.cancel_event(active["id"], expected_status="unclaimed"):
+            await query.answer("This claim just changed -- refreshed.", show_alert=True)
+            await _edit_current(query, _OWNER_PANEL_TEXT, _owner_panel_keyboard())
+            return
+        await query.answer("Event withdrawn.")
+        info = _event_info(active["event_key"])
+        if active["chat_id"] is not None and active["message_id"] is not None:
+            group_text = cfg.OWNER_WITHDRAWN_GROUP_TEMPLATE.format(emoji=info["emoji"], name=info["name"])
+            try:
+                if _row_is_legacy_photo_message(active):
+                    await context.bot.edit_message_caption(
+                        chat_id=active["chat_id"], message_id=active["message_id"],
+                        caption=group_text, reply_markup=InlineKeyboardMarkup([]),
+                    )
+                else:
+                    await context.bot.edit_message_text(
+                        chat_id=active["chat_id"], message_id=active["message_id"],
+                        text=group_text, reply_markup=InlineKeyboardMarkup([]),
+                    )
+                db.set_display_text(active["id"], group_text)
+            except TelegramError as e:
+                print(f"[events] failed to edit withdrawn group message (event {active['id']}): {e}", flush=True)
+        await _edit_current(
+            query, f"{_OWNER_PANEL_TEXT}\n\n❌ Event withdrawn: {info['emoji']} {info['name']}", _owner_panel_keyboard()
+        )
 
     elif action == "generate":
         await query.answer()
@@ -1191,7 +1303,7 @@ def _render_hall_of_fame() -> str:
         "Top Hunters:\n" + hunters_lines + "\n\n"
         "Golden Crown Winners:\n" + crowns_lines + "\n\n"
         "Most Purple Fish Found:\n" + fish_lines + "\n\n"
-        f"Total Distributed: {total} $IWRU"
+        f"Total Distributed: {total} IWRU"
     )
 
 
@@ -1202,7 +1314,7 @@ def _render_stats() -> str:
         f"Events Generated: {s['events_generated']}\n"
         f"Events Claimed: {s['events_claimed']}\n"
         f"Current Status: {s['current_status']}\n"
-        f"Total Rewards: {s['total_rewards_distributed']} $IWRU\n"
+        f"Total Rewards: {s['total_rewards_distributed']} IWRU\n"
         f"Last Winner: {s['last_winner']}\n"
         f"Most Common Treasure: {s['most_common_treasure']}"
     )
@@ -1214,6 +1326,30 @@ async def _safe_answer(query, *args, **kwargs) -> None:
     abort the handler."""
     try:
         await query.answer(*args, **kwargs)
+    except TelegramError:
+        pass
+
+
+# Tracks the last standalone info popup (Hall of Fame/Stats/How to Play)
+# posted per chat via the "post a new message instead of editing" path below,
+# so pressing another info button doesn't leave a growing pile of these in
+# the chat -- each new one replaces the last, rather than stacking.
+_last_info_popup_message: dict[int, int] = {}
+
+
+async def _send_info_popup(context: ContextTypes.DEFAULT_TYPE, chat_id: int, text: str) -> None:
+    """Sends a standalone info message (Hall of Fame/Stats/How to Play),
+    deleting the previous one this same mechanism posted in this chat first
+    (best-effort) so repeated presses don't accumulate clutter in the chat."""
+    prev_message_id = _last_info_popup_message.get(chat_id)
+    if prev_message_id is not None:
+        try:
+            await context.bot.delete_message(chat_id=chat_id, message_id=prev_message_id)
+        except TelegramError:
+            pass
+    try:
+        msg = await context.bot.send_message(chat_id=chat_id, text=text)
+        _last_info_popup_message[chat_id] = msg.message_id
     except TelegramError:
         pass
 
@@ -1246,22 +1382,35 @@ async def on_menu_button(update, context: ContextTypes.DEFAULT_TYPE) -> None:
             # terminal/closed -- no live keyboard left to protect, so those
             # fall through to editing in place below (and correctly restore
             # via display_text on Back, instead of losing the historical
-            # "who won" record).
+            # "who won" record). Deletes the previous such popup in this chat
+            # first so repeated presses don't pile up new messages forever.
+            #
+            # Also repositions the event's own sticker+text to the bottom,
+            # alongside the info popup: without this, pressing an info button
+            # on an event that's been buried by chat activity would leave the
+            # sticker+text stuck wherever they were while the info content
+            # appears fresh at the bottom -- disconnected and confusing.
+            # Keeps everything about this event visually together.
+            reposition_text = (
+                _build_unclaimed_text(row["event_key"]) if row["status"] == "unclaimed" else row["display_text"]
+            )
             try:
-                await context.bot.send_message(chat_id=chat_id, text=content)
-            except TelegramError:
-                pass
+                if await _reposition_event_messages(
+                    context, row, reposition_text, _event_keyboard(row["token"]), expected_status=row["status"]
+                ):
+                    _msgs_since_bump[chat_id] = 0
+            except Exception as e:
+                print(f"[events] failed to reposition event on info-button press: {e}", flush=True)
+            await _send_info_popup(context, chat_id, content)
         elif row is None and not is_private:
             # The generic /iwru menu message itself, but posted in a GROUP --
             # still shared, visible, and interactable by everyone in that
             # chat. Editing it in place would let one member's button press
             # silently change what every other member sees on that same
             # message. Post a standalone reply instead (no Back button --
-            # nothing further to navigate to from a one-shot info post).
-            try:
-                await context.bot.send_message(chat_id=chat_id, text=content)
-            except TelegramError:
-                pass
+            # nothing further to navigate to from a one-shot info post),
+            # replacing any previous one the same way.
+            await _send_info_popup(context, chat_id, content)
         else:
             await _edit_current(query, content, _BACK_KEYBOARD)
 
@@ -1272,9 +1421,9 @@ async def on_menu_button(update, context: ContextTypes.DEFAULT_TYPE) -> None:
         summary = db.user_rewards_summary(query.from_user.id)
         text = (
             "🎒 My Rewards\n\n"
-            f"Rewards Won: {summary['won']} $IWRU\n"
-            f"Rewards Paid: {summary['paid']} $IWRU\n"
-            f"Rewards Pending: {summary['pending']} $IWRU\n"
+            f"Rewards Won: {summary['won']} IWRU\n"
+            f"Rewards Paid: {summary['paid']} IWRU\n"
+            f"Rewards Pending: {summary['pending']} IWRU\n"
             f"Treasures Found: {summary['treasures_found']}"
         )
         # Telegram's callback-alert text is capped well under this, but the

@@ -57,7 +57,7 @@ EVENT_WINDOW_UTC = _resolve_event_window()
 # gets reposted at the bottom of the chat, so it can't stay buried forever
 # under new conversation. Only applies while the event is genuinely
 # unclaimed -- once someone's caught it, there's nothing left to surface.
-EVENT_BUMP_MESSAGE_THRESHOLD = _safe_int_env("EVENT_BUMP_MESSAGE_THRESHOLD", 20)
+EVENT_BUMP_MESSAGE_THRESHOLD = _safe_int_env("EVENT_BUMP_MESSAGE_THRESHOLD", 5)
 
 # ══════════════════════════════════════════════════════════════════════════
 #  WALLET VALIDATION
@@ -91,7 +91,7 @@ EVENTS = {
         "reward": 250,
         "stars": "⭐☆☆☆☆",
         "rarity_label": "Common",
-        "image_filename": "mouse.png",
+        "sticker_filename": "mouse.webp",
         "catch_text": "First human to catch it wins.",
     },
     "fish": {
@@ -101,7 +101,7 @@ EVENTS = {
         "reward": 1000,
         "stars": "⭐⭐☆☆☆",
         "rarity_label": "Uncommon",
-        "image_filename": "purple_fish.png",
+        "sticker_filename": "purple_fish.webp",
         "catch_text": "First human to catch it wins.",
     },
     "box": {
@@ -111,7 +111,7 @@ EVENTS = {
         "reward": 2500,
         "stars": "⭐⭐⭐☆☆",
         "rarity_label": "Rare",
-        "image_filename": "mystery_box.png",
+        "sticker_filename": "mystery_box.webp",
         "catch_text": "First human to catch it wins.",
     },
     "crown": {
@@ -121,7 +121,7 @@ EVENTS = {
         "reward": 10000,
         "stars": "⭐⭐⭐⭐⭐",
         "rarity_label": "Legendary",
-        "image_filename": "golden_crown.png",
+        "sticker_filename": "golden_crown.webp",
         "catch_text": "First human to catch it wins.",
     },
 }
@@ -264,7 +264,7 @@ DEEPLINK_UNAVAILABLE_LINE = (
 # breaks on users without one.
 CAUGHT_TEMPLATE = (
     "🎉 {winner} caught the {name}!\n\n"
-    "Reward: {reward} $IWRU\n\n"
+    "Reward: {reward} IWRU\n\n"
     "🐈‍⬛ Check your DMs with me to claim it!"
 )
 
@@ -272,7 +272,7 @@ OWNER_WAITING_TEMPLATE = (
     "🟡 Waiting for Wallet\n\n"
     "Winner: {winner}\n"
     "Event: {emoji} {name}\n"
-    "Reward: {reward} $IWRU\n\n"
+    "Reward: {reward} IWRU\n\n"
     "Waiting for the winner to submit their Monad wallet."
 )
 
@@ -280,7 +280,7 @@ OWNER_READY_TEMPLATE = (
     "🟠 Ready to Pay\n\n"
     "Winner: {winner}\n"
     "Event: {emoji} {name}\n"
-    "Reward: {reward} $IWRU\n"
+    "Reward: {reward} IWRU\n"
     "Wallet: {wallet}\n\n"
     "Send the reward from the Fish Vault, then confirm below."
 )
@@ -289,7 +289,7 @@ OWNER_PAID_TEMPLATE = (
     "🟢 Paid\n\n"
     "Winner: {winner}\n"
     "Event: {emoji} {name}\n"
-    "Reward: {reward} $IWRU\n"
+    "Reward: {reward} IWRU\n"
     "Wallet: {wallet}"
 )
 
@@ -297,7 +297,7 @@ OWNER_CANCELLED_TEMPLATE = (
     "❌ Cancelled\n\n"
     "Winner: {winner}\n"
     "Event: {emoji} {name}\n"
-    "Reward: {reward} $IWRU\n"
+    "Reward: {reward} IWRU\n"
     "{wallet_line}\n"
     "This claim was cancelled and released."
 )
@@ -326,7 +326,7 @@ OWNER_EXPIRED_TEMPLATE = (
     "⌛ Expired\n\n"
     "Winner: {winner}\n"
     "Event: {emoji} {name}\n"
-    "Reward: {reward} $IWRU\n\n"
+    "Reward: {reward} IWRU\n\n"
     "This claim expired automatically -- the winner never submitted a wallet before the next treasure appeared."
 )
 
@@ -349,19 +349,31 @@ UNCLAIMED_EXPIRED_TEMPLATE = (
     "The Fish Vault keeps it."
 )
 
-GROUP_PAID_ANNOUNCEMENT_TEMPLATE = "🎉 {winner} has received {reward} $IWRU."
+# Fires when the Owner manually withdraws a still-unclaimed event (e.g. a
+# test generation) via the Owner panel's "Cancel Current Event" button --
+# distinct wording from the auto-expiry template above, since this was an
+# intentional Owner action, not a timeout.
+OWNER_WITHDRAWN_GROUP_TEMPLATE = (
+    "❌ The {emoji} {name} was withdrawn.\n\n"
+    "The Fish Vault keeps it."
+)
+
+GROUP_PAID_ANNOUNCEMENT_TEMPLATE = "🎉 {winner} has received {reward} IWRU."
 
 # ══════════════════════════════════════════════════════════════════════════
 #  HOW TO PLAY
 # ══════════════════════════════════════════════════════════════════════════
+# Built from EVENTS itself (not hardcoded) so the reward numbers shown here
+# can never drift out of sync with the real payouts if EVENTS is ever retuned.
+_HOW_TO_PLAY_TREASURE_LINES = "\n".join(
+    f"{info['emoji']} {info['name']} — {info['reward']} IWRU" for info in EVENTS.values()
+)
+
 HOW_TO_PLAY_TEXT = (
     "🐈‍⬛ How to Play\n\n"
     "Welcome to my little game, human.\n\n"
     "🐾 Once a day I may discover a treasure.\n\n"
-    "🐭 Mouse\n"
-    "🐟 Purple Fish\n"
-    "📦 Mystery Box\n"
-    "👑 Golden Crown\n\n"
+    f"{_HOW_TO_PLAY_TREASURE_LINES}\n\n"
     "If you are the first to press Catch, the treasure is yours.\n\n"
     "I'll ask you for your Monad wallet in private.\n\n"
     "The rewards are manually sent from the Fish Vault.\n\n"

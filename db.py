@@ -52,6 +52,7 @@ def init_db() -> None:
             chat_id INTEGER,
             message_id INTEGER,
             has_image INTEGER NOT NULL DEFAULT 0,
+            sticker_message_id INTEGER,
             owner_message_id INTEGER,
             display_text TEXT,
             status TEXT NOT NULL DEFAULT 'unclaimed',
@@ -72,17 +73,28 @@ def init_db() -> None:
         set_config("events_enabled", "0")
 
 
+# (column_name, DDL fragment) for every column added to `events` after its
+# original CREATE TABLE -- add a new entry here for any future column, rather
+# than hand-rolling another repeated if-block in _migrate_schema.
+_EVENTS_TABLE_MIGRATIONS = [
+    ("has_image", "ALTER TABLE events ADD COLUMN has_image INTEGER NOT NULL DEFAULT 0"),
+    ("sticker_message_id", "ALTER TABLE events ADD COLUMN sticker_message_id INTEGER"),
+]
+
+
 def _migrate_schema() -> None:
     """CREATE TABLE IF NOT EXISTS is a no-op against a table that already
     exists -- it does NOT add newly-introduced columns to an existing events
     table from a prior run. Without this, any bot instance with an events.db
-    predating a schema change (e.g. the has_image column) would crash the
-    instant that column is read, since sqlite3.Row raises on a missing key
-    exactly like a real bug would, not a graceful None."""
+    predating a schema change would crash the instant that column is read,
+    since sqlite3.Row raises on a missing key exactly like a real bug would,
+    not a graceful None."""
     existing_columns = {row["name"] for row in _conn.execute("PRAGMA table_info(events)")}
-    if "has_image" not in existing_columns:
+    for column_name, ddl in _EVENTS_TABLE_MIGRATIONS:
+        if column_name in existing_columns:
+            continue
         try:
-            _conn.execute("ALTER TABLE events ADD COLUMN has_image INTEGER NOT NULL DEFAULT 0")
+            _conn.execute(ddl)
             _conn.commit()
         except sqlite3.OperationalError as e:
             # Two processes briefly overlapping against the same fresh
@@ -141,7 +153,8 @@ def upsert_user(telegram_id: int, username, first_name) -> None:
 #  EVENTS
 # ══════════════════════════════════════════════════════════════════════════
 def create_event(
-    event_key: str, token: str, reward: int, chat_id: int, message_id: int, display_text: str, has_image: bool
+    event_key: str, token: str, reward: int, chat_id: int, message_id: int, display_text: str, has_image: bool,
+    sticker_message_id: int = None,
 ) -> int:
     """One atomic INSERT covering everything known at creation time (event
     already posted to Telegram by the caller, so chat_id/message_id/
@@ -149,14 +162,17 @@ def create_event(
     succeeds or fully fails -- unlike separate follow-up UPDATEs, there is no
     window where a row exists with some columns populated and others NULL.
 
-    has_image is stored (not re-derived later) so a future edit of this
-    message -- e.g. auto-expiring a stale claim, which has no live Telegram
-    Message object to inspect -- knows whether to call edit_message_caption
-    or edit_message_text without guessing or re-checking the filesystem."""
+    message_id/chat_id always refer to the plain TEXT message carrying the
+    Catch/Inspect keyboard -- the one this whole row tracks and edits going
+    forward. sticker_message_id (nullable) is a separate, purely decorative
+    message (the event's artwork, sent as a sticker so Telegram renders its
+    transparency correctly) with no caption and no keyboard of its own;
+    has_image just records whether one was sent, so a bump knows whether
+    there's a sticker to also delete/repost alongside the text message."""
     cur = _conn.execute(
-        "INSERT INTO events (event_key, token, reward, chat_id, message_id, display_text, has_image, status, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, 'unclaimed', ?)",
-        (event_key, token, reward, chat_id, message_id, display_text, int(has_image), _now()),
+        "INSERT INTO events (event_key, token, reward, chat_id, message_id, display_text, has_image, sticker_message_id, status, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'unclaimed', ?)",
+        (event_key, token, reward, chat_id, message_id, display_text, int(has_image), sticker_message_id, _now()),
     )
     _conn.commit()
     return cur.lastrowid
@@ -186,7 +202,10 @@ def set_owner_message_id(event_id: int, message_id: int, expected_status: str = 
     return cur.rowcount > 0
 
 
-def rebump_event(event_id: int, chat_id: int, message_id: int, has_image: bool, *, expected_status: str) -> bool:
+def rebump_event(
+    event_id: int, chat_id: int, message_id: int, has_image: bool, *, expected_status: str,
+    sticker_message_id: int = None,
+) -> bool:
     """Repoints an existing event at a freshly-reposted message (the old one
     was deleted and a new copy sent at the bottom of the chat, so an
     unclaimed treasure doesn't stay buried under new chat activity forever).
@@ -199,8 +218,8 @@ def rebump_event(event_id: int, chat_id: int, message_id: int, has_image: bool, 
     event out from under its own winner -- return False and let the caller
     skip the bump entirely."""
     cur = _conn.execute(
-        "UPDATE events SET chat_id = ?, message_id = ?, has_image = ? WHERE id = ? AND status = ?",
-        (chat_id, message_id, int(has_image), event_id, expected_status),
+        "UPDATE events SET chat_id = ?, message_id = ?, has_image = ?, sticker_message_id = ? WHERE id = ? AND status = ?",
+        (chat_id, message_id, int(has_image), sticker_message_id, event_id, expected_status),
     )
     _conn.commit()
     return cur.rowcount > 0
