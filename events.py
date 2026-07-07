@@ -448,7 +448,7 @@ async def _post_new_event(context: ContextTypes.DEFAULT_TYPE, event_id=None) -> 
         # right as it neared the bump threshold) would carry straight into
         # this one, bumping it far sooner than EVENT_BUMP_MESSAGE_THRESHOLD
         # messages of its own actual activity.
-        _msgs_since_bump[cfg.EVENTS_CHAT_ID] = 0
+        _reset_bump_counter()
     except Exception as e:
         # The message is already live in the group at this point. If we can't
         # persist it, don't leave what looks like a normal, catchable event
@@ -475,7 +475,19 @@ async def _post_new_event(context: ContextTypes.DEFAULT_TYPE, event_id=None) -> 
 # ══════════════════════════════════════════════════════════════════════════
 #  BUMP  (repost an unclaimed event so chat activity can't bury it)
 # ══════════════════════════════════════════════════════════════════════════
-_msgs_since_bump: dict[int, int] = {}
+# Persisted in the DB's config table (not a plain in-memory dict) because
+# this process restarts often (Render redeploys, polling Conflict recovery --
+# see build_app's retry loop): an in-memory counter resets to 0 on every one
+# of those restarts, so on a busy-but-not-instant chat it could perpetually
+# get wiped just before reaching EVENT_BUMP_MESSAGE_THRESHOLD, making the
+# bump silently never fire even though the logic itself is correct. Only one
+# chat (cfg.EVENTS_CHAT_ID) ever needs this, so a single scalar key is enough
+# -- no need for a per-chat dict.
+_BUMP_COUNTER_KEY = "msgs_since_bump"
+
+
+def _reset_bump_counter() -> None:
+    db.set_config(_BUMP_COUNTER_KEY, "0")
 
 
 async def on_group_activity(context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> None:
@@ -489,11 +501,11 @@ async def on_group_activity(context: ContextTypes.DEFAULT_TYPE, chat_id: int) ->
     if chat_id != cfg.EVENTS_CHAT_ID:
         return  # only the events chat's treasure can ever need bumping -- no point tracking counts elsewhere
     try:
-        count = _msgs_since_bump.get(chat_id, 0) + 1
+        count = int(db.get_config(_BUMP_COUNTER_KEY, "0")) + 1
         if count < cfg.EVENT_BUMP_MESSAGE_THRESHOLD:
-            _msgs_since_bump[chat_id] = count
+            db.set_config(_BUMP_COUNTER_KEY, str(count))
             return
-        _msgs_since_bump[chat_id] = 0
+        _reset_bump_counter()
 
         row = db.get_active_event()
         if row is not None and row["status"] == "unclaimed":
@@ -1399,7 +1411,7 @@ async def on_menu_button(update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 if await _reposition_event_messages(
                     context, row, reposition_text, _event_keyboard(row["token"]), expected_status=row["status"]
                 ):
-                    _msgs_since_bump[chat_id] = 0
+                    _reset_bump_counter()
             except Exception as e:
                 print(f"[events] failed to reposition event on info-button press: {e}", flush=True)
             await _send_info_popup(context, chat_id, content)

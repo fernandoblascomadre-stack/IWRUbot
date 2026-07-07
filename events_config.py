@@ -59,7 +59,7 @@ EVENT_WINDOW_UTC = _resolve_event_window()
 # gets reposted at the bottom of the chat, so it can't stay buried forever
 # under new conversation. Only applies while the event is genuinely
 # unclaimed -- once someone's caught it, there's nothing left to surface.
-EVENT_BUMP_MESSAGE_THRESHOLD = _safe_int_env("EVENT_BUMP_MESSAGE_THRESHOLD", 5)
+EVENT_BUMP_MESSAGE_THRESHOLD = _safe_int_env("EVENT_BUMP_MESSAGE_THRESHOLD", 2)
 
 # ══════════════════════════════════════════════════════════════════════════
 #  WALLET VALIDATION
@@ -256,7 +256,8 @@ IWRU_MENU_FLAVOR_LINES = [
 # ══════════════════════════════════════════════════════════════════════════
 PENDING_WALLET_MSG = (
     "Congratulations! 🎉\n\n"
-    "Please send your Monad wallet address to receive your reward."
+    "Please send your Monad wallet address to receive your reward.\n\n"
+    "⚠️ If you don't send it before the next treasure event starts, this prize expires and goes back to the Fish Vault."
 )
 
 WALLET_INVALID_MSG = (
@@ -278,14 +279,16 @@ OWNER_CANNOT_CLAIM_MSG = "😼 You are the Owner. You can't steal from your own 
 
 DEEPLINK_LINE_TEMPLATE = (
     "\n\n🐈‍⬛ To receive your reward, click here and press Start:\n"
-    "👉 {deep_link}"
+    "👉 {deep_link}\n\n"
+    "⚠️ If you don't do this before the next treasure event starts, this prize expires and goes back to the Fish Vault."
 )
 
 # Used instead of DEEPLINK_LINE_TEMPLATE on the rare occasion the bot can't
 # even generate its own deep link (a transient get_me() failure) -- the
 # winner still needs SOME path forward instead of a dead end.
 DEEPLINK_UNAVAILABLE_LINE = (
-    "\n\n🐈‍⬛ I couldn't reach you privately. Please message me directly to claim your reward."
+    "\n\n🐈‍⬛ I couldn't reach you privately. Please message me directly to claim your reward.\n\n"
+    "⚠️ If you don't do this before the next treasure event starts, this prize expires and goes back to the Fish Vault."
 )
 
 # {winner} is a precomputed display string ("@username" or the first name
