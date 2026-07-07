@@ -1,6 +1,17 @@
 services:
+  # Deployed as a Background Worker (srv-d96hk7q8qa3s7392navg, "iwrubot-worker"):
+  # the bot only long-polls Telegram, it never serves HTTP traffic, so a
+  # Worker is the correct service type -- no port to bind, no public URL, no
+  # health-check-driven restarts. It previously ran as a Web Service
+  # (srv-d91cb9po3t8c73cvr4bg, now suspended, kept as a rollback fallback)
+  # purely by historical accident; that required bot.py's health-check HTTP
+  # thread as a workaround just to satisfy Render's port-binding requirement
+  # for that service type. This file was never actually blueprint-synced
+  # against either deployment -- both services were created directly via
+  # dashboard/API -- so it exists here as documentation of intended shape,
+  # not as a live source of truth Render re-applies automatically.
   - type: worker
-    name: iwrubot
+    name: iwrubot-worker
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: python bot.py
@@ -12,7 +23,7 @@ services:
     # outside mountPath) would silently write to the ephemeral filesystem
     # instead, looking like a fix while not actually being one.
     disk:
-      name: iwrubot-data
+      name: iwrubot-worker-data
       mountPath: /var/data
       sizeGB: 1
     envVars:
@@ -20,7 +31,19 @@ services:
         sync: false
       - key: EVENTS_CHAT_ID
         sync: false
+      - key: KNOWN_CHAT_IDS
+        sync: false
       - key: BOT_OWNER_ID
         sync: false
       - key: EVENTS_DB_PATH
         value: /var/data/events.db
+      # Optional -- Twitter/X posting is skipped entirely (TWITTER_ENABLED
+      # is computed from these four being present) if any is unset.
+      - key: TWITTER_API_KEY
+        sync: false
+      - key: TWITTER_API_SECRET
+        sync: false
+      - key: TWITTER_ACCESS_TOKEN
+        sync: false
+      - key: TWITTER_ACCESS_TOKEN_SECRET
+        sync: false

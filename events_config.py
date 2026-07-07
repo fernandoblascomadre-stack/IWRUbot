@@ -260,6 +260,15 @@ PENDING_WALLET_MSG = (
     "⚠️ If you don't send it before the next treasure event starts, this prize expires and goes back to the Fish Vault."
 )
 
+# Sent by the Owner's "🔔 Remind Winner" button -- a manual nudge, not tied
+# to any automatic timer, so it can be re-sent as many times as the Owner
+# likes while the claim is still 'claimed'.
+WALLET_REMINDER_MSG = (
+    "⏰ Reminder: you still have a prize waiting! 🎉\n\n"
+    "Please send your Monad wallet address to receive your reward.\n\n"
+    "⚠️ If you don't send it before the next treasure event starts, this prize expires and goes back to the Fish Vault."
+)
+
 WALLET_INVALID_MSG = (
     "😼 That doesn't look like a valid Monad wallet address.\n\n"
     "It should look like: 0x followed by 40 hex characters. Try again."

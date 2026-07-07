@@ -144,10 +144,15 @@ def _owner_claim_keyboard(token: str, include_pay: bool) -> InlineKeyboardMarkup
     """The keyboard attached to the Owner's per-claim message. include_pay is
     False while still 'claimed' (nothing to pay yet) and True once
     'ready_to_pay'. Cancel is always available so a stuck/unresponsive winner
-    can never permanently softlock the game."""
+    can never permanently softlock the game. Remind is offered instead of Pay
+    while still 'claimed' -- a lower-friction nudge for a winner who probably
+    just missed the DM/deep-link, before resorting to Cancel; once a wallet's
+    been submitted (ready_to_pay) there's nothing left to remind them of."""
     rows = []
     if include_pay:
         rows.append([InlineKeyboardButton("✅ Mark as Paid", callback_data=f"paid:{token}")])
+    else:
+        rows.append([InlineKeyboardButton("🔔 Remind Winner", callback_data=f"remind:{token}")])
     rows.append([InlineKeyboardButton("❌ Cancel Claim", callback_data=f"cancel:{token}")])
     return InlineKeyboardMarkup(rows)
 
@@ -1150,6 +1155,38 @@ async def on_owner_cancel(update, context: ContextTypes.DEFAULT_TYPE) -> None:
         print(f"[events] failed to notify winner of cancellation (event {row['id']}): {e}", flush=True)
 
 
+async def on_owner_remind(update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Lets the Owner manually nudge a winner who hasn't sent their wallet
+    yet -- a lower-friction alternative to Cancel Claim for someone who's
+    probably just missed the DM or never clicked the deep-link, rather than
+    gone silent for good. Doesn't touch the claim's status at all (unlike
+    Cancel/Pay), so it's safe to press more than once."""
+    query = update.callback_query
+    if not _is_owner(query.from_user.id):
+        await query.answer()
+        return
+
+    token = query.data.split(":", 1)[1]
+    row = db.get_event_by_token(token)
+    if row is None or row["status"] != "claimed":
+        # Already resolved (wallet submitted/paid/cancelled) or never existed
+        # -- nothing left to remind about. Refresh the message to reflect
+        # reality instead of leaving it stuck on a stale Remind button
+        # (mirrors on_owner_cancel/on_owner_paid's same self-heal).
+        await query.answer("Nothing to remind here -- already resolved.", show_alert=True)
+        if row is not None:
+            text, keyboard = _owner_status_render(row)
+            await _edit_current(query, text, keyboard)
+        return
+
+    try:
+        await context.bot.send_message(chat_id=row["winner_id"], text=cfg.WALLET_REMINDER_MSG)
+        await query.answer("Reminder sent.")
+    except TelegramError as e:
+        print(f"[events] failed to send wallet reminder (event {row['id']}): {e}", flush=True)
+        await query.answer("Couldn't reach them privately (DM blocked, or they never started a chat with me).", show_alert=True)
+
+
 # ══════════════════════════════════════════════════════════════════════════
 #  OWNER PANEL  (/events -- always DMed to the Owner, never group-visible)
 # ══════════════════════════════════════════════════════════════════════════
@@ -1491,6 +1528,7 @@ def register(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(on_menu_button, pattern=r"^menu:"))
     app.add_handler(CallbackQueryHandler(on_owner_paid, pattern=r"^paid:"))
     app.add_handler(CallbackQueryHandler(on_owner_cancel, pattern=r"^cancel:"))
+    app.add_handler(CallbackQueryHandler(on_owner_remind, pattern=r"^remind:"))
     app.add_handler(CallbackQueryHandler(on_owner_panel_button, pattern=r"^owner:"))
 
     _schedule_daily_event(app.job_queue)

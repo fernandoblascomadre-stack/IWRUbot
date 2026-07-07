@@ -262,7 +262,7 @@ RANDOM_QUIPS = [
     "stage 6 has laser enemies. I dodged one with my eyes closed. both eyes. 😼",
     "the developers added a desert level with heat. I told them I prefer fish. they added more enemies instead. 🐟😾",
     "in IWRU Journey I can cling to walls. in real life I also cling to walls. this is not a game mechanic. 😼",
-    "stage 7 has something called the Núcleo. I don't know what's in there. I went in anyway. for fish. 🐟",
+    "stage 7 has something called the Core. I don't know what's in there. I went in anyway. for fish. 🐟",
     "I have a video game, a token, an NFT collection, and a fish vault. most cats just sleep. 😼🐟",
     "the stalker in stage 7 follows me through tunnels. it cannot catch me. nothing can catch me. 😼",
     "stage 6 has fragments to collect. I collected them. I sat on them. I kept going. 😼🎮",
