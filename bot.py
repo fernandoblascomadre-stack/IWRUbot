@@ -43,6 +43,39 @@ def _parse_known_chat_ids(raw: str) -> list[int]:
 
 KNOWN_CHAT_IDS = _parse_known_chat_ids(os.environ.get("KNOWN_CHAT_IDS", ""))
 
+# ── No-repeat phrase picker ──────────────────────────────────────────────
+# Plain random.choice() can pick the same line twice in a row, or resurface
+# one long before the rest of its list has had a turn -- noticeable on the
+# smaller flavor-text lists. Each list gets its own shuffled "bag" (keyed by
+# the list object's identity, since every phrase list here is a distinct
+# module-level constant that lives for the whole process): pull without
+# replacement until the bag's empty, then reshuffle a fresh one.
+_phrase_bags: dict[int, list] = {}
+_phrase_last: dict[int, object] = {}
+
+
+def pick_phrase(options):
+    """Drop-in replacement for random.choice(options) that only repeats a
+    line once every other option in `options` has come up."""
+    key = id(options)
+    bag = _phrase_bags.get(key)
+    if not bag:
+        bag = list(options)
+        random.shuffle(bag)
+        if len(bag) > 1 and bag[-1] == _phrase_last.get(key):
+            # bag.pop() below draws from the end -- without this swap, a
+            # freshly-shuffled bag could hand back the exact same line that
+            # just ended the previous bag, a back-to-back repeat across the
+            # reshuffle boundary that the whole point of this function is to
+            # avoid.
+            swap_idx = random.randrange(len(bag) - 1)
+            bag[-1], bag[swap_idx] = bag[swap_idx], bag[-1]
+        _phrase_bags[key] = bag
+    choice = bag.pop()
+    _phrase_last[key] = choice
+    return choice
+
+
 STICKER_BUY     = "CAACAgQAAyEFAATmBptiAAIbc2pCtW0Cin0rkU6CFSGyVqWmQYbMAAILIQACaEkIUnVRn_2NEtPVPAQ"
 STICKER_WELCOME = "CAACAgQAAyEFAATmBptiAAIbdGpCtXLR4nqSl707gZNKRYI7MUZOAAJBIAACRh8JUh_nOBSMnXM1PAQ"
 
@@ -1166,6 +1199,14 @@ NFT_REMINDERS = [
     "*proudly displays NFT collection* the cat is cultured. and hungry. 🐟\n\n🎨 https://opensea.io/collection/i-will-rug-u",
     "every NFT sold = one more fish for the cat. do the right thing. 😼\n\n🎨 https://opensea.io/collection/i-will-rug-u",
 ]
+
+MERCH_ANNOUNCEMENT = (
+    "I finally found a way to turn fish into hoodies. 📈🐟\n\n"
+    "Turns out humans will actually *pay* to advertise the cat that keeps trying to rug them. What a beautiful species.\n\n"
+    "Grab your official IWRU merch before I spend all the profits on tuna and suspicious on-chain experiments.\n\n"
+    "🛍️ Collection available now:\n"
+    "[Unchained Lab Launchpad](https://www.unchainedlab.net/launchpad/iwru-universe)"
+)
 
 TWEET_PHRASES = [
     # 🐟 Fish
@@ -2362,7 +2403,7 @@ async def tweet_slot_job(context: ContextTypes.DEFAULT_TYPE):
             slot_key = f"last_tweet_date_{slot_start}_{slot_end}"
             if db.get_config(slot_key) != today:
                 db.set_config(slot_key, today)  # set BEFORE posting, matching the same restart-safety reasoning
-                text = random.choice(TWEET_PHRASES)
+                text = pick_phrase(TWEET_PHRASES)
                 try:
                     await asyncio.get_event_loop().run_in_executor(None, _post_tweet, text)
                 except Exception as e:
@@ -2427,9 +2468,9 @@ async def bored_cat_job(context: ContextTypes.DEFAULT_TYPE):
                     if eligible and random.random() < 0.32:  # -20% (was 0.40)
                         uid, udata = random.choice(eligible)
                         name = udata.get("name", "human")
-                        text = random.choice(CALLOUT_MESSAGES).replace("{name}", name)
+                        text = pick_phrase(CALLOUT_MESSAGES).replace("{name}", name)
                     else:
-                        text = random.choice(BORED_MESSAGES)
+                        text = pick_phrase(BORED_MESSAGES)
                     await context.bot.send_message(chat_id=chat_id, text=text)
                 except Exception as e:
                     print(f"[bored_cat_job] chat {chat_id}: {e}", flush=True)
@@ -2446,7 +2487,7 @@ async def social_reminder_job(context: ContextTypes.DEFAULT_TYPE):
     # an unexpectedly empty list) must never skip the reschedule below, or
     # this job silently stops firing forever until the process restarts.
     try:
-        text = random.choice(SOCIAL_REMINDERS)
+        text = pick_phrase(SOCIAL_REMINDERS)
         for chat_id in list(_known_chats.keys()):
             try:
                 await context.bot.send_message(chat_id=chat_id, text=text)
@@ -2458,7 +2499,7 @@ async def social_reminder_job(context: ContextTypes.DEFAULT_TYPE):
 
 async def monad_reminder_job(context: ContextTypes.DEFAULT_TYPE):
     try:
-        text = random.choice(MONAD_REMINDERS)
+        text = pick_phrase(MONAD_REMINDERS)
         for chat_id in list(_known_chats.keys()):
             try:
                 # parse_mode="Markdown" here specifically -- MONAD_REMINDERS
@@ -2476,7 +2517,7 @@ async def monad_reminder_job(context: ContextTypes.DEFAULT_TYPE):
 
 async def game_reminder_job(context: ContextTypes.DEFAULT_TYPE):
     try:
-        text = random.choice(GAME_REMINDERS)
+        text = pick_phrase(GAME_REMINDERS)
         for chat_id in list(_known_chats.keys()):
             try:
                 await context.bot.send_message(chat_id=chat_id, text=text)
@@ -2488,7 +2529,7 @@ async def game_reminder_job(context: ContextTypes.DEFAULT_TYPE):
 
 async def nft_reminder_job(context: ContextTypes.DEFAULT_TYPE):
     try:
-        text = random.choice(NFT_REMINDERS)
+        text = pick_phrase(NFT_REMINDERS)
         for chat_id in list(_known_chats.keys()):
             try:
                 await context.bot.send_message(chat_id=chat_id, text=text)
@@ -2497,6 +2538,39 @@ async def nft_reminder_job(context: ContextTypes.DEFAULT_TYPE):
     finally:
         # -20% frequency: reschedule every 13.75-16.25 hours (was 11-13h)
         context.application.job_queue.run_once(nft_reminder_job, random.uniform(49500, 58500))
+
+# once/day, random moment inside this UTC window
+MERCH_ANNOUNCEMENT_WINDOW_UTC = (12, 22)
+
+async def merch_announcement_job(context: ContextTypes.DEFAULT_TYPE):
+    """Posts MERCH_ANNOUNCEMENT once per calendar day (UTC) to every known
+    chat, at a random moment inside MERCH_ANNOUNCEMENT_WINDOW_UTC. Mirrors
+    tweet_slot_job's persisted date-dedupe (not the other reminder jobs'
+    every-N-hours drift) since "once a day" needs a real calendar-day
+    guarantee, restart-safe across Render redeploys, rather than an interval
+    that could land twice in the same day or skip one.
+
+    try/finally around the whole body so any failure above (e.g. a chat
+    send erroring out) can never skip the reschedule, which would otherwise
+    silently kill this job forever until the process restarts -- same
+    pattern as every other job in this file."""
+    try:
+        today = datetime.utcnow().date().isoformat()
+        if db.get_config("last_merch_announcement_date") != today:
+            # set BEFORE posting -- same restart-safety reasoning as
+            # tweet_slot_job's slot_key: a redeploy landing mid-send must
+            # not recompute and post a second announcement the same day.
+            db.set_config("last_merch_announcement_date", today)
+            for chat_id in list(_known_chats.keys()):
+                try:
+                    await context.bot.send_message(
+                        chat_id=chat_id, text=MERCH_ANNOUNCEMENT, parse_mode="Markdown"
+                    )
+                except Exception as e:
+                    print(f"[merch_announcement_job] chat {chat_id}: {e}", flush=True)
+    finally:
+        delay = _seconds_until_window(*MERCH_ANNOUNCEMENT_WINDOW_UTC, force_next_day=True)
+        context.application.job_queue.run_once(merch_announcement_job, delay)
 
 # ══════════════════════════════════════════════════════════════════════════
 #  HANDLERS
@@ -2510,7 +2584,7 @@ async def cmd_raid(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if update.message.chat.type == "private":
         return  # a raid call-to-action means nothing outside the group
-    await update.message.reply_text(random.choice(RAID_RESPONSES))
+    await update.message.reply_text(pick_phrase(RAID_RESPONSES))
 
 async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global _bot_username
@@ -2558,7 +2632,7 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user:
         uid = user.id
         if uid not in _user_nicknames:
-            _user_nicknames[uid] = random.choice(NICKNAMES)
+            _user_nicknames[uid] = pick_phrase(NICKNAMES)
         _known_users[uid] = {
             "chat_id":   chat_id,
             "name":      user.first_name or "human",
@@ -2571,19 +2645,19 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if msg.sticker:
         if 8 <= h <= 10 and random.random() < 0.44:  # -20% (was 0.55)
             await asyncio.sleep(random.uniform(0.5, 2.0))
-            await msg.reply_text(random.choice(GM_REPLIES))
+            await msg.reply_text(pick_phrase(GM_REPLIES))
         elif 22 <= h <= 23 and random.random() < 0.44:  # -20% (was 0.55)
             await asyncio.sleep(random.uniform(0.5, 2.0))
-            await msg.reply_text(random.choice(GN_REPLIES))
+            await msg.reply_text(pick_phrase(GN_REPLIES))
         elif random.random() < 0.16:  # -20% (was 0.20)
             await asyncio.sleep(random.uniform(0.5, 1.5))
-            await msg.reply_text(random.choice(STICKER_REACTIONS))
+            await msg.reply_text(pick_phrase(STICKER_REACTIONS))
         return
 
     # ── Photo ──────────────────────────────────────────────────────────────
     if msg.photo and random.random() < 0.12:  # -20% (was 0.15)
         await asyncio.sleep(random.uniform(1.0, 3.0))
-        await msg.reply_text(random.choice(PHOTO_REACTIONS))
+        await msg.reply_text(pick_phrase(PHOTO_REACTIONS))
         return
 
     if not text:
@@ -2592,35 +2666,35 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ── Tweet URL → raid (always, before the counter) ────────────────────
     if TWEET_URL_RE.search(text):
         await asyncio.sleep(5)
-        await msg.reply_text(random.choice(RAID_RESPONSES))
+        await msg.reply_text(pick_phrase(RAID_RESPONSES))
         return
 
     # ── Raid (always, before the counter) ────────────────────────────────
     if _contains_word(tl, RAID_TRIGGERS):
-        await msg.reply_text(random.choice(RAID_RESPONSES))
+        await msg.reply_text(pick_phrase(RAID_RESPONSES))
         return
 
     # ── Rose filter exact matches (always) ───────────────────────────────
     tl_stripped = tl.strip()
     if tl_stripped == "ca":
         await asyncio.sleep(random.uniform(1.5, 4.0))
-        await msg.reply_text(random.choice(CA_REPLIES))
+        await msg.reply_text(pick_phrase(CA_REPLIES))
         return
     if tl_stripped in ("website", "site", "web"):
         await asyncio.sleep(random.uniform(1.5, 4.0))
-        await msg.reply_text(random.choice(WEBSITE_REPLIES))
+        await msg.reply_text(pick_phrase(WEBSITE_REPLIES))
         return
     if tl_stripped in ("social", "socials"):
         await asyncio.sleep(random.uniform(1.5, 4.0))
-        await msg.reply_text(random.choice(SOCIAL_REPLIES))
+        await msg.reply_text(pick_phrase(SOCIAL_REPLIES))
         return
     if tl_stripped in ("filters", "filter"):
         await asyncio.sleep(random.uniform(1.5, 4.0))
-        await msg.reply_text(random.choice(FILTER_REPLIES))
+        await msg.reply_text(pick_phrase(FILTER_REPLIES))
         return
     if tl_stripped == "iwillrugu":
         await asyncio.sleep(random.uniform(1.5, 4.0))
-        await msg.reply_text(random.choice(IWRU_FILTER_REPLIES))
+        await msg.reply_text(pick_phrase(IWRU_FILTER_REPLIES))
         return
 
     # ── Message counter → chaos burst ────────────────────────────────
@@ -2632,74 +2706,74 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _next_trigger[chat_id] = random.randint(10, 18)
         if random.random() < 0.52:  # -20% (was 0.65)
             await asyncio.sleep(random.uniform(1.0, 3.5))
-            await msg.reply_text(random.choice(CHAOS_BURSTS))
+            await msg.reply_text(pick_phrase(CHAOS_BURSTS))
             return
 
     # ── IWRU name ──────────────────────────────────────────────────────────
     if _contains_word(tl, IWRU_TRIGGERS) or tl_stripped in ("iwru", "@iwru"):
         if random.random() < 0.52:  # -20% (was 0.65)
             await asyncio.sleep(random.uniform(1.0, 3.0))
-            await msg.reply_text(random.choice(IWRU_NAME_REPLIES))
+            await msg.reply_text(pick_phrase(IWRU_NAME_REPLIES))
             if random.random() < 0.096:  # -20% (was 0.12)
                 await asyncio.sleep(random.uniform(4, 7))
-                await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
+                await msg.reply_text(pick_phrase(FOLLOWUP_MESSAGES))
             return
 
     # ── GM ─────────────────────────────────────────────────────────────────
     if _starts_with_word(tl, GM_TRIGGERS) and random.random() < 0.48:  # -20% (was 0.60)
         await asyncio.sleep(random.uniform(0.5, 2.0))
-        await msg.reply_text(random.choice(GM_REPLIES))
+        await msg.reply_text(pick_phrase(GM_REPLIES))
         return
 
     # ── GN ─────────────────────────────────────────────────────────────────
     if _starts_with_word(tl, GN_TRIGGERS) and random.random() < 0.48:  # -20% (was 0.60)
         await asyncio.sleep(random.uniform(0.5, 2.0))
-        await msg.reply_text(random.choice(GN_REPLIES))
+        await msg.reply_text(pick_phrase(GN_REPLIES))
         return
 
     # ── Moon / pump ────────────────────────────────────────────────────────
     if _contains_word(tl, MOON_TRIGGERS) and random.random() < 0.36:  # -20% (was 0.45)
         await asyncio.sleep(random.uniform(1.0, 3.0))
-        await msg.reply_text(random.choice(MOON_REPLIES))
+        await msg.reply_text(pick_phrase(MOON_REPLIES))
         if random.random() < 0.096:  # -20% (was 0.12)
             await asyncio.sleep(random.uniform(4, 7))
-            await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
+            await msg.reply_text(pick_phrase(FOLLOWUP_MESSAGES))
         return
 
     # ── Dip / dump ─────────────────────────────────────────────────────────
     if _contains_word(tl, DIP_TRIGGERS) and random.random() < 0.36:  # -20% (was 0.45)
         await asyncio.sleep(random.uniform(1.0, 3.0))
-        await msg.reply_text(random.choice(DIP_REPLIES))
+        await msg.reply_text(pick_phrase(DIP_REPLIES))
         if random.random() < 0.096:  # -20% (was 0.12)
             await asyncio.sleep(random.uniform(4, 7))
-            await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
+            await msg.reply_text(pick_phrase(FOLLOWUP_MESSAGES))
         return
 
     # ── Wen ────────────────────────────────────────────────────────────────
     if _contains_word(tl, WEN_TRIGGERS) and random.random() < 0.52:  # -20% (was 0.65)
         await asyncio.sleep(random.uniform(1.0, 2.5))
-        await msg.reply_text(random.choice(WEN_REPLIES))
+        await msg.reply_text(pick_phrase(WEN_REPLIES))
         return
 
     # ── Chart / price ──────────────────────────────────────────────────────
     if _contains_word(tl, CHART_TRIGGERS) and random.random() < 0.32:  # -20% (was 0.40)
         await asyncio.sleep(random.uniform(1.0, 3.0))
-        await msg.reply_text(random.choice(CHART_REPLIES))
+        await msg.reply_text(pick_phrase(CHART_REPLIES))
         return
 
     # ── Monad ──────────────────────────────────────────────────────────────
     if _contains_word(tl, MONAD_TRIGGERS) and random.random() < 0.40:  # -20% (was 0.50)
         await asyncio.sleep(random.uniform(1.0, 2.5))
-        await msg.reply_text(random.choice(MONAD_REPLIES))
+        await msg.reply_text(pick_phrase(MONAD_REPLIES))
         return
 
     # ── Fish ───────────────────────────────────────────────────────────────
     if "fish" in tl and random.random() < 0.52:  # -20% (was 0.65)
         await asyncio.sleep(random.uniform(0.5, 2.0))
-        await msg.reply_text(random.choice(FISH_REPLIES))
+        await msg.reply_text(pick_phrase(FISH_REPLIES))
         if random.random() < 0.096:  # -20% (was 0.12)
             await asyncio.sleep(random.uniform(4, 7))
-            await msg.reply_text(random.choice(FOLLOWUP_MESSAGES))
+            await msg.reply_text(pick_phrase(FOLLOWUP_MESSAGES))
         return
 
     # ── Direct @mention ────────────────────────────────────────────────────
@@ -2713,7 +2787,7 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
             print(f"[leer] get_me() failed: {e}", flush=True)
     if _bot_username and f"@{_bot_username}".lower() in tl:
         await asyncio.sleep(random.uniform(1.0, 2.5))
-        await msg.reply_text(random.choice(IWRU_COMMAND_REPLIES))
+        await msg.reply_text(pick_phrase(IWRU_COMMAND_REPLIES))
         return
 
     # ── Random quip (boost x2 between 2-5am) ────────────────────────────────
@@ -2722,7 +2796,7 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if now - last > RANDOM_COOLDOWN and random.random() < RANDOM_CHANCE * night_boost:
         _last_random[chat_id] = now
         await asyncio.sleep(random.uniform(1.0, 3.0))
-        await msg.reply_text(random.choice(RANDOM_QUIPS))
+        await msg.reply_text(pick_phrase(RANDOM_QUIPS))
 
 # ══════════════════════════════════════════════════════════════════════════
 #  APP
@@ -2764,6 +2838,7 @@ def build_app():
     a.job_queue.run_once(monad_reminder_job, random.uniform(7200, 18000))     # first reminder: 2-5h
     a.job_queue.run_once(game_reminder_job, random.uniform(14400, 25200))     # first reminder: 4-7h
     a.job_queue.run_once(nft_reminder_job, random.uniform(21600, 32400))      # first reminder: 6-9h
+    a.job_queue.run_once(merch_announcement_job, _seconds_until_window(*MERCH_ANNOUNCEMENT_WINDOW_UTC))
     if TWITTER_ENABLED:
         for slot_start, slot_end in TWEET_SLOTS:
             a.job_queue.run_once(tweet_slot_job, _seconds_until_window(slot_start, slot_end), data=(slot_start, slot_end))

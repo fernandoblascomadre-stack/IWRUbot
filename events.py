@@ -1,4 +1,5 @@
 import random
+import time
 import uuid
 from datetime import datetime, timedelta
 
@@ -94,9 +95,15 @@ async def _edit_current(query, text: str, keyboard: InlineKeyboardMarkup) -> Non
             caption = text if len(text) <= 500 else text[:450] + "…"
             await query.edit_message_caption(caption=caption, reply_markup=keyboard)
         else:
+            # query.message has neither .photo nor real text/caption to edit
+            # (e.g. it's a sticker message -- the Catch/Inspect/menu keyboard
+            # lives there now for most events) -- Telegram rejects this call
+            # outright in that case, which is fine (nothing to do to a
+            # sticker's content), but it's worth a log line rather than a
+            # silent no-op like every other Telegram call site in this file.
             await query.edit_message_text(text=text, reply_markup=keyboard)
-    except (TelegramError, AttributeError):
-        pass
+    except (TelegramError, AttributeError) as e:
+        print(f"[events] _edit_current failed (message_id={getattr(query.message, 'message_id', '?')}): {e}", flush=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -122,20 +129,22 @@ def _iwru_menu_keyboard() -> InlineKeyboardMarkup:
 
 
 def _event_keyboard(token: str) -> InlineKeyboardMarkup:
+    # Catch gets its own full-width row -- sharing a row with Inspect split
+    # the available width in half, which truncated CATCH_BUTTON_TEXT on
+    # Telegram's clients. Every other button just shifts down one row,
+    # keeping their existing pairings.
     return InlineKeyboardMarkup(
         [
+            [InlineKeyboardButton(cfg.CATCH_BUTTON_TEXT, callback_data=f"catch:{token}")],
             [
-                InlineKeyboardButton(cfg.CATCH_BUTTON_TEXT, callback_data=f"catch:{token}"),
                 InlineKeyboardButton(cfg.INSPECT_BUTTON_TEXT, callback_data=f"inspect:{token}"),
-            ],
-            [
                 InlineKeyboardButton("🏆 Hall of Fame", callback_data="menu:hof"),
-                InlineKeyboardButton("📊 Stats", callback_data="menu:stats"),
             ],
             [
+                InlineKeyboardButton("📊 Stats", callback_data="menu:stats"),
                 InlineKeyboardButton("🎒 My Rewards", callback_data="menu:rewards"),
-                InlineKeyboardButton("🐾 How to Play", callback_data="menu:howto"),
             ],
+            [InlineKeyboardButton("🐾 How to Play", callback_data="menu:howto")],
         ]
     )
 
@@ -267,28 +276,16 @@ async def _expire_stale_events(context: ContextTypes.DEFAULT_TYPE) -> None:
                 expired_text = cfg.EXPIRED_GROUP_TEMPLATE.format(
                     winner=winner_display, emoji=info["emoji"], name=info["name"]
                 )
-                try:
-                    if _row_is_legacy_photo_message(row):
-                        await context.bot.edit_message_caption(
-                            chat_id=row["chat_id"], message_id=row["message_id"],
-                            caption=expired_text, reply_markup=InlineKeyboardMarkup([]),
-                        )
-                    else:
-                        await context.bot.edit_message_text(
-                            chat_id=row["chat_id"], message_id=row["message_id"],
-                            text=expired_text, reply_markup=InlineKeyboardMarkup([]),
-                        )
-                    # Keep display_text in sync with what's actually shown now --
-                    # otherwise a later Hall of Fame/Stats/How-to-Play shortcut
-                    # pressed on this same (now-closed) message, followed by
-                    # Back, would restore the stale pre-expiry "caught!" text
-                    # instead of this expiry notice. Only updated on a
-                    # successful edit -- if the edit above failed, the group
-                    # message still shows the OLD text, so display_text must
-                    # keep matching that reality, not this one.
+                # Keep display_text in sync with what's actually shown now --
+                # otherwise a later Hall of Fame/Stats/How-to-Play shortcut
+                # pressed on this same (now-closed) message, followed by
+                # Back, would restore the stale pre-expiry "caught!" text
+                # instead of this expiry notice. Only updated on a
+                # successful edit -- if the edit above failed, the group
+                # message still shows the OLD text, so display_text must
+                # keep matching that reality, not this one.
+                if await _edit_group_message(context, row, expired_text, clear_keyboard=True):
                     db.set_display_text(row["id"], expired_text)
-                except TelegramError as e:
-                    print(f"[events] failed to edit expired group message (event {row['id']}): {e}", flush=True)
 
             owner_text = cfg.OWNER_EXPIRED_TEMPLATE.format(
                 winner=winner_display, emoji=info["emoji"], name=info["name"], reward=row["reward"]
@@ -351,20 +348,8 @@ async def _expire_stale_events(context: ContextTypes.DEFAULT_TYPE) -> None:
             info = _event_info(fresh["event_key"])
             if fresh["chat_id"] is not None and fresh["message_id"] is not None:
                 expired_text = cfg.UNCLAIMED_EXPIRED_TEMPLATE.format(emoji=info["emoji"], name=info["name"])
-                try:
-                    if _row_is_legacy_photo_message(fresh):
-                        await context.bot.edit_message_caption(
-                            chat_id=fresh["chat_id"], message_id=fresh["message_id"],
-                            caption=expired_text, reply_markup=InlineKeyboardMarkup([]),
-                        )
-                    else:
-                        await context.bot.edit_message_text(
-                            chat_id=fresh["chat_id"], message_id=fresh["message_id"],
-                            text=expired_text, reply_markup=InlineKeyboardMarkup([]),
-                        )
+                if await _edit_group_message(context, fresh, expired_text, clear_keyboard=True):
                     db.set_display_text(fresh["id"], expired_text)
-                except TelegramError as e:
-                    print(f"[events] failed to edit unclaimed-expiry group message (event {row['id']}): {e}", flush=True)
         except Exception as e:
             print(f"[events] failed to expire stale unclaimed event (event {row['id']}): {e}", flush=True)
 
@@ -373,11 +358,20 @@ async def _send_event_message(context: ContextTypes.DEFAULT_TYPE, event_id: str,
     """Sends one event announcement to the group: the artwork first, as a
     STICKER (not a photo) if the event's sticker file exists on disk, then
     the actual tracked message -- always plain text, carrying the caption
-    content and the Catch/Inspect keyboard. Stickers are used specifically
-    because Telegram reliably renders their transparent background; regular
-    photo/caption messages do not (Telegram frequently flattens a photo's
-    transparency onto a white canvas). Stickers can't carry a caption or a
-    keyboard at all, hence the second, separate text message.
+    content. Stickers are used specifically because Telegram reliably renders
+    their transparent background; regular photo/caption messages do not
+    (Telegram frequently flattens a photo's transparency onto a white
+    canvas).
+
+    The Catch/Inspect/menu keyboard is attached to the STICKER message
+    (sendSticker supports reply_markup, just not a caption) whenever one was
+    sent -- so the buttons live on the exact same message as the artwork and
+    can never end up visually detached from it, even if an unrelated chat
+    message lands between the two sends. The text message only gets the
+    keyboard as a fallback, when there's no sticker to hold it (missing
+    asset file). Callers must mirror this same sticker-first placement
+    whenever they later edit/clear this event's keyboard -- see
+    _keyboard_message.
 
     Returns (msg, sticker_message_id) -- msg is the text message (the one
     this whole event's row tracks and edits going forward via chat_id/
@@ -392,18 +386,20 @@ async def _send_event_message(context: ContextTypes.DEFAULT_TYPE, event_id: str,
     if sticker_path.is_file():
         try:
             with open(sticker_path, "rb") as f:
-                sticker_msg = await context.bot.send_sticker(chat_id=cfg.EVENTS_CHAT_ID, sticker=f)
+                sticker_msg = await context.bot.send_sticker(chat_id=cfg.EVENTS_CHAT_ID, sticker=f, reply_markup=keyboard)
             sticker_message_id = sticker_msg.message_id
         except Exception as e:
             print(f"[events] failed to send sticker {sticker_path}: {e}", flush=True)
+    text_keyboard = None if sticker_message_id is not None else keyboard
     # Let this raise on failure -- the caller has nothing to clean up if
     # nothing was ever persisted/updated yet. EXCEPT the sticker just sent
     # above, if any: that one already exists in the chat and is otherwise
     # completely untracked (its id was never returned anywhere), so a failure
     # here specifically must clean it up first or it's stuck as a permanent,
-    # unexplained stray image with no text/keyboard ever following it.
+    # unexplained stray image, possibly still carrying a live keyboard, with
+    # no text ever following it.
     try:
-        msg = await context.bot.send_message(chat_id=cfg.EVENTS_CHAT_ID, text=text, reply_markup=keyboard)
+        msg = await context.bot.send_message(chat_id=cfg.EVENTS_CHAT_ID, text=text, reply_markup=text_keyboard)
     except Exception:
         if sticker_message_id is not None:
             try:
@@ -412,6 +408,67 @@ async def _send_event_message(context: ContextTypes.DEFAULT_TYPE, event_id: str,
                 print(f"[events] failed to clean up orphaned sticker after text send failure: {e}", flush=True)
         raise
     return msg, sticker_message_id
+
+
+def _keyboard_message(row) -> tuple:
+    """Returns (chat_id, message_id) of whichever message currently carries
+    this event's live interactive keyboard -- the sticker if one exists (see
+    _send_event_message), otherwise the plain text message itself (a row
+    with no sticker: missing artwork file, or a legacy pre-redesign row,
+    which _row_is_legacy_photo_message already identifies by this same
+    sticker_message_id-is-None condition)."""
+    if row["sticker_message_id"] is not None:
+        return row["chat_id"], row["sticker_message_id"]
+    return row["chat_id"], row["message_id"]
+
+
+async def _edit_group_message(context: ContextTypes.DEFAULT_TYPE, row, text: str, *, clear_keyboard: bool) -> bool:
+    """Edits this event's plain text/caption message to `text`. When
+    clear_keyboard is True, also strips whatever message currently carries
+    the live keyboard (see _keyboard_message) -- the sticker, via a second
+    edit, or the SAME text message in the same edit when there's no sticker
+    to hold it instead. When clear_keyboard is False, the text message's own
+    reply_markup is left untouched entirely (omitting reply_markup on an
+    edit means "keep whatever's there", which is exactly right whether
+    that's nothing -- sticker holds the keyboard -- or the still-live event
+    keyboard on a no-sticker row).
+
+    Returns True if the text/caption edit itself succeeded (failures are
+    logged here so callers don't each need their own try/except). The
+    sticker-keyboard clear (when applicable) is attempted independently of
+    that outcome -- it targets a DIFFERENT message, so a failure editing the
+    text must never suppress the attempt to also clear the sticker's
+    keyboard (and vice versa); otherwise a merely-undeletable/edited-away
+    text message would leave the sticker's Catch/Inspect keyboard live
+    forever with no other code path left to clean it up."""
+    has_sticker = row["sticker_message_id"] is not None
+    text_keyboard = InlineKeyboardMarkup([]) if (clear_keyboard and not has_sticker) else None
+    text_edit_ok = True
+    try:
+        if _row_is_legacy_photo_message(row):
+            caption = text if len(text) <= 500 else text[:450] + "…"
+            await context.bot.edit_message_caption(
+                chat_id=row["chat_id"], message_id=row["message_id"],
+                caption=caption, reply_markup=text_keyboard,
+            )
+        else:
+            await context.bot.edit_message_text(
+                chat_id=row["chat_id"], message_id=row["message_id"],
+                text=text, reply_markup=text_keyboard,
+            )
+    except TelegramError as e:
+        print(f"[events] failed to edit group message (event {row['id']}): {e}", flush=True)
+        text_edit_ok = False
+    if clear_keyboard and has_sticker:
+        kb_chat_id, kb_message_id = _keyboard_message(row)
+        try:
+            await context.bot.edit_message_reply_markup(
+                chat_id=kb_chat_id, message_id=kb_message_id,
+                reply_markup=InlineKeyboardMarkup([]),
+            )
+        except TelegramError as e:
+            print(f"[events] failed to clear sticker keyboard (event {row['id']}): {e}", flush=True)
+    return text_edit_ok
 
 
 async def _post_new_event(context: ContextTypes.DEFAULT_TYPE, event_id=None) -> dict:
@@ -461,18 +518,31 @@ async def _post_new_event(context: ContextTypes.DEFAULT_TYPE, event_id=None) -> 
         # so every press would silently show "too late" forever with no
         # indication anything is wrong. Best-effort: mark it broken instead.
         print(f"[events] failed to persist newly-posted event: {e}", flush=True)
+        # msg is always the plain text message now -- Telegram's much higher
+        # plain-text cap (4096 UTF-16 units) applies here, not the 1024-unit
+        # caption cap, so no truncation budget is needed. The keyboard itself
+        # lives on the sticker (if one was sent) rather than this text
+        # message, so it needs its own separate clear -- attempted
+        # independently of whether the text edit below succeeds, since they
+        # target two different messages and either one failing must not
+        # suppress the other.
+        error_text = f"{text}\n\n⚠️ Registration failed -- contact the Owner."
+        text_keyboard = None if sticker_message_id is not None else InlineKeyboardMarkup([])
         try:
-            # msg is always the plain text message now (the sticker, if any,
-            # carries no caption/keyboard to edit at all) -- Telegram's much
-            # higher plain-text cap (4096 UTF-16 units) applies here, not the
-            # 1024-unit caption cap, so no truncation budget is needed.
-            error_text = f"{text}\n\n⚠️ Registration failed -- contact the Owner."
             await context.bot.edit_message_text(
                 chat_id=msg.chat_id, message_id=msg.message_id,
-                text=error_text, reply_markup=InlineKeyboardMarkup([]),
+                text=error_text, reply_markup=text_keyboard,
             )
         except Exception as edit_error:
             print(f"[events] also failed to mark the broken event: {edit_error}", flush=True)
+        if sticker_message_id is not None:
+            try:
+                await context.bot.edit_message_reply_markup(
+                    chat_id=msg.chat_id, message_id=sticker_message_id,
+                    reply_markup=InlineKeyboardMarkup([]),
+                )
+            except TelegramError as e2:
+                print(f"[events] also failed to clear broken event's sticker keyboard: {e2}", flush=True)
         raise
     return info
 
@@ -489,20 +559,32 @@ async def _post_new_event(context: ContextTypes.DEFAULT_TYPE, event_id=None) -> 
 # chat (cfg.EVENTS_CHAT_ID) ever needs this, so a single scalar key is enough
 # -- no need for a per-chat dict.
 _BUMP_COUNTER_KEY = "msgs_since_bump"
+_BUMP_LAST_AT_KEY = "last_bump_at"
 
 
 def _reset_bump_counter() -> None:
     db.set_config(_BUMP_COUNTER_KEY, "0")
+    # Also clears the cooldown timestamp -- called both when a brand-new
+    # event starts (so it isn't held back by a cooldown left over from a
+    # PREVIOUS event's last bump) and every time on_group_activity's gates
+    # both clear (right before it either bumps, resetting this to "now", or
+    # finds nothing to bump).
+    db.set_config(_BUMP_LAST_AT_KEY, "0")
 
 
 async def on_group_activity(context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> None:
     """Called once per real (human, non-command) group message -- bot.py's
     leer() is the only caller. Counts messages per chat and, once enough have
-    passed, reposts the currently-unclaimed event (if there is one) at the
-    bottom of the chat so it doesn't stay buried under new conversation
-    forever. Deliberately message-driven, not time-based: a quiet chat can't
-    bury anything, so there's nothing to bump regardless of how much time
-    passes."""
+    passed AND enough real time has elapsed since the last bump, reposts the
+    currently-unclaimed event (if there is one) at the bottom of the chat so
+    it doesn't stay buried under new conversation forever.
+
+    Two independent gates, both required: EVENT_BUMP_MESSAGE_THRESHOLD (chat
+    activity -- a quiet chat can't bury anything, so there's nothing to bump
+    regardless of how much time passes) and EVENT_BUMP_COOLDOWN_SECONDS (wall
+    clock -- with the threshold at 1, the message-count gate alone would fire
+    on literally every message, hammering Telegram's API during a fast burst
+    of chat activity)."""
     if chat_id != cfg.EVENTS_CHAT_ID:
         return  # only the events chat's treasure can ever need bumping -- no point tracking counts elsewhere
     try:
@@ -510,10 +592,22 @@ async def on_group_activity(context: ContextTypes.DEFAULT_TYPE, chat_id: int) ->
         if count < cfg.EVENT_BUMP_MESSAGE_THRESHOLD:
             db.set_config(_BUMP_COUNTER_KEY, str(count))
             return
+
+        last_bump_at = float(db.get_config(_BUMP_LAST_AT_KEY, "0"))
+        now = time.time()
+        if now - last_bump_at < cfg.EVENT_BUMP_COOLDOWN_SECONDS:
+            # Message-count gate cleared but the cooldown hasn't -- keep the
+            # counter climbing (harmless either way once threshold's already
+            # met) rather than resetting it, so a config change raising the
+            # threshold back up later doesn't silently start from a
+            # stale-looking 0.
+            db.set_config(_BUMP_COUNTER_KEY, str(count))
+            return
         _reset_bump_counter()
 
         row = db.get_active_event()
         if row is not None and row["status"] == "unclaimed":
+            db.set_config(_BUMP_LAST_AT_KEY, str(now))
             await _bump_event(context, row)
     except Exception as e:
         print(f"[events] on_group_activity error: {e}", flush=True)
@@ -556,28 +650,37 @@ async def _reposition_event_messages(
     if not moved:
         # The fresh copies above are already sent and now completely
         # untracked (never written into the DB) -- without cleaning them up
-        # here, they'd sit in the chat forever: the text copy as a
-        # permanently-orphaned duplicate with a live-looking Catch/Inspect
-        # keyboard, and the sticker as an unexplained stray image, since
-        # nothing else ever learns either message exists. Best-effort:
-        # delete both, or failing that, at least strip the text copy's
-        # keyboard.
+        # here, they'd sit in the chat forever: an unexplained stray sticker
+        # (with its own still-live keyboard, if one was sent) and a
+        # permanently-orphaned duplicate text copy. Best-effort: delete both,
+        # or failing that, at least strip whichever one carries the keyboard.
         if sticker_message_id is not None:
             try:
                 await context.bot.delete_message(chat_id=msg.chat_id, message_id=sticker_message_id)
             except TelegramError as e:
                 print(f"[events] failed to delete orphaned bump sticker (event {row['id']}): {e}", flush=True)
+                try:
+                    await context.bot.edit_message_reply_markup(
+                        chat_id=msg.chat_id, message_id=sticker_message_id,
+                        reply_markup=InlineKeyboardMarkup([]),
+                    )
+                except TelegramError as e2:
+                    print(f"[events] also failed to clear orphaned bump sticker's keyboard (event {row['id']}): {e2}", flush=True)
         try:
             await context.bot.delete_message(chat_id=msg.chat_id, message_id=msg.message_id)
         except TelegramError as e:
             print(f"[events] failed to delete orphaned bump copy (event {row['id']}): {e}", flush=True)
-            try:
-                await context.bot.edit_message_reply_markup(
-                    chat_id=msg.chat_id, message_id=msg.message_id,
-                    reply_markup=InlineKeyboardMarkup([]),
-                )
-            except TelegramError as e2:
-                print(f"[events] also failed to clear orphaned bump copy's keyboard (event {row['id']}): {e2}", flush=True)
+            if sticker_message_id is None:
+                # Text only carries the keyboard when there's no sticker to
+                # hold it instead -- otherwise it was never clickable to
+                # begin with, nothing to strip here.
+                try:
+                    await context.bot.edit_message_reply_markup(
+                        chat_id=msg.chat_id, message_id=msg.message_id,
+                        reply_markup=InlineKeyboardMarkup([]),
+                    )
+                except TelegramError as e2:
+                    print(f"[events] also failed to clear orphaned bump copy's keyboard (event {row['id']}): {e2}", flush=True)
         return False
 
     if row["sticker_message_id"] is not None:
@@ -585,29 +688,41 @@ async def _reposition_event_messages(
             await context.bot.delete_message(chat_id=row["chat_id"], message_id=row["sticker_message_id"])
         except TelegramError as e:
             print(f"[events] failed to delete old bumped sticker (event {row['id']}): {e}", flush=True)
-            # A leftover old sticker is purely cosmetic clutter (no keyboard,
-            # no interactive element to worry about) -- nothing further to
-            # do if it can't be deleted.
+            # The old sticker carries the live keyboard whenever one exists
+            # (see _send_event_message) -- leaving it undeleted here would
+            # leave a still-clickable Catch/Inspect/menu keyboard sitting on
+            # an old, buried, now-superseded copy. Best-effort; if this also
+            # fails there's nothing further to do.
+            try:
+                await context.bot.edit_message_reply_markup(
+                    chat_id=row["chat_id"], message_id=row["sticker_message_id"],
+                    reply_markup=InlineKeyboardMarkup([]),
+                )
+            except TelegramError as e2:
+                print(f"[events] also failed to clear old bumped sticker's keyboard (event {row['id']}): {e2}", flush=True)
 
     try:
         await context.bot.delete_message(chat_id=row["chat_id"], message_id=row["message_id"])
     except TelegramError as e:
         print(f"[events] failed to delete old bumped message (event {row['id']}): {e}", flush=True)
-        # Couldn't remove it outright (already deleted by someone else,
-        # missing permissions, network blip) -- at minimum, strip its
-        # Catch/Inspect keyboard so it doesn't sit there looking clickable
-        # forever once the real treasure has moved on. Uses the dedicated
-        # reply-markup-only edit endpoint (not edit_message_text/caption) so
-        # the message's existing text is left completely untouched -- only
-        # the keyboard changes. Best-effort; if this also fails there's
-        # nothing further to do.
-        try:
-            await context.bot.edit_message_reply_markup(
-                chat_id=row["chat_id"], message_id=row["message_id"],
-                reply_markup=InlineKeyboardMarkup([]),
-            )
-        except TelegramError as e2:
-            print(f"[events] also failed to clear old bumped message's keyboard (event {row['id']}): {e2}", flush=True)
+        if row["sticker_message_id"] is None:
+            # Couldn't remove it outright (already deleted by someone else,
+            # missing permissions, network blip) -- at minimum, strip its
+            # Catch/Inspect keyboard so it doesn't sit there looking
+            # clickable forever once the real treasure has moved on. Only
+            # needed when there was no sticker to hold the keyboard instead
+            # (otherwise this text message was never clickable to begin
+            # with). Uses the dedicated reply-markup-only edit endpoint (not
+            # edit_message_text/caption) so the message's existing text is
+            # left completely untouched -- only the keyboard changes.
+            # Best-effort; if this also fails there's nothing further to do.
+            try:
+                await context.bot.edit_message_reply_markup(
+                    chat_id=row["chat_id"], message_id=row["message_id"],
+                    reply_markup=InlineKeyboardMarkup([]),
+                )
+            except TelegramError as e2:
+                print(f"[events] also failed to clear old bumped message's keyboard (event {row['id']}): {e2}", flush=True)
     return True
 
 
@@ -801,25 +916,11 @@ async def on_catch(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # update the soon-to-be-deleted old message instead of the real,
     # current group post, leaving the actual live message stuck showing
     # "unclaimed" with a live-looking keyboard even though it's already won.
-    try:
-        if _row_is_legacy_photo_message(fresh_check):
-            # Same conservative UTF-16 truncation _edit_current applies --
-            # calling context.bot directly here (rather than through
-            # _edit_current) means that safety margin has to be reapplied by
-            # hand, not inherited for free. Only reachable for a row that
-            # predates the sticker+text redesign (see _row_is_legacy_photo_message).
-            caption = caught_text if len(caught_text) <= 500 else caught_text[:450] + "…"
-            await context.bot.edit_message_caption(
-                chat_id=fresh_check["chat_id"], message_id=fresh_check["message_id"],
-                caption=caption, reply_markup=_event_keyboard(token),
-            )
-        else:
-            await context.bot.edit_message_text(
-                chat_id=fresh_check["chat_id"], message_id=fresh_check["message_id"],
-                text=caught_text, reply_markup=_event_keyboard(token),
-            )
-    except TelegramError as e:
-        print(f"[events] failed to edit group message after catch (event {row['id']}): {e}", flush=True)
+    # clear_keyboard=False: the keyboard itself doesn't change at catch time
+    # (still the same _event_keyboard(token), deliberately left live-looking
+    # -- the status check at the top of this handler is what actually blocks
+    # a second catch and shows the "too late" popup instead).
+    await _edit_group_message(context, fresh_check, caught_text, clear_keyboard=False)
 
     # Re-check AGAIN right before notifying the Owner: the group-message
     # edit's own await just above is a SECOND interleaving opportunity for
@@ -1026,20 +1127,8 @@ async def on_owner_paid(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Catch/Inspect keyboard (the exact gap just fixed for on_owner_cancel,
     # reproduced here on the far more common successful-payment path).
     if row["chat_id"] is not None and row["message_id"] is not None:
-        try:
-            if _row_is_legacy_photo_message(row):
-                await context.bot.edit_message_caption(
-                    chat_id=row["chat_id"], message_id=row["message_id"],
-                    caption=group_text, reply_markup=InlineKeyboardMarkup([]),
-                )
-            else:
-                await context.bot.edit_message_text(
-                    chat_id=row["chat_id"], message_id=row["message_id"],
-                    text=group_text, reply_markup=InlineKeyboardMarkup([]),
-                )
+        if await _edit_group_message(context, row, group_text, clear_keyboard=True):
             db.set_display_text(row["id"], group_text)
-        except TelegramError as e:
-            print(f"[events] failed to edit original group message after payout (event {row['id']}): {e}", flush=True)
 
 
 def _owner_status_render(row):
@@ -1134,20 +1223,8 @@ async def on_owner_cancel(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # group message.
     if row["chat_id"] is not None and row["message_id"] is not None:
         group_text = cfg.CANCELLED_GROUP_TEMPLATE.format(winner=winner_display, emoji=info["emoji"], name=info["name"])
-        try:
-            if _row_is_legacy_photo_message(row):
-                await context.bot.edit_message_caption(
-                    chat_id=row["chat_id"], message_id=row["message_id"],
-                    caption=group_text, reply_markup=InlineKeyboardMarkup([]),
-                )
-            else:
-                await context.bot.edit_message_text(
-                    chat_id=row["chat_id"], message_id=row["message_id"],
-                    text=group_text, reply_markup=InlineKeyboardMarkup([]),
-                )
+        if await _edit_group_message(context, row, group_text, clear_keyboard=True):
             db.set_display_text(row["id"], group_text)
-        except TelegramError as e:
-            print(f"[events] failed to edit cancelled group message (event {row['id']}): {e}", flush=True)
 
     try:
         await context.bot.send_message(chat_id=row["winner_id"], text=cfg.CLAIM_CANCELLED_WINNER_MSG)
@@ -1269,20 +1346,8 @@ async def on_owner_panel_button(update, context: ContextTypes.DEFAULT_TYPE) -> N
         info = _event_info(active["event_key"])
         if active["chat_id"] is not None and active["message_id"] is not None:
             group_text = cfg.OWNER_WITHDRAWN_GROUP_TEMPLATE.format(emoji=info["emoji"], name=info["name"])
-            try:
-                if _row_is_legacy_photo_message(active):
-                    await context.bot.edit_message_caption(
-                        chat_id=active["chat_id"], message_id=active["message_id"],
-                        caption=group_text, reply_markup=InlineKeyboardMarkup([]),
-                    )
-                else:
-                    await context.bot.edit_message_text(
-                        chat_id=active["chat_id"], message_id=active["message_id"],
-                        text=group_text, reply_markup=InlineKeyboardMarkup([]),
-                    )
+            if await _edit_group_message(context, active, group_text, clear_keyboard=True):
                 db.set_display_text(active["id"], group_text)
-            except TelegramError as e:
-                print(f"[events] failed to edit withdrawn group message (event {active['id']}): {e}", flush=True)
         await _edit_current(
             query, f"{_OWNER_PANEL_TEXT}\n\n❌ Event withdrawn: {info['emoji']} {info['name']}", _owner_panel_keyboard()
         )

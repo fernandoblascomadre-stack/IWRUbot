@@ -59,7 +59,14 @@ EVENT_WINDOW_UTC = _resolve_event_window()
 # gets reposted at the bottom of the chat, so it can't stay buried forever
 # under new conversation. Only applies while the event is genuinely
 # unclaimed -- once someone's caught it, there's nothing left to surface.
-EVENT_BUMP_MESSAGE_THRESHOLD = _safe_int_env("EVENT_BUMP_MESSAGE_THRESHOLD", 2)
+EVENT_BUMP_MESSAGE_THRESHOLD = _safe_int_env("EVENT_BUMP_MESSAGE_THRESHOLD", 1)
+
+# Minimum seconds between two automatic bumps, regardless of message count --
+# with the threshold above at 1, the message-count check alone would fire on
+# literally every group message. This cooldown keeps "the treasure reappears
+# near-instantly" while capping how often a fast burst of chat activity can
+# trigger a full repost (2 Telegram sends + 2 deletes) in a row.
+EVENT_BUMP_COOLDOWN_SECONDS = _safe_int_env("EVENT_BUMP_COOLDOWN_SECONDS", 20)
 
 # ══════════════════════════════════════════════════════════════════════════
 #  WALLET VALIDATION

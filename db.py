@@ -162,13 +162,16 @@ def create_event(
     succeeds or fully fails -- unlike separate follow-up UPDATEs, there is no
     window where a row exists with some columns populated and others NULL.
 
-    message_id/chat_id always refer to the plain TEXT message carrying the
-    Catch/Inspect keyboard -- the one this whole row tracks and edits going
-    forward. sticker_message_id (nullable) is a separate, purely decorative
-    message (the event's artwork, sent as a sticker so Telegram renders its
-    transparency correctly) with no caption and no keyboard of its own;
-    has_image just records whether one was sent, so a bump knows whether
-    there's a sticker to also delete/repost alongside the text message."""
+    message_id/chat_id always refer to the plain TEXT message -- the one this
+    whole row tracks and edits going forward. sticker_message_id (nullable)
+    is a separate message (the event's artwork, sent as a sticker so
+    Telegram renders its transparency correctly); has_image just records
+    whether one was sent, so a bump knows whether there's a sticker to also
+    delete/repost alongside the text message. The Catch/Inspect/menu
+    keyboard itself lives on the sticker message whenever one exists (so it
+    can never visually detach from the artwork) and only falls back to the
+    text message when there's no sticker -- see events.py's
+    _keyboard_message/_send_event_message."""
     cur = _conn.execute(
         "INSERT INTO events (event_key, token, reward, chat_id, message_id, display_text, has_image, sticker_message_id, status, created_at) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'unclaimed', ?)",
@@ -240,9 +243,17 @@ def get_event_by_token(token: str):
 
 
 def get_event_by_message(chat_id: int, message_id: int):
+    """Looks up an event by the id of EITHER of its two group messages --
+    the text message (message_id) or its sticker (sticker_message_id), since
+    the Catch/Inspect/menu keyboard lives on the sticker whenever one exists
+    (see events.py's _send_event_message) and a callback query's message_id
+    is whichever physical message the pressed button is actually attached
+    to. Matching only message_id here would silently fail to resolve the
+    row for every sticker-backed event -- essentially all of them."""
     return _conn.execute(
-        "SELECT * FROM events WHERE chat_id = ? AND message_id = ? ORDER BY id DESC LIMIT 1",
-        (chat_id, message_id),
+        "SELECT * FROM events WHERE chat_id = ? AND (message_id = ? OR sticker_message_id = ?) "
+        "ORDER BY id DESC LIMIT 1",
+        (chat_id, message_id, message_id),
     ).fetchone()
 
 
