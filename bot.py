@@ -24,6 +24,7 @@ TOKEN = os.environ["TOKEN"]
 # startup failure
 import events
 import db
+from events_config import TCG_PROMO_ENABLED
 
 # chats pre-registered via env var (KNOWN_CHAT_IDS="-1003859192674,-100...") so
 # the bot knows where to speak from startup, without depending on receiving a message first.
@@ -2326,11 +2327,20 @@ TWEET_PHRASES = [
     "I sat just outside the vacuum's reach the entire time, taunting it silently, from a very safe distance.",
     "The clean laundry pile is warm and inviting, which means it is now covered in fur within the hour.",
     "Someone cleaned the litter box. This is the one form of cleaning I fully, unconditionally support.",
-    # 🃏 TCG (IWRU: PARADOX)
+]
+
+# 🃏 TCG (IWRU: PARADOX) -- kept out of the static pool above and only merged
+# in when the cross-promo flag is on: pick_phrase draws from the whole list,
+# so a static entry could not be filtered out afterwards. The in-place +=
+# happens at import time, before any pick_phrase call, so the per-list
+# shuffle bag (keyed by id(TWEET_PHRASES)) is unaffected.
+TCG_TWEET_PHRASES = [
     "I turned myself into trading cards. Every rare card is me. The paradox is intentional. 🃏 https://pepubank.net/IWRU/",
     "Played my own card game against the AI. I won. The AI is still reviewing the footage. 😼 https://pepubank.net/IWRU/",
     "Opened a pack. It was full of me. Excellent pull. 🃏 https://pepubank.net/IWRU/",
 ]
+if TCG_PROMO_ENABLED:
+    TWEET_PHRASES += TCG_TWEET_PHRASES
 
 SOCIAL_LINKS = (
     "🐦 https://x.com/DjangoUnchain06\n"
@@ -2598,6 +2608,11 @@ async def tcg_reminder_job(context: ContextTypes.DEFAULT_TYPE):
     date-dedupe as merch_announcement_job (restart-safe across Render
     redeploys), and the same try/finally reschedule pattern as every other
     job in this file."""
+    if not TCG_PROMO_ENABLED:
+        # belt-and-braces: build_app never schedules this job while the flag
+        # is off, but if it ever fires anyway, exit without sending and
+        # without rescheduling -- fully dormant.
+        return
     try:
         today = datetime.utcnow().date().isoformat()
         if db.get_config("last_tcg_reminder_date") != today:
@@ -2738,7 +2753,7 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await asyncio.sleep(random.uniform(1.5, 4.0))
         await msg.reply_text(pick_phrase(IWRU_FILTER_REPLIES))
         return
-    if tl_stripped in ("tcg", "cards", "paradox"):
+    if TCG_PROMO_ENABLED and tl_stripped in ("tcg", "cards", "paradox"):
         await asyncio.sleep(random.uniform(1.5, 4.0))
         await msg.reply_text(pick_phrase(TCG_REMINDERS))
         return
@@ -2885,7 +2900,10 @@ def build_app():
     a.job_queue.run_once(game_reminder_job, random.uniform(14400, 25200))     # first reminder: 4-7h
     a.job_queue.run_once(nft_reminder_job, random.uniform(21600, 32400))      # first reminder: 6-9h
     a.job_queue.run_once(merch_announcement_job, _seconds_until_window(*MERCH_ANNOUNCEMENT_WINDOW_UTC))
-    a.job_queue.run_once(tcg_reminder_job, _seconds_until_window(*TCG_REMINDER_WINDOW_UTC))
+    if TCG_PROMO_ENABLED:
+        a.job_queue.run_once(tcg_reminder_job, _seconds_until_window(*TCG_REMINDER_WINDOW_UTC))
+    else:
+        print("[tcg] cross-promo disabled -- set TCG_PROMO_ENABLED=1 to enable", flush=True)
     if TWITTER_ENABLED:
         for slot_start, slot_end in TWEET_SLOTS:
             a.job_queue.run_once(tweet_slot_job, _seconds_until_window(slot_start, slot_end), data=(slot_start, slot_end))

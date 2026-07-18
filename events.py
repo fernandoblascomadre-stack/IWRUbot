@@ -113,20 +113,21 @@ _BACK_KEYBOARD = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back", call
 
 
 def _iwru_menu_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
+    rows = [
         [
-            [
-                InlineKeyboardButton("🏆 Hall of Fame", callback_data="menu:hof"),
-                InlineKeyboardButton("📊 Stats", callback_data="menu:stats"),
-            ],
-            [
-                InlineKeyboardButton("🎒 My Rewards", callback_data="menu:rewards"),
-                InlineKeyboardButton("🍀 Today's Luck", callback_data="menu:luck"),
-            ],
-            [InlineKeyboardButton("🃏 IWRU: PARADOX TCG", url="https://pepubank.net/IWRU/")],
-            [InlineKeyboardButton("🐾 How to Play", callback_data="menu:howto")],
-        ]
-    )
+            InlineKeyboardButton("🏆 Hall of Fame", callback_data="menu:hof"),
+            InlineKeyboardButton("📊 Stats", callback_data="menu:stats"),
+        ],
+        [
+            InlineKeyboardButton("🎒 My Rewards", callback_data="menu:rewards"),
+            InlineKeyboardButton("🍀 Today's Luck", callback_data="menu:luck"),
+        ],
+    ]
+    if cfg.TCG_PROMO_ENABLED:
+        # hidden until the TCG cross-promo is switched on (see events_config)
+        rows.append([InlineKeyboardButton("🃏 IWRU: PARADOX TCG", url="https://pepubank.net/IWRU/")])
+    rows.append([InlineKeyboardButton("🐾 How to Play", callback_data="menu:howto")])
+    return InlineKeyboardMarkup(rows)
 
 
 def _event_keyboard(token: str) -> InlineKeyboardMarkup:

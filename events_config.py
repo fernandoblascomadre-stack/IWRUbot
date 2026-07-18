@@ -20,6 +20,21 @@ def _safe_int_env(name: str, default: int) -> int:
         return default
 
 
+def _bool_env(name: str) -> bool:
+    """Reads a boolean env var, OFF unless explicitly enabled -- only "1" or
+    "true" (any casing, surrounding whitespace ignored) turn it on. Any other
+    value, including typos, stays False rather than surprise-enabling a
+    feature -- mirrors _safe_int_env's never-crash-at-import reasoning."""
+    return (os.environ.get(name) or "").strip().lower() in ("1", "true")
+
+
+# IWRU: PARADOX TCG cross-promo stays hidden until the product owner flips
+# this on. Defined here (not in bot.py) so both bot.py and events.py can read
+# the same single flag -- events.py must never import from bot.py. Gates the
+# tcg_reminder_job, the tcg/cards/paradox text trigger, the /iwru menu button
+# and the TCG entries in TWEET_PHRASES.
+TCG_PROMO_ENABLED = _bool_env("TCG_PROMO_ENABLED")
+
 # ══════════════════════════════════════════════════════════════════════════
 #  OWNER
 # ══════════════════════════════════════════════════════════════════════════
