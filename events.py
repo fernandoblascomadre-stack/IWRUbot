@@ -123,6 +123,7 @@ def _iwru_menu_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton("🎒 My Rewards", callback_data="menu:rewards"),
                 InlineKeyboardButton("🍀 Today's Luck", callback_data="menu:luck"),
             ],
+            [InlineKeyboardButton("🃏 IWRU: PARADOX TCG", url="https://pepubank.net/IWRU/")],
             [InlineKeyboardButton("🐾 How to Play", callback_data="menu:howto")],
         ]
     )

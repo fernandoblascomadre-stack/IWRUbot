@@ -1200,6 +1200,19 @@ NFT_REMINDERS = [
     "every NFT sold = one more fish for the cat. do the right thing. 😼\n\n🎨 https://opensea.io/collection/i-will-rug-u",
 ]
 
+TCG_LINK = "https://pepubank.net/IWRU/"
+
+TCG_REMINDERS = [
+    f"the cat is now a trading card. several trading cards, actually. all of them powerful. 😼\n\n🃏 IWRU: PARADOX → {TCG_LINK}",
+    f"I made a card game. the cards are me. play them. free. in your browser. 🐟\n\n🃏 IWRU: PARADOX → {TCG_LINK}",
+    f"*flips a card off the table* it was a rare one. go open packs. 😼\n\n🃏 {TCG_LINK}",
+    f"the AI thinks it can beat you at my card game. the cat will be watching. free demo. no excuses. 😼\n\n🃏 IWRU: PARADOX → {TCG_LINK}",
+    f"collectible cat cards. pack openings. battles. everything a civilization needs. 🐟\n\n🃏 {TCG_LINK}",
+    f"IWRU: PARADOX. a trading card game. starring me. obviously. play it in your browser. 😼\n\n🃏 {TCG_LINK}",
+    f"I put my chaos into card form. it's called PARADOX. the name checks out. 🐟\n\n🃏 IWRU: PARADOX → {TCG_LINK}",
+    f"battle the AI. open packs. collect the cat. this is the recommended order of operations. 😼\n\n🃏 {TCG_LINK}",
+]
+
 MERCH_ANNOUNCEMENT = (
     "I finally found a way to turn fish into hoodies. 📈🐟\n\n"
     "Turns out humans will actually *pay* to advertise the cat that keeps trying to rug them. What a beautiful species.\n\n"
@@ -2313,6 +2326,10 @@ TWEET_PHRASES = [
     "I sat just outside the vacuum's reach the entire time, taunting it silently, from a very safe distance.",
     "The clean laundry pile is warm and inviting, which means it is now covered in fur within the hour.",
     "Someone cleaned the litter box. This is the one form of cleaning I fully, unconditionally support.",
+    # 🃏 TCG (IWRU: PARADOX)
+    "I turned myself into trading cards. Every rare card is me. The paradox is intentional. 🃏 https://pepubank.net/IWRU/",
+    "Played my own card game against the AI. I won. The AI is still reviewing the footage. 😼 https://pepubank.net/IWRU/",
+    "Opened a pack. It was full of me. Excellent pull. 🃏 https://pepubank.net/IWRU/",
 ]
 
 SOCIAL_LINKS = (
@@ -2572,6 +2589,31 @@ async def merch_announcement_job(context: ContextTypes.DEFAULT_TYPE):
         delay = _seconds_until_window(*MERCH_ANNOUNCEMENT_WINDOW_UTC, force_next_day=True)
         context.application.job_queue.run_once(merch_announcement_job, delay)
 
+# once/day, random moment inside this UTC window
+TCG_REMINDER_WINDOW_UTC = (12, 22)
+
+async def tcg_reminder_job(context: ContextTypes.DEFAULT_TYPE):
+    """Posts one TCG_REMINDERS phrase per calendar day (UTC) to every known
+    chat, at a random moment inside TCG_REMINDER_WINDOW_UTC. Same persisted
+    date-dedupe as merch_announcement_job (restart-safe across Render
+    redeploys), and the same try/finally reschedule pattern as every other
+    job in this file."""
+    try:
+        today = datetime.utcnow().date().isoformat()
+        if db.get_config("last_tcg_reminder_date") != today:
+            # set BEFORE posting -- same restart-safety reasoning as
+            # merch_announcement_job / tweet_slot_job.
+            db.set_config("last_tcg_reminder_date", today)
+            text = pick_phrase(TCG_REMINDERS)
+            for chat_id in list(_known_chats.keys()):
+                try:
+                    await context.bot.send_message(chat_id=chat_id, text=text)
+                except Exception as e:
+                    print(f"[tcg_reminder_job] chat {chat_id}: {e}", flush=True)
+    finally:
+        delay = _seconds_until_window(*TCG_REMINDER_WINDOW_UTC, force_next_day=True)
+        context.application.job_queue.run_once(tcg_reminder_job, delay)
+
 # ══════════════════════════════════════════════════════════════════════════
 #  HANDLERS
 # ══════════════════════════════════════════════════════════════════════════
@@ -2695,6 +2737,10 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if tl_stripped == "iwillrugu":
         await asyncio.sleep(random.uniform(1.5, 4.0))
         await msg.reply_text(pick_phrase(IWRU_FILTER_REPLIES))
+        return
+    if tl_stripped in ("tcg", "cards", "paradox"):
+        await asyncio.sleep(random.uniform(1.5, 4.0))
+        await msg.reply_text(pick_phrase(TCG_REMINDERS))
         return
 
     # ── Message counter → chaos burst ────────────────────────────────
@@ -2839,6 +2885,7 @@ def build_app():
     a.job_queue.run_once(game_reminder_job, random.uniform(14400, 25200))     # first reminder: 4-7h
     a.job_queue.run_once(nft_reminder_job, random.uniform(21600, 32400))      # first reminder: 6-9h
     a.job_queue.run_once(merch_announcement_job, _seconds_until_window(*MERCH_ANNOUNCEMENT_WINDOW_UTC))
+    a.job_queue.run_once(tcg_reminder_job, _seconds_until_window(*TCG_REMINDER_WINDOW_UTC))
     if TWITTER_ENABLED:
         for slot_start, slot_end in TWEET_SLOTS:
             a.job_queue.run_once(tweet_slot_job, _seconds_until_window(slot_start, slot_end), data=(slot_start, slot_end))
