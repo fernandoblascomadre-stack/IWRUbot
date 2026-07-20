@@ -1200,6 +1200,15 @@ NFT_REMINDERS = [
     "every NFT sold = one more fish for the cat. do the right thing. 😼\n\n🎨 https://opensea.io/collection/i-will-rug-u",
 ]
 
+DIVIDENDS_REMINDERS = [
+    f"the cat did the math. you have dividends sitting on nad.fun collecting dust instead of fish. embarrassing. 😼\n\n🟣 go claim them → {NAD_LINK}",
+    f"reminder: your nad.fun profile has dividends waiting. the cat checked. the cat judges. 🐟\n\n🟣 {NAD_LINK}",
+    f"*stares at your unclaimed dividends* this is not the first time I've had to say something. 😼\n\n🟣 collect on nad.fun → {NAD_LINK}",
+    f"somewhere on nad.fun, in your profile, dividends are just... waiting. like the cat waits for dinner. go get them. 🐟\n\n🟣 {NAD_LINK}",
+    f"the cat does not lecture. the cat simply notes that your dividends remain uncollected. 😼\n\n🟣 nad.fun profile → {NAD_LINK}",
+    f"free money is sitting in your nad.fun profile and you're here reading cat facts instead. priorities. 🐟\n\n🟣 {NAD_LINK}",
+]
+
 MERCH_ANNOUNCEMENT = (
     "I finally found a way to turn fish into hoodies. 📈🐟\n\n"
     "Turns out humans will actually *pay* to advertise the cat that keeps trying to rug them. What a beautiful species.\n\n"
@@ -2572,6 +2581,31 @@ async def merch_announcement_job(context: ContextTypes.DEFAULT_TYPE):
         delay = _seconds_until_window(*MERCH_ANNOUNCEMENT_WINDOW_UTC, force_next_day=True)
         context.application.job_queue.run_once(merch_announcement_job, delay)
 
+# once/day, random moment inside this UTC window
+DIVIDENDS_REMINDER_WINDOW_UTC = (12, 22)
+
+async def dividends_reminder_job(context: ContextTypes.DEFAULT_TYPE):
+    """Posts one DIVIDENDS_REMINDERS line once per calendar day (UTC) to every
+    known chat, at a random moment inside DIVIDENDS_REMINDER_WINDOW_UTC.
+    Same calendar-day dedupe as merch_announcement_job (restart-safe across
+    Render redeploys) rather than the every-N-hours drift the other reminder
+    jobs use, since "once a day" needs a real guarantee here too."""
+    try:
+        today = datetime.utcnow().date().isoformat()
+        if db.get_config("last_dividends_reminder_date") != today:
+            # set BEFORE posting -- a redeploy landing mid-send must not
+            # recompute and post a second reminder the same day.
+            db.set_config("last_dividends_reminder_date", today)
+            text = pick_phrase(DIVIDENDS_REMINDERS)
+            for chat_id in list(_known_chats.keys()):
+                try:
+                    await context.bot.send_message(chat_id=chat_id, text=text)
+                except Exception as e:
+                    print(f"[dividends_reminder_job] chat {chat_id}: {e}", flush=True)
+    finally:
+        delay = _seconds_until_window(*DIVIDENDS_REMINDER_WINDOW_UTC, force_next_day=True)
+        context.application.job_queue.run_once(dividends_reminder_job, delay)
+
 # ══════════════════════════════════════════════════════════════════════════
 #  HANDLERS
 # ══════════════════════════════════════════════════════════════════════════
@@ -2839,6 +2873,7 @@ def build_app():
     a.job_queue.run_once(game_reminder_job, random.uniform(14400, 25200))     # first reminder: 4-7h
     a.job_queue.run_once(nft_reminder_job, random.uniform(21600, 32400))      # first reminder: 6-9h
     a.job_queue.run_once(merch_announcement_job, _seconds_until_window(*MERCH_ANNOUNCEMENT_WINDOW_UTC))
+    a.job_queue.run_once(dividends_reminder_job, _seconds_until_window(*DIVIDENDS_REMINDER_WINDOW_UTC))
     if TWITTER_ENABLED:
         for slot_start, slot_end in TWEET_SLOTS:
             a.job_queue.run_once(tweet_slot_job, _seconds_until_window(slot_start, slot_end), data=(slot_start, slot_end))
