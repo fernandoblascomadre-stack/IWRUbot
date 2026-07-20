@@ -1108,24 +1108,20 @@ async def on_owner_paid(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         await context.bot.send_message(chat_id=row["winner_id"], text=cfg.WINNER_PAID_MSG)
     except TelegramError as e:
-        # Don't let a DM hiccup skip the public group announcement below --
-        # the payment is already recorded regardless of whether this DM lands.
+        # Don't let a DM hiccup skip the public group edit below -- the
+        # payment is already recorded regardless of whether this DM lands.
         print(f"[events] failed to DM winner of payout (event {row['id']}): {e}", flush=True)
 
-    group_text = cfg.GROUP_PAID_ANNOUNCEMENT_TEMPLATE.format(winner=winner_display, reward=row["reward"])
-    try:
-        await context.bot.send_message(chat_id=cfg.EVENTS_CHAT_ID, text=group_text)
-    except TelegramError as e:
-        # Payment is already durably recorded (mark_paid ran above) -- a
-        # failure to post the public announcement shouldn't raise out of the
-        # handler.
-        print(f"[events] failed to post payout announcement (event {row['id']}): {e}", flush=True)
-
-    # The ORIGINAL group announcement is a separate message from the fresh
-    # celebration post just above -- without this, it would be left forever
+    # Announce the payout by editing the ORIGINAL "caught!" post in place --
+    # no separate new message. A fresh message alongside this edit used to
+    # make a single payout look like two in the group (the edit lands on a
+    # message from way earlier in the chat's history, back when the treasure
+    # was caught, so it reads as if the payout was already announced before
+    # the Owner even pressed Pay). Editing also does the job the fresh
+    # message was for: without it, the original post would be left forever
     # showing "caught!" with what still looks like a live, working
-    # Catch/Inspect keyboard (the exact gap just fixed for on_owner_cancel,
-    # reproduced here on the far more common successful-payment path).
+    # Catch/Inspect keyboard (mirrors on_owner_cancel's same edit-only fix).
+    group_text = cfg.GROUP_PAID_ANNOUNCEMENT_TEMPLATE.format(winner=winner_display, reward=row["reward"])
     if row["chat_id"] is not None and row["message_id"] is not None:
         if await _edit_group_message(context, row, group_text, clear_keyboard=True):
             db.set_display_text(row["id"], group_text)
