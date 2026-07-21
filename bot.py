@@ -1172,6 +1172,8 @@ FOLLOWUP_MESSAGES = [
 NAD_LINK = "https://nad.fun/tokens/0xaCCD61772BCd3717546f141382b68b6D2EF17777"
 NAD_CA   = "0xaCCD61772BCd3717546f141382b68b6D2EF17777"
 
+PENKMARKET_LINK = "https://pepubank.net/penkmarket"
+
 MONAD_REMINDERS = [
     f"$IWRU is live on Monad. don't say the cat didn't warn you. 😼\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
     f"in case you forgot — the cat is tokenized 🐟\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
@@ -1207,6 +1209,14 @@ DIVIDENDS_REMINDERS = [
     f"somewhere on nad.fun, in your profile, dividends are just... waiting. like the cat waits for dinner. go get them. 🐟\n\n🟣 {NAD_LINK}",
     f"the cat does not lecture. the cat simply notes that your dividends remain uncollected. 😼\n\n🟣 nad.fun profile → {NAD_LINK}",
     f"free money is sitting in your nad.fun profile and you're here reading cat facts instead. priorities. 🐟\n\n🟣 {NAD_LINK}",
+]
+
+PENKMARKET_ANNOUNCEMENTS = [
+    f"Buying Monad tokens used to feel like solving a side quest.\n\nThanks to PenkMarket, you can now buy Monad tokens like IWRU directly with ETH.\n\nETH in. Chaos out.\n\nThe black cat is pleased. 🐈‍⬛\n\n🛒 {PENKMARKET_LINK}",
+    f"Buying Monad tokens used to require faith, patience, and three open tabs.\n\nNow, thanks to PenkMarket, IWRU is one ETH swap away. No side quest required.\n\nETH in. IWRU out.\n\nThe black cat approves. 🐈‍⬛\n\n🛒 {PENKMARKET_LINK}",
+    f"There was a time when buying Monad tokens felt like an ordeal.\n\nThat time is over. PenkMarket lets you buy IWRU directly with ETH now.\n\nETH in. Chaos out.\n\nThe cat is, dare I say, pleased. 🐈‍⬛\n\n🛒 {PENKMARKET_LINK}",
+    f"Side quest cancelled. Buying Monad tokens like IWRU now takes one step: ETH in, via PenkMarket.\n\nNo bridges. No detours. Just chaos, delivered fast.\n\nThe black cat is pleased. 🐈‍⬛\n\n🛒 {PENKMARKET_LINK}",
+    f"PSA from the cat: buying Monad tokens no longer feels like a side quest.\n\nPenkMarket takes your ETH and hands you IWRU directly. That's it. That's the quest.\n\nETH in. Chaos out. 🐈‍⬛\n\n🛒 {PENKMARKET_LINK}",
 ]
 
 MERCH_ANNOUNCEMENT = (
@@ -2606,6 +2616,30 @@ async def dividends_reminder_job(context: ContextTypes.DEFAULT_TYPE):
         delay = _seconds_until_window(*DIVIDENDS_REMINDER_WINDOW_UTC, force_next_day=True)
         context.application.job_queue.run_once(dividends_reminder_job, delay)
 
+# once/day, random moment inside this UTC window
+PENKMARKET_ANNOUNCEMENT_WINDOW_UTC = (12, 22)
+
+async def penkmarket_announcement_job(context: ContextTypes.DEFAULT_TYPE):
+    """Posts one PENKMARKET_ANNOUNCEMENTS variant once per calendar day (UTC) to
+    every known chat, at a random moment inside PENKMARKET_ANNOUNCEMENT_WINDOW_UTC.
+    Same calendar-day dedupe as merch_announcement_job/dividends_reminder_job
+    (restart-safe across Render redeploys)."""
+    try:
+        today = datetime.utcnow().date().isoformat()
+        if db.get_config("last_penkmarket_announcement_date") != today:
+            # set BEFORE posting -- a redeploy landing mid-send must not
+            # recompute and post a second announcement the same day.
+            db.set_config("last_penkmarket_announcement_date", today)
+            text = pick_phrase(PENKMARKET_ANNOUNCEMENTS)
+            for chat_id in list(_known_chats.keys()):
+                try:
+                    await context.bot.send_message(chat_id=chat_id, text=text)
+                except Exception as e:
+                    print(f"[penkmarket_announcement_job] chat {chat_id}: {e}", flush=True)
+    finally:
+        delay = _seconds_until_window(*PENKMARKET_ANNOUNCEMENT_WINDOW_UTC, force_next_day=True)
+        context.application.job_queue.run_once(penkmarket_announcement_job, delay)
+
 # ══════════════════════════════════════════════════════════════════════════
 #  HANDLERS
 # ══════════════════════════════════════════════════════════════════════════
@@ -2874,6 +2908,7 @@ def build_app():
     a.job_queue.run_once(nft_reminder_job, random.uniform(21600, 32400))      # first reminder: 6-9h
     a.job_queue.run_once(merch_announcement_job, _seconds_until_window(*MERCH_ANNOUNCEMENT_WINDOW_UTC))
     a.job_queue.run_once(dividends_reminder_job, _seconds_until_window(*DIVIDENDS_REMINDER_WINDOW_UTC))
+    a.job_queue.run_once(penkmarket_announcement_job, _seconds_until_window(*PENKMARKET_ANNOUNCEMENT_WINDOW_UTC))
     if TWITTER_ENABLED:
         for slot_start, slot_end in TWEET_SLOTS:
             a.job_queue.run_once(tweet_slot_job, _seconds_until_window(slot_start, slot_end), data=(slot_start, slot_end))
