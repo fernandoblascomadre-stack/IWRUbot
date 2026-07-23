@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import random
 import re
@@ -6,6 +7,7 @@ import threading
 import time
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from zoneinfo import ZoneInfo
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
@@ -1227,6 +1229,24 @@ MERCH_ANNOUNCEMENT = (
     "[Unchained Lab Launchpad](https://www.unchainedlab.net/launchpad/iwru-universe)"
 )
 
+MERCH_LAUNCHPAD_URL = "https://www.unchainedlab.net/launchpad/iwru-universe"
+MERCH_TWEET_TAGLINE = "Chaos, now within reach. That's IWRU. 🐈‍⬛"
+MERCH_TWEET_HASHTAGS = "#IWRU #Monad #Streetwear #Merch #unchainedlab #猫好き"
+
+# One-line jokes that open each merch-drop tweet -- picked via pick_phrase so
+# consecutive posts (one every MERCH_TWEET_INTERVAL_DAYS) don't repeat the
+# same opener before every other one has had a turn. The tagline/link/
+# hashtags below stay constant; only this line varies.
+MERCH_TWEET_OPENERS = [
+    "Breaking: the cat has entered manufacturing. Turns out chaos looks great on a hoodie.",
+    "IWRU got bored of rug-pulling wallets and started rug-pulling fashion trends instead. Merch is here.",
+    "The most chaotic cat on Monad now has a clothing line. Nobody asked. Everybody's getting one anyway.",
+    "Rumor has it the cat spent the treasury on hoodies instead of fish. The rumor is true. The hoodies are real.",
+    "IWRU traded 9 lives for 1 merch collection. Somehow still the better deal.",
+    "The cat that keeps threatening your bags now also threatens your wardrobe. Meet the IWRU collection.",
+    "Forget the rug. IWRU is out here selling actual fabric now. The chaos had to go somewhere.",
+]
+
 TWEET_PHRASES = [
     # 🐟 Fish
     "I hid my fish. Now I can't find it. Someone is stealing from me.",
@@ -2431,6 +2451,119 @@ async def tweet_slot_job(context: ContextTypes.DEFAULT_TYPE):
         delay = _seconds_until_window(slot_start, slot_end, force_next_day=True)  # tomorrow's same slot
         context.application.job_queue.run_once(tweet_slot_job, delay, data=(slot_start, slot_end))
 
+# ── Merch tweet (image post, every N days) ─────────────────────────────────
+MERCH_IMAGES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "merch")
+MERCH_TWEET_INTERVAL_DAYS = 3
+# Spain wall-clock time, DST-aware (CET in winter/CEST in summer) -- unlike
+# every other scheduled window in this file (plain UTC), this one was asked
+# for specifically in local Spain time, so it needs its own tz-aware helper
+# below rather than reusing _seconds_until_window.
+MADRID_TZ = ZoneInfo("Europe/Madrid")
+MERCH_TWEET_WINDOW_MADRID = (0, 7)  # 00:00-07:00 Europe/Madrid
+
+def _seconds_until_madrid_window(start_hour: int, end_hour: int, *, force_next_day: bool = False) -> float:
+    """Same logic as _seconds_until_window, but anchored to Europe/Madrid
+    wall-clock time instead of UTC. Subtracting two tz-aware datetimes still
+    yields the correct real elapsed seconds across a DST transition, so this
+    stays accurate year-round without any manual offset bookkeeping."""
+    now = datetime.now(MADRID_TZ)
+    window_minutes = (end_hour - start_hour) * 60
+    offset_minutes = random.randint(0, window_minutes - 1)
+    target = now.replace(hour=start_hour, minute=0, second=0, microsecond=0) + timedelta(minutes=offset_minutes)
+    if force_next_day or target <= now:
+        target += timedelta(days=1)
+    return (target - now).total_seconds()
+
+def _merch_image_files() -> list:
+    if not os.path.isdir(MERCH_IMAGES_DIR):
+        return []
+    return sorted(
+        f for f in os.listdir(MERCH_IMAGES_DIR) if f.lower().endswith((".png", ".jpg", ".jpeg", ".webp"))
+    )
+
+def _next_merch_image():
+    """Cycles through every file in merch/ exactly once, in random order,
+    before any repeat. Persisted in the config table (unlike pick_phrase's
+    in-memory bag) since the gap between merch tweets is measured in days --
+    easily spanning a Render restart, which would otherwise reset the
+    rotation and risk an early repeat."""
+    files = _merch_image_files()
+    if not files:
+        return None
+    raw = db.get_config("merch_image_queue")
+    try:
+        queue = [f for f in json.loads(raw) if f in files] if raw else []
+    except (ValueError, TypeError) as e:
+        # A hand-edited or otherwise corrupted config value must not wedge
+        # this rotation forever (every future call would hit the same
+        # json.loads failure on the same stored string) -- treat it as "no
+        # queue yet" and reshuffle fresh, same as an empty one.
+        print(f"[twitter] merch_image_queue was corrupted ({e}), reshuffling", flush=True)
+        queue = []
+    if not queue:
+        queue = files[:]
+        random.shuffle(queue)
+    chosen = queue.pop(0)
+    db.set_config("merch_image_queue", json.dumps(queue))
+    return chosen
+
+def _post_merch_tweet(text: str, image_path: str) -> None:
+    """Uploading media requires the v1.1 API (tweepy.API) -- Client (v2) has
+    no media-upload endpoint of its own, only create_tweet's media_ids
+    parameter, so the image goes up via API first and gets attached to the
+    v2 tweet by id."""
+    auth = tweepy.OAuth1UserHandler(
+        os.environ["TWITTER_API_KEY"], os.environ["TWITTER_API_SECRET"],
+        os.environ["TWITTER_ACCESS_TOKEN"], os.environ["TWITTER_ACCESS_TOKEN_SECRET"],
+    )
+    media = tweepy.API(auth).media_upload(filename=image_path)
+    client = tweepy.Client(
+        consumer_key=os.environ["TWITTER_API_KEY"],
+        consumer_secret=os.environ["TWITTER_API_SECRET"],
+        access_token=os.environ["TWITTER_ACCESS_TOKEN"],
+        access_token_secret=os.environ["TWITTER_ACCESS_TOKEN_SECRET"],
+    )
+    resp = client.create_tweet(text=text, media_ids=[media.media_id])
+    print(f"[twitter] merch tweet id={resp.data['id']} image={os.path.basename(image_path)}: {text[:60]!r}", flush=True)
+
+async def merch_tweet_job(context: ContextTypes.DEFAULT_TYPE):
+    """Posts one merch-collection tweet (image + caption) every
+    MERCH_TWEET_INTERVAL_DAYS, at a random moment inside
+    MERCH_TWEET_WINDOW_MADRID (Europe/Madrid wall-clock time). Fires once a
+    day like merch_announcement_job (so a restart never loses track of the
+    schedule) but only actually posts once the interval has elapsed, gated
+    by a persisted last-post date -- same restart-safe dedupe idiom as
+    tweet_slot_job/merch_announcement_job, generalized from "once a day" to
+    "once every N days". The date itself is also Madrid-local (not UTC), to
+    stay consistent with a window anchored to Madrid midnight.
+
+    try/finally around the whole body so any failure above can never skip
+    the reschedule, matching every other job in this file."""
+    try:
+        if TWITTER_ENABLED:
+            last = db.get_config("last_merch_tweet_date")
+            days_since = (
+                None if last is None
+                else (datetime.now(MADRID_TZ).date() - datetime.strptime(last, "%Y-%m-%d").date()).days
+            )
+            if last is None or days_since >= MERCH_TWEET_INTERVAL_DAYS:
+                today = datetime.now(MADRID_TZ).date().isoformat()
+                db.set_config("last_merch_tweet_date", today)  # set BEFORE posting, restart-safe
+                image_name = _next_merch_image()
+                if image_name is None:
+                    print("[twitter] merch_tweet_job: merch/ folder is empty, skipping", flush=True)
+                else:
+                    opener = pick_phrase(MERCH_TWEET_OPENERS)
+                    text = f"{opener}\n\n{MERCH_TWEET_TAGLINE}\n\n{MERCH_LAUNCHPAD_URL}\n\n{MERCH_TWEET_HASHTAGS}"
+                    image_path = os.path.join(MERCH_IMAGES_DIR, image_name)
+                    try:
+                        await asyncio.get_event_loop().run_in_executor(None, _post_merch_tweet, text, image_path)
+                    except Exception as e:
+                        print(f"[twitter] merch tweet error: {e}", flush=True)
+    finally:
+        delay = _seconds_until_madrid_window(*MERCH_TWEET_WINDOW_MADRID, force_next_day=True)
+        context.application.job_queue.run_once(merch_tweet_job, delay)
+
 # ══════════════════════════════════════════════════════════════════════════
 #  HEALTH CHECK
 # ══════════════════════════════════════════════════════════════════════════
@@ -2913,6 +3046,7 @@ def build_app():
         for slot_start, slot_end in TWEET_SLOTS:
             a.job_queue.run_once(tweet_slot_job, _seconds_until_window(slot_start, slot_end), data=(slot_start, slot_end))
         print(f"[twitter] {len(TWEET_SLOTS)} tweet jobs scheduled (UTC slots: {TWEET_SLOTS})", flush=True)
+        a.job_queue.run_once(merch_tweet_job, _seconds_until_madrid_window(*MERCH_TWEET_WINDOW_MADRID))
     else:
         print("[twitter] disabled — set TWITTER_API_KEY/SECRET/ACCESS_TOKEN/ACCESS_TOKEN_SECRET to enable", flush=True)
     return a

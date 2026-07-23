@@ -1112,19 +1112,35 @@ async def on_owner_paid(update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # payment is already recorded regardless of whether this DM lands.
         print(f"[events] failed to DM winner of payout (event {row['id']}): {e}", flush=True)
 
-    # Announce the payout by editing the ORIGINAL "caught!" post in place --
-    # no separate new message. A fresh message alongside this edit used to
-    # make a single payout look like two in the group (the edit lands on a
-    # message from way earlier in the chat's history, back when the treasure
-    # was caught, so it reads as if the payout was already announced before
-    # the Owner even pressed Pay). Editing also does the job the fresh
-    # message was for: without it, the original post would be left forever
-    # showing "caught!" with what still looks like a live, working
-    # Catch/Inspect keyboard (mirrors on_owner_cancel's same edit-only fix).
+    # Announce the payout with a FRESH message at the bottom of the chat --
+    # this is the only place the Owner's press is actually visible live; the
+    # original "caught!" post can be buried arbitrarily far back in the
+    # chat's history by the time payment happens (it never bumps again once
+    # claimed), so an edit landing there alone is invisible in the live feed
+    # and reads as if the payout had been announced earlier than it was.
     group_text = cfg.GROUP_PAID_ANNOUNCEMENT_TEMPLATE.format(winner=winner_display, reward=row["reward"])
-    if row["chat_id"] is not None and row["message_id"] is not None:
-        if await _edit_group_message(context, row, group_text, clear_keyboard=True):
-            db.set_display_text(row["id"], group_text)
+    try:
+        await context.bot.send_message(chat_id=cfg.EVENTS_CHAT_ID, text=group_text)
+    except TelegramError as e:
+        print(f"[events] failed to post group payout announcement (event {row['id']}): {e}", flush=True)
+
+    # Close out the ORIGINAL "caught!" post in place too -- not with the same
+    # announcement text (that would read as a second, duplicate payout in the
+    # group), just a short marker plus clearing its now-dead Catch/Inspect
+    # keyboard, so it doesn't sit there looking like a still-live event.
+    #
+    # Re-fetch rather than trust the snapshot from the top of this handler:
+    # on_menu_button's info-button reposition runs regardless of a 'paid'-
+    # bound event's status ('claimed'/'ready_to_pay' are both still eligible
+    # right up until mark_paid committed above), so it can relocate this
+    # exact message to a new chat_id/message_id during one of the awaits
+    # just above -- editing the stale one would silently fail (mirrors
+    # _expire_stale_events's same re-fetch-before-editing guard).
+    fresh = db.get_event_by_token(row["token"]) or row
+    closed_text = f"{fresh['display_text']}\n\n✅ Reward paid."
+    if fresh["chat_id"] is not None and fresh["message_id"] is not None:
+        if await _edit_group_message(context, fresh, closed_text, clear_keyboard=True):
+            db.set_display_text(fresh["id"], closed_text)
 
 
 def _owner_status_render(row):
@@ -1211,16 +1227,33 @@ async def on_owner_cancel(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
     await _edit_current(query, cancelled_text, InlineKeyboardMarkup([]))
 
-    # The GROUP's original announcement message is a separate message from
-    # the Owner's own DM edited just above -- without this, it would be left
-    # forever showing "caught!" with what still looks like a live, working
-    # Catch/Inspect keyboard, with no indication to the community the prize
-    # was ever released. Mirrors what auto-expiry already does for its own
-    # group message.
-    if row["chat_id"] is not None and row["message_id"] is not None:
-        group_text = cfg.CANCELLED_GROUP_TEMPLATE.format(winner=winner_display, emoji=info["emoji"], name=info["name"])
-        if await _edit_group_message(context, row, group_text, clear_keyboard=True):
-            db.set_display_text(row["id"], group_text)
+    # Announce the release with a FRESH message at the bottom of the chat --
+    # same reasoning as on_owner_paid: the original "caught!" post can be
+    # buried arbitrarily far back in the chat's history by the time the
+    # Owner cancels (it never bumps again once claimed), so an edit landing
+    # there alone would be invisible in the live feed and could read as if
+    # the release had been announced before the Owner even pressed Cancel.
+    group_text = cfg.CANCELLED_GROUP_TEMPLATE.format(winner=winner_display, emoji=info["emoji"], name=info["name"])
+    try:
+        await context.bot.send_message(chat_id=cfg.EVENTS_CHAT_ID, text=group_text)
+    except TelegramError as e:
+        print(f"[events] failed to post group cancellation announcement (event {row['id']}): {e}", flush=True)
+
+    # Close out the ORIGINAL "caught!" post in place too -- not with the same
+    # announcement text (that would read as a second, duplicate release in
+    # the group), just a short marker plus clearing its now-dead Catch/Inspect
+    # keyboard, so it doesn't sit there looking like a still-live event.
+    #
+    # Re-fetch rather than trust the snapshot from the top of this handler --
+    # same reasoning as on_owner_paid's identical guard: on_menu_button can
+    # reposition this exact message to a new chat_id/message_id during one of
+    # the awaits just above, and editing the stale location would silently
+    # fail.
+    fresh = db.get_event_by_token(row["token"]) or row
+    if fresh["chat_id"] is not None and fresh["message_id"] is not None:
+        closed_text = f"{fresh['display_text']}\n\n❌ Claim released."
+        if await _edit_group_message(context, fresh, closed_text, clear_keyboard=True):
+            db.set_display_text(fresh["id"], closed_text)
 
     try:
         await context.bot.send_message(chat_id=row["winner_id"], text=cfg.CLAIM_CANCELLED_WINNER_MSG)
