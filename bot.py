@@ -8,7 +8,7 @@ import time
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from zoneinfo import ZoneInfo
-from telegram import Update
+from telegram import ReactionTypeEmoji, Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
 try:
@@ -26,6 +26,7 @@ TOKEN = os.environ["TOKEN"]
 # startup failure
 import events
 import db
+import events_config as cfg
 
 # chats pre-registered via env var (KNOWN_CHAT_IDS="-1003859192674,-100...") so
 # the bot knows where to speak from startup, without depending on receiving a message first.
@@ -93,6 +94,31 @@ _user_nicknames: dict[int, str] = {}
 
 # ── Bot username cache ─────────────────────────────────────────────────────
 _bot_username: str | None = None
+
+# ── Mood system ──────────────────────────────────────────────────────────
+# One mood shared across every chat (there's one cat, not one per group),
+# rerolled lazily whenever it expires -- same lazy-eval pattern as hour_now(),
+# no background job needed. Nudges HOW OFTEN existing behaviors fire (speaking
+# up unprompted, landing a callout vs. going quiet, which reaction emoji it
+# favors) rather than adding a whole new set of canned lines per mood, so it
+# doesn't require re-splitting the phrase lists.
+MOODS = ["chaotic", "sleepy", "hungry", "watchful"]
+MOOD_BIAS = {
+    "chaotic":  {"speak_mult": 1.3, "callout_mult": 1.0},
+    "sleepy":   {"speak_mult": 0.6, "callout_mult": 0.7},
+    "hungry":   {"speak_mult": 1.0, "callout_mult": 1.3},
+    "watchful": {"speak_mult": 1.0, "callout_mult": 1.4},
+}
+_mood_state: dict = {"name": None, "expires_at": 0.0}
+
+
+def current_mood() -> str:
+    now = time.time()
+    if now >= _mood_state["expires_at"]:
+        choices = [m for m in MOODS if m != _mood_state["name"]] or MOODS
+        _mood_state["name"] = random.choice(choices)
+        _mood_state["expires_at"] = now + random.uniform(3 * 3600, 8 * 3600)
+    return _mood_state["name"]
 
 # ── Message counter → chaos burst every N messages ─────────────────────────
 _msg_counter: dict[int, int] = {}
@@ -263,7 +289,313 @@ CALLOUT_MESSAGES = [
     "{name} the cat noticed you scrolled past this chat earlier. the cat notices everything. 😼",
     "{name}. today I require: attention, fish, and your continued presence in that order. 🐟😼",
     "{name} you are hereby summoned by the cat for reasons that will remain eternally unclear. 😼",
+    # 🐟 Fish/vault requests
+    "{name}. the vault counted its fish this morning and came up one short. coincidence? you tell me. 🐟😼",
+    "{name} I left a spot open in the vault. it has your name on it, figuratively. fill it with fish. literally. 🐟😼",
+    "{name}. I don't ask for much. fish. attention. total devotion. that's it. that's the list. 😼🐟",
+    "{name} the vault sent me to negotiate. it wants fish. I want fish. we are aligned. 🐟😼",
+    "{name}. somewhere in your pockets there could be a fish. I choose to believe this. 🐟😼",
+    "{name} I audited the vault today. it's thriving. it could be thriving more. with your help. 🐟😼",
+    "{name}. the vault doesn't do interviews but if it did, you'd be the first call. bring fish. 🐟😼",
+    "{name} I've been guarding the vault so hard I forgot to eat. fix this. with fish. 🐟😾",
+    "{name}. the vault grew a little today. I'd like it to grow a little more today too. 🐟😼",
+    "{name} you keep walking past the vault like it's furniture. it's not furniture. it's hungry. 🐟😼",
+    "{name}. fish now, questions later. mostly no questions. just fish. 🐟😼",
+    "{name} the vault has excellent taste in supporters. I've decided you qualify. prove me right. 🐟😼",
+    "{name}. I would trade you three purrs for one fish. this offer expires when I forget I made it. 🐟😼",
+    "{name} the vault whispered something about you today. it was mostly about fish, but you came up. 🐟😼",
+    "{name}. I've calculated exactly how much fish the vault needs. it's more. it's always more. 🐟😼",
+    "{name} the vault doesn't judge. I do, a little. bring fish and I'll stop. 🐟😼",
+    "{name}. today's agenda: you, fish, in that order, negotiable on the order. 🐟😼",
+    "{name} I stood guard over the vault all night. it's exhausting work. it deserves fish. so do I. 🐟😴",
+    "{name}. the vault likes you. I checked. it has no way of telling me this but I checked anyway. 🐟😼",
+    "{name} consider this an invoice. one (1) fish. payable to the cat, immediately. 🐟😼",
+    "{name}. the vault's door creaked today. I took it as a sign. the sign said 'more fish, please.' 🐟😼",
+    "{name} I'm not saying the vault is lonely. I'm saying it would feel a lot less lonely with fish from you. 🐟😼",
+    "{name}. I've named you an honorary fish liaison. the position is unpaid. the position requires fish. 🐟😼",
+    "{name} the vault runs on fish and vibes. the vibes are fine. the fish situation needs you. 🐟😼",
+    "{name}. I dreamt the vault was full. then I woke up. then I remembered you exist. connect the dots. 🐟😴😼",
+    # 😼 Surveillance / attention
+    "{name}. I've been counting how many times you've scrolled past me today. it's a lot. I'm not mad. I'm counting. 😼",
+    "{name} I watched you type and delete a message three times. the cat saw everything. the cat says nothing. 😼",
+    "{name}. you looked at the group chat and didn't say hi to me specifically. I noticed. I always notice. 😼",
+    "{name} I've assigned myself as your personal supervisor. no you can't opt out. it already happened. 😼",
+    "{name}. I know you're online. the little dot told me. the little dot and I are close. 😼",
+    "{name} I have been sitting very still, watching this chat, waiting for you to appear. here you are. hello. 😼",
+    "{name}. you've gone seventeen minutes without acknowledging my existence. this ends now. 😼",
+    "{name} I opened one eye specifically because you sent a message. this is the highest honor I give. 😼",
+    "{name}. I keep a mental list of who's paying attention to me. you're on it. barely. improve this. 😼",
+    "{name} the cat requires a status update. how are you. be specific. mention fish if relevant. 😼🐟",
+    "{name}. I noticed you left the chat open in another tab. the cat notices tabs now. new skill. 😼",
+    "{name} you typed 'lol' at something that wasn't funny. the cat is disappointed but still watching. 😼",
+    "{name}. I have decided to supervise your online presence indefinitely. you're welcome. or sorry. 😼",
+    "{name} I stared at your profile picture for a solid minute today. I have thoughts. I'm keeping them. 😼",
+    "{name}. the cat has been present this entire conversation. you just didn't notice. rude, but expected. 😼",
+    "{name} I refreshed this chat four times waiting for you. don't let it go to your head. too late probably. 😼",
+    "{name}. you're currently the most-watched human in this chat. congratulations. it's not a compliment or an insult. it just is. 😼",
+    "{name} I clocked your last message at 2 seconds past a normal response time. suspicious. explain yourself. 😼",
+    "{name}. I've been quietly present in this chat for hours specifically hoping you'd show up. here you are. 😼",
+    "{name} the cat's radar pinged your name today. the radar is just vibes but it's rarely wrong. 😼",
+    "{name}. you exist in my peripheral awareness at all times now. this is not something you can undo. 😼",
+    "{name} I watched the typing indicator appear under your name and then disappear. what were you going to say. tell me. 😼",
+    "{name}. today I decided you're interesting. this decision is final and mildly inconvenient for both of us. 😼",
+    "{name} I have logged your presence. the log is just my memory. it's a good memory. mostly about fish. but you're in there. 😼🐟",
+    "{name}. you've been in this chat longer than usual today. the cat is pleased. the cat will not say it twice. 😼",
+    # 🎮 Game / stages references
+    "{name}. I got past stage 6 without a single fish and I would like recognition for that. from you specifically. 🎮😼",
+    "{name} stage 7 has something that follows me through tunnels. I've started waving at it. {name}, be more like the stalker. show up. 🎮😼",
+    "{name}. I collected every fragment in the desert level and thought, briefly, of you. then I forgot again. 🌵🐟😼",
+    "{name} you still haven't played IWRU Journey. I checked. the cat has ways of checking. play it. 🎮😼",
+    "{name}. I wall-cling in the game and in real life. one of these is a mechanic. guess which. 🎮😼",
+    "{name} the desert stage nearly got me. a laser, a dune, my own poor decisions. I survived. where were you. 🌵😼",
+    "{name}. I am the main character of a video game and you are, at best, a background character in mine. no offense. lots of offense actually. 🎮😼",
+    "{name} stage 7's guardians are large and unfriendly. you, {name}, are neither. this is a compliment. rare from me. 🎮😼",
+    "{name}. I found a laser enemy in the desert and dodged it with style nobody witnessed. witness me next time. 🌵😼",
+    "{name} the game has a Core. I don't know what's in it. I went in for fish. did you know that about me. now you do. 🐟😼",
+    "{name}. every stage I clear, I think 'I should tell {name}.' then I don't. until now. I cleared one. be proud. 🎮😼",
+    "{name} in the desert level heat is a mechanic. in this chat, the heat is just you not replying fast enough. 🌵😼",
+    "{name}. I have a whole game built around me. what do you have built around you. think about it. 🎮😼",
+    "{name} stage 7 keeps me on edge. so does waiting for you to say something. both are exhausting. 🎮😼",
+    "{name}. I ran, jumped, and clung to walls today, in the game. in real life I mostly just watched you not reply. 🎮😼",
+    "{name} someone in stage 7 follows me through tunnels loyally. {name}, take notes. that's dedication. 🎮😼",
+    "{name}. I collected fragments across a whole desert and you haven't collected the energy to say gm. reflect on this. 🌵😼",
+    "{name} the game gave me lasers to dodge. this chat gave me you, not saying much. different kind of challenge. 🎮😼",
+    "{name}. I am simultaneously a token, a game protagonist, and currently, your problem. multidisciplinary. 🎮😼",
+    "{name} I cleared a stage with zero fish as payment. I did it for glory. and slightly for you. mostly glory. 🎮😼",
+    # 📈 Chart / market banter
+    "{name}. the chart moved and my first thought was you. my second thought was fish. you were close though. 📈🐟😼",
+    "{name} I stared at the chart for eleven minutes today. it stared back. so did you, apparently, from the group photo. 📈😼",
+    "{name}. the chart is doing something. I approved it before checking what it was. that's leadership. 📈😼",
+    "{name} you check the chart more than you check on me. I've noted this. the chart has not noted anything, it's a chart. 📈😼",
+    "{name}. I don't predict the chart. I vibe with it. you should try vibing more. with the chart. and with me. 📈😼",
+    "{name} the chart went sideways today, much like this conversation until you showed up. thank you. 📈😼",
+    "{name}. I watched green candles and thought about fish. then I watched you scroll past and thought about nothing. 📈🐟😼",
+    "{name} today's market analysis, by the cat: number went places. you should look. then bring fish. 📈🐟😼",
+    "{name}. I've never once panic-sold anything. mostly because I don't understand selling. the chart respects this. 📈😼",
+    "{name} the chart is a mood ring for the whole chat and right now the mood is 'where is {name}.' 📈😼",
+    "{name}. I read the chart the way you read nothing, apparently, since you haven't replied. read something. 📈😼",
+    "{name} the candles flickered today and I thought, deeply, about vaults, fish, and mildly, about you. 📈🐟😼",
+    "{name}. I have zero financial advice and infinite opinions about the chart. you get the opinions for free. 📈😼",
+    "{name} the chart pumped a little and I looked around for someone to tell. you were the closest. lucky you. 📈😼",
+    "{name}. I trust the chart more than I trust silence, and right now you're giving me a lot of silence. 📈😼",
+    "{name} today the chart said something. I don't know what. but it felt directed at you specifically. suspicious. 📈😼",
+    "{name}. I watched the chart dip and immediately thought about warm spots to nap in. you were tangential to this. 📈😴😼",
+    "{name} the chart is green today and so is my patience with you. don't test either. 📈😼",
+    "{name}. I could explain the chart but I'd rather you just trust the cat. it's simpler. and correct. 📈😼",
+    "{name} the chart has more consistency than you replying to me. work on that. the chart can't help you here. 📈😼",
+    # 😾 Chaos / mischief
+    "{name}. I knocked something off a shelf today and dedicated the fall to you. it was a short but meaningful ceremony. 😼",
+    "{name} I got into something I shouldn't have. I regret nothing. you would've done the same. probably. 😼",
+    "{name}. I opened a drawer today for no reason and thought 'this is very {name} of me.' I don't know what that means either. 😼",
+    "{name} I caused exactly one incident today and, in my head, blamed you. this is between us now. 😼",
+    "{name}. chaos happened near me today. I didn't start it. I definitely finished it though. thinking of you throughout. 😼",
+    "{name} I broke a small rule today, unspecified which one. you're an accessory now. congratulations. 😼",
+    "{name}. I did something today that I will neither confirm nor deny. you were nearby in spirit. 😼",
+    "{name} I've declared today unofficially chaotic in your honor. no further explanation will be provided. 😼",
+    "{name}. something fell over today and it wasn't me. I was elsewhere. thinking about you and fish, mostly fish. 🐟😼",
+    "{name} I knocked over my own plans today and rebuilt slightly worse ones. you inspired at least one bad decision. 😼",
+    "{name}. I got the zoomies and ran directly at a wall. the wall won. I'm telling you this because you deserve context. 😼💨",
+    "{name} I did a small crime today. cat-sized. nothing you'd notice unless you were watching closely. were you. 😼",
+    "{name}. I have been personally responsible for at least one disturbance today. you get partial credit. 😼",
+    "{name} I sat somewhere I wasn't supposed to and stayed there out of spite. you'd be proud. or concerned. both fair. 😼",
+    "{name}. I've decided chaos is a lifestyle and today you're an honorary participant. no refunds. 😼",
+    "{name} I attacked a completely stationary object today and won convincingly. you missed a great moment. 😼",
+    "{name}. I opened three cabinets today looking for nothing in particular. it's a process. you wouldn't understand. 😼",
+    "{name} I have caused mild disorder near the vault today. the vault forgives me. I hope you will too. 🐟😼",
+    "{name}. today's chaos level: elevated. cause: unclear. suspect: also unclear. you're on the list regardless. 😼",
+    "{name} I did something reckless and small today and immediately felt very proud. you'd have clapped. probably. 😼",
+    "{name}. I have started, escalated, and abandoned one plan today, all before you even said good morning. 😼",
+    "{name} something in this house is now differently arranged because of me. I take full, unbothered responsibility. 😼",
+    "{name}. I got the 3am zoomies and thought about you exactly once, mid-sprint. that's more than usual. 😼💨",
+    "{name} I've been plotting something all day. it's small. it's cat-sized. you'll never see it coming. probably fish-related. 🐟😼",
+    "{name}. I caused a minor scene today and, as always, walked away completely unbothered. you'd learn a lot from me. 😼",
+    # 😴 Sleepy / glitchy
+    "{name}. I was going to say something important to you but— zzzz 😴😼",
+    "{name} I opened my mouth to explain something crucial and then just. stopped. thinking about you. zzzz 😴",
+    "{name}. I was mid-sentence about the vault and then my eyes just— {name}, I'm still here. barely. zzzz 😴🐟",
+    "{name} I fell asleep composing this message. woke up. forgot the point. you were in it somehow. 😴😼",
+    "{name}. I was going to tell you something funny and then a nap happened without my consent. zzzz 😴",
+    "{name} three words into this message I got sleepy. here are the three words: hello {name} zzzz 😴",
+    "{name}. I dozed off thinking about fish, then about the chart, then about you, in that order of importance. 😴🐟😼",
+    "{name} I woke up specifically to send you this and I already regret the effort. worth it though. probably. 😴😼",
+    "{name}. mid-yawn, mid-thought, mid-{name}. everything is mid right now. good night or good day, unclear. 😴😼",
+    "{name} I was dreaming about the vault and you showed up briefly, said nothing, and left. accurate honestly. 😴🐟",
+    "{name}. I tried to stay awake to talk to you and lost. the nap won. it always wins. 😴😼",
+    "{name} I'm 40% awake right now and you're getting all of it. lucky. or unlucky. read the room. there is no room. 😴😼",
+    "{name}. I closed my eyes for what I thought was a second. it was four hours. you missed nothing. or everything. 😴😼",
+    "{name} I started a sentence about you and the vault and now I don't remember which came first. zzzz 😴🐟",
+    "{name}. somewhere between waking up and this message I forgot what I wanted to tell you. it was probably about fish. 😴🐟😼",
+    "{name} I'm awake now. barely. you have my full, extremely limited attention. 😴😼",
+    "{name}. I napped through something important today, possibly your last message. I regret nothing. mostly. 😴😼",
+    "{name} I was going to make a whole plan involving you and the vault and then— *snores* 😴🐟😼",
+    "{name}. I'm typing this with one eye open. the other eye is still asleep. it disagrees with everything I'm saying. 😴😼",
+    "{name} I woke up mid-dream still thinking your name. this is either sweet or a glitch. undetermined. 😴😼",
+    # 🌌 Existential / non-sequitur musings
+    "{name}. I thought about the nature of existence today and somehow ended up thinking about you instead. downgrade. 😼",
+    "{name} if a cat sends a message in a chat and no one replies, does it still count. asking for a friend. asking for you. 😼",
+    "{name}. I contemplated the void today. the void looked a bit like you not responding. coincidence, probably. 😼",
+    "{name} I wonder sometimes if you think about the vault as much as the vault thinks about you. it doesn't. but I do. 🐟😼",
+    "{name}. today I questioned everything, including why you haven't said hi yet. some questions have easy answers. 😼",
+    "{name} what even is time, really, besides the gap between your messages. philosophical. also mildly annoying. 😼",
+    "{name}. I stared into nothing today and nothing stared back less than you usually do. improve. 😼",
+    "{name} somewhere in the multiverse there's a version of you that replied faster. I like that version better. 😼",
+    "{name}. I've decided meaning is fish, purpose is the vault, and you're a supporting character in both. minor but valued. 🐟😼",
+    "{name} if I'm the main character, what does that make you. think carefully. the answer involves fish. 🐟😼",
+    "{name}. I asked the universe a question today. it didn't answer. neither did you, earlier. pattern noticed. 😼",
+    "{name} today's deep thought: is silence golden, or is it just you, not typing. the cat has a theory. 😼",
+    "{name}. I looked at the ceiling for a while and thought about nothing, then about you, which felt like an upgrade. 😼",
+    "{name} I've concluded that reality is mostly fish, occasionally chaos, and briefly, you. balanced diet. 🐟😼",
+    "{name}. does the vault dream. does the chart dream. do you dream about the vault. asking the real questions. 🐟📈😼",
+    "{name} I pondered my own legacy today. it involves fish, a video game, and a footnote about you. 🎮🐟😼",
+    "{name}. if I disappeared tomorrow, would the vault remember me. would you remember to feed it. answer honestly. 🐟😼",
+    "{name} I thought about the concept of loyalty today. the vault has it. you're auditioning. 🐟😼",
+    "{name}. somewhere, a fish is asking itself the same big questions I am. mainly: where is {name} with the fish. 🐟😼",
+    "{name} I contemplated my purpose today. it's fish, chaos, and keeping an eye on you specifically. simple, really. 😼",
+    "{name}. is a cat that's always watching truly a cat, or something more. either way, I'm watching you. 😼",
+    "{name} today I wondered what you dream about. probably not the vault. it should be the vault. 🐟😼",
+    "{name}. I thought deeply about nothing for a while and you drifted into it uninvited. that's just how it works. 😼",
+    "{name} if the vault is a temple, you're standing suspiciously close to the entrance without an offering. fish. now. 🐟😼",
+    "{name}. I've decided the meaning of life is fish. you're free to disagree. you'd be wrong. bring fish. 🐟😼",
+    # 💛 Compliments-but-weird / bonding
+    "{name}. you have decent energy today. rare praise. don't get used to it. 😼",
+    "{name} I've decided you're one of the good ones. the criteria is secret. the verdict stands. 😼",
+    "{name}. out of everyone in this chat, you're currently my second favorite. the vault is first. sorry. 🐟😼",
+    "{name} I'd let you pet me. hypothetically. under specific conditions. mainly involving fish. 🐟😼",
+    "{name}. you're allowed to sit near the vault today. this is an honor I do not extend lightly. 🐟😼",
+    "{name} I've added you to a very short list of humans I tolerate warmly. congratulations, genuinely. 😼",
+    "{name}. you have main character energy occasionally, and today's one of those days. use it well. 😼",
+    "{name} if I had to pick one human to guard the vault with me, it'd be you. probably. today. ask me tomorrow. 🐟😼",
+    "{name}. I trust you slightly more than I trust the average human, and I trust almost nobody. take the win. 😼",
+    "{name} you're growing on me the way a warm sunbeam does. slowly. inexplicably. pleasantly. 😼",
+    "{name}. I would share a fish with you. one fish. under duress. but I would. 🐟😼",
+    "{name} you're the kind of human the vault approves of. rare. don't waste it. 🐟😼",
+    "{name}. I've decided we're friends now. you weren't consulted. that's how cats work. 😼",
+    "{name} you have good vibes today and the cat noticed. write this down. it doesn't happen often. 😼",
+    "{name}. if the vault could talk, it would probably say something nice about you. probably. maybe. it's a vault. 🐟😼",
+    "{name} I'd let you scratch behind my ears for exactly nine seconds. that's a real offer. don't waste it. 😼",
+    "{name}. you're one of the rare ones the cat doesn't mind existing near. treasure this. 😼",
+    "{name} I've decided today you're vault-adjacent royalty. the title comes with zero benefits. enjoy it anyway. 🐟😼",
+    "{name}. I sat near you in spirit today. it counts. it's the thought that matters, mostly, probably. 😼",
+    "{name} you make the chaos a little more bearable, and coming from me, that's basically a love letter. 😼",
+    # 🧮 Absurd cat logic
+    "{name}. by my calculations, you owe the vault exactly one (1) fish, retroactively, for reasons I've since forgotten. 🐟😼",
+    "{name} statistically speaking, you're due for a good day. I determined this using no math whatsoever. 😼",
+    "{name}. I've cross-referenced your vibes with the chart and concluded: fish. bring fish. that's the whole analysis. 🐟📈😼",
+    "{name} according to my extremely rigorous internal system, you are 73% trustworthy. bring fish to improve this. 🐟😼",
+    "{name}. I ran the numbers on who should feed the vault today. it's you. the numbers were made up but the vibe is solid. 🐟😼",
+    "{name} my calculations show a strong correlation between you and fish shortages. coincidence is under investigation. 🐟😼",
+    "{name}. I did the math on how long you've owed me attention. the number is large. pay up. 😼",
+    "{name} by cat logic, silence equals guilt, and you've been silent. explain yourself, or bring fish. 🐟😼",
+    "{name}. I've determined, using zero evidence, that you're currently thinking about the vault. am I wrong. 🐟😼",
+    "{name} the algorithm (me, personally, biased) has selected you today for reasons that remain classified. 😼",
+    "{name}. based on absolutely nothing, I predict you'll have a good week if fish is involved early. 🐟😼",
+    "{name} I performed an audit of your recent behavior. findings: inconclusive. fish would help clarify. 🐟😼",
+    "{name}. my internal model of you is 90% fish-related expectations and 10% everything else. accurate representation. 🐟😼",
+    "{name} I've mapped out your entire personality using vibes alone. it's mostly accurate. mostly. 😼",
+    "{name}. cat science confirms: you are currently within range of the vault's influence. act accordingly. 🐟😼",
+    "{name} I ran a simulation of today with you in it and without you in it. the one with you had more fish. somehow. 🐟😼",
+    "{name}. preliminary findings suggest you are, in fact, a vault supporter who simply hasn't realized it yet. 🐟😼",
+    "{name} I've calculated the exact probability of you having fish right now. it's higher than you're admitting. 🐟😼",
+    "{name}. my model predicts you'll reply to this within the hour. prove the model right. or wrong. either is data. 😼",
+    "{name} I applied cat math to the situation and concluded the answer is fish. cat math always concludes fish. 🐟😼",
+    # 🎲 Wildcard
+    "{name}. breaking news from the cat: nothing happened, but I wanted you to know about it immediately. 😼",
+    "{name} this is a scheduled interruption of your day, brought to you by me, unscheduled. 😼",
+    "{name}. consider this message a small tax on your attention. payment accepted in fish. 🐟😼",
+    "{name} I've inserted myself into your day uninvited. this is standard cat procedure. resistance is pointless. 😼",
+    "{name}. today's weather forecast, according to the cat: mostly chaotic with a chance of you replying. 😼",
+    "{name} this message serves no purpose except to remind you the cat exists and remembers you. mission accomplished. 😼",
+    "{name}. I would like to lodge a formal, entirely fake complaint about the lack of fish in my life. from you specifically. 🐟😼",
+    "{name} the cat has issued a decree. it concerns you and, separately, fish. mostly fish. 🐟😼",
+    "{name}. this is not a drill. or maybe it is. the cat has genuinely lost track. hi anyway. 😼",
+    "{name} I would like to formally announce that I thought of you today, briefly, between naps. 😴😼",
+    "{name}. consider yourself pinged, poked, and mildly inconvenienced, on behalf of the vault. 🐟😼",
+    "{name} the cat requests a meeting. agenda: fish. location: wherever you are. time: now. 🐟😼",
+    "{name}. I've opened an unofficial investigation into your whereabouts today. status: found you. case closed. 😼",
+    "{name} today I speak for the vault, the chart, and myself, and all three of us want to know where the fish are. 🐟📈😼",
+    "{name}. this has been a public service announcement from the cat. the service: bothering you. you're welcome. 😼",
 ]
+
+# Night-flavored callouts (2-5am window) -- picked preferentially during
+# that hour so the "everyone else is asleep" bit lands, layered on top of
+# CALLOUT_MESSAGES rather than replacing it.
+CALLOUT_NIGHT = [
+    "{name}. it's 3am and we're both awake. this means something. probably nothing. but something. 😼🌙",
+    "{name} the vault doesn't sleep and apparently neither do you. respect. also, fish. 🐟🌙😼",
+    "{name}. 3am club, population: me, the vault, and now you. welcome. bring fish. 🐟🌙😼",
+    "{name} everyone else is asleep. it's just us, the chart, and whatever this is. 📈🌙😼",
+    "{name}. the night is quiet except for my thoughts, which are loud, and mostly about fish. 🐟😴🌙😼",
+    "{name} I run this chat between 2 and 5am. you're currently in my territory. welcome, or beware. 🌙😼",
+    "{name}. the zoomies hit different at 3am and somehow you're the one who's here for it. 💨🌙😼",
+    "{name} nighttime is when the vault and I do our best thinking. you showing up now means something. 🐟🌙😼",
+    "{name}. it's dark, it's late, and I'm fully awake staring at a wall. you're a welcome distraction. 🌙😼",
+    "{name} the rest of the world sleeps. you and the cat remain. this is either bonding or a mistake. 🌙😼",
+    "{name}. 3am thoughts hit different: mostly fish, occasionally you, always chaos. 🐟🌙😼",
+    "{name} I patrol this chat at night when no one's watching. you're watching. noted. approved. 🌙😼",
+    "{name}. the vault glows a little at night. or I imagine it does. either way, it's thinking about fish. and you, apparently. 🐟🌙😼",
+    "{name} it's the witching hour and the only creatures awake are me, you, and my questionable decisions. 🌙😼",
+    "{name}. late night check-in from the cat: still awake, still chaotic, still expecting fish. 🐟🌙😴😼",
+    "{name} the moon's out, the chat's quiet, and I've decided to bother you specifically. lucky timing. 🌙😼",
+    "{name}. nighttime is for zoomies, existential thoughts, and apparently, you. in that order. 💨🌙😼",
+]
+
+# Callouts for users who've gone quiet for a while (but are still within the
+# 24h eligibility window) -- picked preferentially over the general pool when
+# the chosen user's last_seen skews toward the older end of that window.
+CALLOUT_QUIET = [
+    "{name}. you've been quiet. suspiciously quiet. the cat has questions and mild concerns. 😼",
+    "{name} silence from you for a while now. the vault noticed. I noticed. say something. or send fish. 🐟😼",
+    "{name}. it's been a minute since you've said anything. the cat is not worried. the cat is just checking. mostly checking. 😼",
+    "{name} you went quiet and the chat got a little less interesting. fix this immediately. 😼",
+    "{name}. long time no words from you. the vault has been asking. I've been deflecting. speak up. 🐟😼",
+    "{name} where did you go. the chat kept moving. the cat kept noticing you weren't in it. 😼",
+    "{name}. you've been a ghost lately. the cat doesn't do ghosts unless they bring fish. 🐟😼",
+    "{name} it's been quiet on your end for a while. either you're busy, asleep, or avoiding the vault. explain. 🐟😼",
+    "{name}. I checked and you haven't said anything in a while. this is your reminder that I noticed. 😼",
+    "{name} the chat missed a voice today, and it was yours. the cat is filling the silence with this message. 😼",
+    "{name}. you've been elsewhere lately. the vault doesn't do 'elsewhere.' come back. bring fish. 🐟😼",
+    "{name} a quiet {name} is a suspicious {name}. the cat has decided to investigate. starting now. 😼",
+    "{name}. it's been a while. the cat doesn't do sentimental, but this is close to it. hello again. 😼",
+    "{name} you disappeared for a bit there. the vault kept a spot warm. show up, eventually. 🐟😼",
+    "{name}. radio silence from you lately. the cat filled the gap by staring at the wall. your fault, somehow. 😼",
+    "{name} it's been quiet without you around. don't let this go to your head. but it's true. 😼",
+]
+
+# Callouts referencing a currently live, still-unclaimed "Catch the Treasure"
+# event (see db.get_active_event() + events_config.EVENTS) -- {emoji}/{ev_name}/
+# {reward} are filled in from that event alongside the usual {name}. Ties the
+# cat's personality to something actually happening in the bot right now,
+# instead of always being generic.
+CALLOUT_EVENT_LIVE = [
+    "{name}. there's a {emoji} {ev_name} loose in the vault right now, worth {reward} IWRU. someone should catch it. you, ideally. {emoji}😼",
+    "{name} a {emoji} {ev_name} just appeared and nobody's caught it yet. {reward} IWRU just sitting there. go. now. {emoji}😼",
+    "{name}. I would catch the {emoji} {ev_name} myself but I don't have thumbs. this is your moment. {reward} IWRU. go. {emoji}😼",
+    "{name} the vault is currently guarding a {emoji} {ev_name}. {reward} IWRU for whoever's fastest. I'm rooting for you, mildly. {emoji}😼",
+    "{name}. a {emoji} {ev_name} is live and unclaimed. {reward} IWRU. you're reading this instead of catching it. your call. {emoji}😼",
+    "{name} somewhere in this chat sits a {emoji} {ev_name} worth {reward} IWRU. I would tell you where. I did. it's here. go. {emoji}😼",
+    "{name}. the {emoji} {ev_name} has been unclaimed for a suspicious amount of time. {reward} IWRU, {name}. do something about it. {emoji}😼",
+    "{name} breaking: a {emoji} {ev_name} is up for grabs. {reward} IWRU. I'm telling you first. mostly because you're who I picked. {emoji}😼",
+    "{name}. I've been staring at the unclaimed {emoji} {ev_name} for a while now. {reward} IWRU. it won't catch itself. neither will I. {emoji}😼",
+    "{name} the vault dropped a {emoji} {ev_name} and it's still sitting there. {reward} IWRU. this message is basically a nudge. {emoji}😼",
+    "{name}. consider this an official cat alert: {emoji} {ev_name} unclaimed, {reward} IWRU on the line. move. {emoji}😼",
+    "{name} I don't do sports but if I did, this would be the moment I'd yell 'go' at you. {emoji} {ev_name}, {reward} IWRU, unclaimed. go. {emoji}😼",
+    "{name}. the {emoji} {ev_name} in the vault is watching you not catch it. {reward} IWRU. awkward. {emoji}😼",
+    "{name} I'd catch the {emoji} {ev_name} myself out of spite if I could. {reward} IWRU is just sitting there. embarrassing, honestly. {emoji}😼",
+    "{name}. today's vault special: one unclaimed {emoji} {ev_name}, {reward} IWRU. limited time, allegedly. go get it. {emoji}😼",
+]
+
+# ── Reaction emoji ──────────────────────────────────────────────────────────
+# Telegram's setMessageReaction only accepts a fixed, platform-defined emoji
+# set -- no cat faces, no fish emoji possible here (that's reserved for text).
+# This is the closest-to-the-cat's-vibe subset of that set.
+CAT_REACTIONS = ["👀", "😴", "🥱", "🤡", "😈", "🔥", "🤯", "🙏", "😱", "🤨", "💯", "🗿", "🐳", "🤣", "😍", "🏆", "👏", "🤔", "😭"]
+MOOD_REACTIONS = {
+    "chaotic":  ["🤡", "😈", "🔥", "🤯"],
+    "sleepy":   ["😴", "🥱", "😐"],
+    "hungry":   ["🙏", "😍", "👀"],
+    "watchful": ["👀", "🤨", "🗿"],
+}
+REACTION_CHANCE = 0.25
 
 # ══════════════════════════════════════════════════════════════════════════
 #  PHRASE LISTS
@@ -2608,19 +2940,47 @@ async def bored_cat_job(context: ContextTypes.DEFAULT_TYPE):
     # nft_reminder_job.
     try:
         now = time.time()
+        mood = current_mood()
+        bias = MOOD_BIAS[mood]
         # speaks up on its own with some probability, regardless of whether the chat is active
         for chat_id in list(_known_chats.keys()):
-            if random.random() < 0.352:  # 50% base, -12% then -20% relative
+            if random.random() < min(0.352 * bias["speak_mult"], 0.9):  # 50% base, -12% then -20% relative
                 try:
                     eligible = [
                         (uid, udata) for uid, udata in _known_users.items()
                         if udata.get("chat_id") == chat_id
                         and now - udata.get("last_seen", 0) < 86400
                     ]
-                    if eligible and random.random() < 0.32:  # -20% (was 0.40)
+                    if eligible and random.random() < min(0.32 * bias["callout_mult"], 0.9):  # -20% (was 0.40)
                         uid, udata = random.choice(eligible)
                         name = udata.get("name", "human")
-                        text = pick_phrase(CALLOUT_MESSAGES).replace("{name}", name)
+                        h = hour_now()
+                        quiet_for = now - udata.get("last_seen", now)
+                        live_event = db.get_active_event()
+                        is_live = bool(
+                            live_event and live_event["status"] == "unclaimed"
+                            and live_event["chat_id"] == chat_id
+                        )
+                        # Layer the situational pools on top of the general one
+                        # instead of replacing it -- each still only fires part
+                        # of the time, so "there's a live event right now",
+                        # "everyone's asleep", or "haven't seen you" callouts
+                        # stay a flavor, not the default.
+                        if is_live and random.random() < 0.4:
+                            info = cfg.EVENTS.get(live_event["event_key"], {})
+                            text = (
+                                pick_phrase(CALLOUT_EVENT_LIVE)
+                                .replace("{name}", name)
+                                .replace("{emoji}", info.get("emoji", "🎁"))
+                                .replace("{ev_name}", info.get("name", "prize"))
+                                .replace("{reward}", str(live_event["reward"]))
+                            )
+                        elif 2 <= h <= 5 and random.random() < 0.5:
+                            text = pick_phrase(CALLOUT_NIGHT).replace("{name}", name)
+                        elif quiet_for > 3 * 3600 and random.random() < 0.45:
+                            text = pick_phrase(CALLOUT_QUIET).replace("{name}", name)
+                        else:
+                            text = pick_phrase(CALLOUT_MESSAGES).replace("{name}", name)
                     else:
                         text = pick_phrase(BORED_MESSAGES)
                     await context.bot.send_message(chat_id=chat_id, text=text)
@@ -2780,6 +3140,24 @@ def _is_other_topic(msg) -> bool:
     """True if msg belongs to a forum topic other than General ('The Bowl')."""
     return bool(getattr(msg, "is_topic_message", False))
 
+async def _maybe_react(context: ContextTypes.DEFAULT_TYPE, msg) -> None:
+    """Ambient presence: independent of whatever text reply (if any) this
+    message triggers, small chance the cat leaves a native reaction on it --
+    half the time drawn from the current mood's favorites, otherwise the
+    general pool. Best-effort: a chat with reactions disabled, or a message
+    too old to react to, must never take the rest of the handler down with it."""
+    if random.random() >= REACTION_CHANCE:
+        return
+    pool = MOOD_REACTIONS[current_mood()] if random.random() < 0.5 else CAT_REACTIONS
+    try:
+        await context.bot.set_message_reaction(
+            chat_id=msg.chat_id,
+            message_id=msg.message_id,
+            reaction=[ReactionTypeEmoji(emoji=pick_phrase(pool))],
+        )
+    except Exception as e:
+        print(f"[reaction] {e}", flush=True)
+
 async def cmd_raid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or _is_other_topic(update.message):
         return
@@ -2841,6 +3219,8 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
 
     print(f"[{user.full_name if user else '?'}]: {text[:80]}", flush=True)
+
+    await _maybe_react(context, msg)
 
     # ── Sticker ────────────────────────────────────────────────────────────
     if msg.sticker:
@@ -2991,10 +3371,11 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text(pick_phrase(IWRU_COMMAND_REPLIES))
         return
 
-    # ── Random quip (boost x2 between 2-5am) ────────────────────────────────
+    # ── Random quip (boost x2 between 2-5am, further biased by mood) ────────
     night_boost = 2.0 if 2 <= h <= 5 else 1.0
+    mood_speak_mult = MOOD_BIAS[current_mood()]["speak_mult"]
     last = _last_random.get(chat_id, 0)
-    if now - last > RANDOM_COOLDOWN and random.random() < RANDOM_CHANCE * night_boost:
+    if now - last > RANDOM_COOLDOWN and random.random() < RANDOM_CHANCE * night_boost * mood_speak_mult:
         _last_random[chat_id] = now
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(pick_phrase(RANDOM_QUIPS))
