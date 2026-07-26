@@ -462,17 +462,57 @@ def _scan() -> tuple[list[dict], Optional[int]]:
     return alerts, cursor
 
 
+async def _send_alert(context: ContextTypes.DEFAULT_TYPE, data: dict) -> None:
+    """Posts one alert: the banner with the alert as its caption and the
+    buttons underneath, in a single message.
+
+    Telegram hands back a file_id the first time an image is uploaded, and
+    accepts that id in place of the bytes afterwards. Caching it means the
+    343 KB banner is uploaded once in the worker's lifetime instead of on
+    every buy. A JPEG has no transparency, so unlike events.py's stickers
+    there is nothing here that Telegram would flatten onto white.
+    """
+    text = build_alert(data)
+    keyboard = build_keyboard(data["tx_hash"])
+    cached_id = db.get_config("buybot_image_file_id")
+
+    if cached_id or cfg.BUYBOT_IMAGE.is_file():
+        try:
+            if cached_id:
+                msg = await context.bot.send_photo(
+                    chat_id=cfg.BUYBOT_CHAT_ID, photo=cached_id, caption=text,
+                    parse_mode="HTML", reply_markup=keyboard,
+                )
+            else:
+                with open(cfg.BUYBOT_IMAGE, "rb") as fh:
+                    msg = await context.bot.send_photo(
+                        chat_id=cfg.BUYBOT_CHAT_ID, photo=fh, caption=text,
+                        parse_mode="HTML", reply_markup=keyboard,
+                    )
+                if msg.photo:
+                    db.set_config("buybot_image_file_id", msg.photo[-1].file_id)
+            return
+        except Exception as e:  # noqa: BLE001
+            # a stale file_id, an oversized caption, an image Telegram refuses:
+            # none of it is a reason to lose the alert itself
+            print(f"[buybot] photo send failed, falling back to text: {e}", flush=True)
+            if cached_id:
+                db.set_config("buybot_image_file_id", "")
+
+    await context.bot.send_message(
+        chat_id=cfg.BUYBOT_CHAT_ID,
+        text=text,
+        parse_mode="HTML",
+        reply_markup=keyboard,
+        disable_web_page_preview=True,
+    )
+
+
 async def _poll_once(context: ContextTypes.DEFAULT_TYPE) -> None:
     alerts, cursor = await asyncio.to_thread(_scan)
     for data in alerts:
         try:
-            await context.bot.send_message(
-                chat_id=cfg.BUYBOT_CHAT_ID,
-                text=build_alert(data),
-                parse_mode="HTML",
-                reply_markup=build_keyboard(data["tx_hash"]),
-                disable_web_page_preview=True,
-            )
+            await _send_alert(context, data)
             _remember(data["_key"])
             print(
                 f"[buybot] announced {fmt_usd(data['usd'])} buy by {short_addr(data['buyer'])}",

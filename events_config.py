@@ -73,6 +73,10 @@ BUYBOT_RPC_URLS = [
 ]
 BUYBOT_NADFUN_API = "https://api.nad.fun"
 BUYBOT_EXPLORER = "https://monadscan.com"
+# Banner sent with every buy alert. Resolved relative to this file, not the
+# process cwd, same as ASSETS_DIR below. A missing file is not fatal: the
+# alert falls back to text-only rather than being dropped.
+BUYBOT_IMAGE = pathlib.Path(__file__).parent / "assets" / "buybot" / "buy.jpg"
 # Where the buttons point. The chart is nad.fun for as long as $IWRU sits on
 # the bonding curve: there is no DEX pair yet, so there is no Dexscreener or
 # GeckoTerminal chart to link either.
