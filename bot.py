@@ -26,6 +26,7 @@ TOKEN = os.environ["TOKEN"]
 # startup failure
 import events
 import db
+import buybot
 import events_config as cfg
 
 # chats pre-registered via env var (KNOWN_CHAT_IDS="-1003859192674,-100...") so
@@ -3496,6 +3497,7 @@ def build_app():
     a.job_queue.run_once(merch_announcement_job, _seconds_until_window(*MERCH_ANNOUNCEMENT_WINDOW_UTC))
     a.job_queue.run_once(dividends_reminder_job, _seconds_until_window(*DIVIDENDS_REMINDER_WINDOW_UTC))
     a.job_queue.run_once(penkmarket_announcement_job, _seconds_until_window(*PENKMARKET_ANNOUNCEMENT_WINDOW_UTC))
+    buybot.register(a)  # $IWRU buy alerts; self-gated on BUYBOT_ENABLED
     if TWITTER_ENABLED:
         for slot_start, slot_end in TWEET_SLOTS:
             a.job_queue.run_once(tweet_slot_job, _seconds_until_window(slot_start, slot_end), data=(slot_start, slot_end))

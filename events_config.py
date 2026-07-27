@@ -20,6 +20,71 @@ def _safe_int_env(name: str, default: int) -> int:
         return default
 
 
+def _safe_float_env(name: str, default: float) -> float:
+    """Float sibling of _safe_int_env, same never-crash-at-import reasoning --
+    used for the buybot's USD floor, which is naturally fractional."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        print(f"[events_config] invalid {name}={raw!r}, falling back to {default}", flush=True)
+        return default
+
+
+def _bool_env(name: str) -> bool:
+    """Reads a boolean env var, OFF unless explicitly enabled -- only "1" or
+    "true" (any casing, surrounding whitespace ignored) turn it on. Any other
+    value, including typos, stays False rather than surprise-enabling a
+    feature -- mirrors _safe_int_env's never-crash-at-import reasoning."""
+    return (os.environ.get(name) or "").strip().lower() in ("1", "true")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  BUYBOT ($IWRU buy alerts, see buybot.py)
+# ══════════════════════════════════════════════════════════════════════════
+# Off until switched on from Render: the poller hits a public RPC every few
+# seconds, so it should never start by accident (e.g. on a local run someone
+# left open, which would double-post every buy).
+BUYBOT_ENABLED = _bool_env("BUYBOT_ENABLED")
+
+# Buys smaller than this in USD are ignored. A bonding curve gets a lot of
+# dust; without a floor the chat turns into a ticker.
+BUYBOT_MIN_USD = _safe_float_env("BUYBOT_MIN_USD", 2.0)
+
+# Seconds between polls. The public Monad RPC caps eth_getLogs at a 100-block
+# range and Monad blocks land ~0.3s apart, so one call covers ~30s of chain:
+# poll well inside that and the happy path is always a single request.
+BUYBOT_POLL_SECONDS = _safe_int_env("BUYBOT_POLL_SECONDS", 20)
+
+# How many 100-block pages one tick may walk while catching up after downtime.
+# 20 pages = 2000 blocks ~ 10 minutes of chain per tick, so even a long Render
+# redeploy is caught up within a couple of ticks without ever asking the RPC
+# for a range it will refuse.
+BUYBOT_MAX_PAGES_PER_TICK = _safe_int_env("BUYBOT_MAX_PAGES_PER_TICK", 20)
+
+# $IWRU on Monad (chain 143) -- the same address bot.py already links as NAD_CA.
+BUYBOT_TOKEN = "0xaCCD61772BCd3717546f141382b68b6D2EF17777"
+BUYBOT_RPC_URLS = [
+    u.strip()
+    for u in (os.environ.get("MONAD_RPC_URLS") or "https://rpc.monad.xyz,https://monad.drpc.org").split(",")
+    if u.strip()
+]
+BUYBOT_NADFUN_API = "https://api.nad.fun"
+BUYBOT_EXPLORER = "https://monadscan.com"
+# Banner sent with every buy alert. Resolved relative to this file, not the
+# process cwd, same as ASSETS_DIR below. A missing file is not fatal: the
+# alert falls back to text-only rather than being dropped.
+BUYBOT_IMAGE = pathlib.Path(__file__).parent / "assets" / "buybot" / "buy.jpg"
+# Where the buttons point. The chart is nad.fun for as long as $IWRU sits on
+# the bonding curve: there is no DEX pair yet, so there is no Dexscreener or
+# GeckoTerminal chart to link either.
+BUYBOT_CHART_URL = os.environ.get("BUYBOT_CHART_URL") or f"https://nad.fun/tokens/{BUYBOT_TOKEN}"
+BUYBOT_SITE_URL = os.environ.get("BUYBOT_SITE_URL") or "https://iwillrugu.com/"
+# BUYBOT_CHAT_ID is defined below, next to EVENTS_CHAT_ID, since it defaults
+# to it.
+
 # ══════════════════════════════════════════════════════════════════════════
 #  OWNER
 # ══════════════════════════════════════════════════════════════════════════
@@ -33,6 +98,11 @@ BOT_OWNER_ID = _safe_int_env("BOT_OWNER_ID", 5612550615)
 #  GROUP / SCHEDULING
 # ══════════════════════════════════════════════════════════════════════════
 EVENTS_CHAT_ID = int(os.environ["EVENTS_CHAT_ID"])
+
+# Buy alerts land in the same chat (and, with no thread id, the same General
+# topic) the bot already posts in. Overridable so alerts can be split out into
+# a dedicated chat later without touching code.
+BUYBOT_CHAT_ID = _safe_int_env("BUYBOT_CHAT_ID", 0) or EVENTS_CHAT_ID
 
 def _resolve_event_window() -> tuple:
     """Daily random event fires at a random second inside this UTC hour
