@@ -471,6 +471,23 @@ async def _edit_group_message(context: ContextTypes.DEFAULT_TYPE, row, text: str
     return text_edit_ok
 
 
+async def _clear_group_keyboard(context: ContextTypes.DEFAULT_TYPE, row) -> None:
+    """Clears this event's live Catch/Inspect keyboard in place WITHOUT
+    touching its text -- for callers that don't want any marker text stamped
+    onto the original post (e.g. on_owner_paid, where the payout is already
+    announced via a separate fresh message). Targets whichever message
+    _keyboard_message resolves to (sticker, or the text message itself when
+    there's no sticker to hold it)."""
+    kb_chat_id, kb_message_id = _keyboard_message(row)
+    try:
+        await context.bot.edit_message_reply_markup(
+            chat_id=kb_chat_id, message_id=kb_message_id,
+            reply_markup=InlineKeyboardMarkup([]),
+        )
+    except TelegramError as e:
+        print(f"[events] failed to clear group message keyboard (event {row['id']}): {e}", flush=True)
+
+
 async def _post_new_event(context: ContextTypes.DEFAULT_TYPE, event_id=None) -> dict:
     """Unconditionally posts one event -- no events_enabled check here, so the
     Owner panel's 'Generate Event' always works regardless of the daily
@@ -1124,10 +1141,10 @@ async def on_owner_paid(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except TelegramError as e:
         print(f"[events] failed to post group payout announcement (event {row['id']}): {e}", flush=True)
 
-    # Close out the ORIGINAL "caught!" post in place too -- not with the same
-    # announcement text (that would read as a second, duplicate payout in the
-    # group), just a short marker plus clearing its now-dead Catch/Inspect
-    # keyboard, so it doesn't sit there looking like a still-live event.
+    # Close out the ORIGINAL "caught!" post in place too -- no marker text
+    # (the payout is already visible via the fresh group announcement above),
+    # just clear its now-dead Catch/Inspect keyboard so it doesn't sit there
+    # looking like a still-live event.
     #
     # Re-fetch rather than trust the snapshot from the top of this handler:
     # on_menu_button's info-button reposition runs regardless of a 'paid'-
@@ -1137,10 +1154,8 @@ async def on_owner_paid(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # just above -- editing the stale one would silently fail (mirrors
     # _expire_stale_events's same re-fetch-before-editing guard).
     fresh = db.get_event_by_token(row["token"]) or row
-    closed_text = f"{fresh['display_text']}\n\n✅ Reward paid."
     if fresh["chat_id"] is not None and fresh["message_id"] is not None:
-        if await _edit_group_message(context, fresh, closed_text, clear_keyboard=True):
-            db.set_display_text(fresh["id"], closed_text)
+        await _clear_group_keyboard(context, fresh)
 
 
 def _owner_status_render(row):

@@ -134,6 +134,7 @@ WEN_TRIGGERS   = ["wen", "when moon", "when pump", "wen lambo", "wen rich", "whe
 CHART_TRIGGERS = ["chart", "price", "marketcap", "market cap", "mcap", "📊", "📈", "📉"]
 MONAD_TRIGGERS = ["monad", "#monad", "mon blockchain", "built on monad"]
 IWRU_TRIGGERS  = ["i will rug u", "i will rug you", "iwru 🐟", "iwru 😼", "iwru!"]
+FISH_EMOJI_TRIGGERS = ["🐟", "🐠", "🐡", "🎣", "🦈", "🦞", "🦀", "🦐", "🐙", "🍣", "🍤"]
 
 def _contains_word(text: str, triggers: list[str]) -> bool:
     """True if any trigger appears as a whole word/phrase in text (not embedded inside a longer word)."""
@@ -1105,6 +1106,72 @@ FISH_REPLIES = [
     "someone said fish near me and now this is the only topic that exists. 🐟😼",
     "the fish keyword has been triggered. deploying full attention immediately. 🐟😼",
     "I heard 'fish' and briefly forgot every other word in the human language. 🐟😼",
+]
+
+# Triggered by an actual fish/seafood EMOJI (not the word "fish") -- separate
+# bag from FISH_REPLIES so the two never draw from each other, covering
+# eating/stealing/demanding fish and expensive-seafood snobbery specifically.
+FISH_EMOJI_REPLIES = [
+    # eating it
+    "a fish emoji appeared and I have already eaten it in my mind. twice. 🐟😼",
+    "I don't know what that fish tastes like in real life but in my imagination it's incredible. 🐟",
+    "fish emoji spotted. mentally, I am already three bites in. 🐟😼",
+    "that's not just a fish emoji, that's dinner. I don't make the rules. 🐟😼",
+    "I saw the fish and made the sound cats make right before eating something they shouldn't. 🐟😼",
+    "I have visualized eating that exact fish emoji down to the bones. thank you for your service. 🐟",
+    "every fish emoji is a small snack I never actually get to eat. tragic. inspiring. 🐟😼",
+    "I would eat that fish slowly, dramatically, and in front of everyone. 🐟😼",
+    "the fish emoji has been mentally consumed. head, tail, everything. no regrets. 🐟😼",
+    "I chewed that fish emoji in my head and it was, frankly, excellent. 🐟😼",
+    "that fish is gone now. I ate it with my eyes. very filling. 🐟😼",
+    "picture this: me, a plate, that exact fish, and total silence while I eat it. 🐟😼",
+    "I've already eaten this fish emoji in four different daydreams today. 🐟😼",
+    "somewhere in my head there is a small ceremony happening around eating that fish. 🐟😼",
+    # stealing it
+    "I didn't take it. I relocated it. to my mouth. that's not stealing, that's logistics. 🐟😼",
+    "that fish emoji is now legally mine. I decided just now. 🐟😼",
+    "I saw the fish and my first instinct was theft. my second instinct was also theft. 🐟😼",
+    "possession is nine tenths of the law. I possess that fish emoji now. 🐟😼",
+    "I have stolen fish from better security systems than this chat. 🐟😾",
+    "the fish belongs to whoever's fastest. I am fastest. thank you for playing. 🐟😼",
+    "I don't ask permission for fish. I ask forgiveness. eventually. maybe. 🐟😼",
+    "that fish emoji is currently being smuggled out of this chat in my cheeks. 🐟😼",
+    "finders keepers. I found it. I'm keeping it. 🐟😼",
+    "I have a whole operation for this. step one: see fish. step two: it's gone. 🐟😼",
+    "nobody saw anything. the fish emoji and I would like to keep it that way. 🐟😼",
+    "I stole a fish once and the vault still talks about it with respect. 🐟😼",
+    "that fish had an owner. past tense now. 🐟😼",
+    "I'm not saying I took it. I'm saying it's no longer where you left it. 🐟😼",
+    # demanding more
+    "more fish. that's the whole request. more fish. 🐟😼",
+    "one fish emoji is a start, not an ending. keep going. 🐟😼",
+    "I saw one fish and immediately calculated how many more I am owed. 🐟😼",
+    "the correct amount of fish is always: more than this. 🐟😼",
+    "give me the fish. then give me another fish. this is not a negotiation. 🐟😼",
+    "one is never enough. bring the rest of them too. 🐟😼",
+    "I require additional fish. this message is a formal request. 🐟😼",
+    "that's a nice fish. where are the other twelve. 🐟😼",
+    "more fish, less talking. I said what I said. 🐟😼",
+    "I've reviewed the fish situation and determined it needs to double. immediately. 🐟😼",
+    "send fish. send more fish. repeat until I say stop. I will not say stop. 🐟😼",
+    "there is no such thing as enough fish. there is only 'not yet enough fish'. 🐟😼",
+    "I will accept this fish as a down payment. the rest is due now. 🐟😼",
+    "keep the fish emojis coming. I have unlimited appetite and zero shame. 🐟😼",
+    # expensive seafood snobbery
+    "personally, I only respect bluefin tuna. the rest of you can keep your regular fish. 🐟😼",
+    "I've developed a taste for otoro. don't ask how. don't ask when. 🐟😼",
+    "king crab legs. that's the whole preference. no further comment. 🦀😼",
+    "I would like it on record that caviar is simply fish that knew its worth. 🐟😼",
+    "lobster, if anyone's asking. and someone should be asking. 🦞😼",
+    "uni is expensive for a reason and that reason is me deserving it. 😼🐟",
+    "I don't do 'regular fish' anymore. I've been spoiled. it happened fast. 🐟😼",
+    "langoustine. say it with respect. I certainly do. 🦞😼",
+    "there's fish, and then there's toro. I only acknowledge one of those. 🐟😼",
+    "give me the good crab, not the sad crab. I can tell the difference immediately. 🦀😼",
+    "I've decided my standards now include the word 'premium'. adjust accordingly. 🐟😼",
+    "unagi, properly grilled, is the only acceptable form of eel in my presence. 🐟😼",
+    "if it's not sustainably overpriced seafood, I'm simply not interested. 🦐😼",
+    "I'll take the expensive fish. I'll also take the cheap fish. but mostly the expensive one. 🐟😼",
 ]
 
 GM_REPLIES = [
@@ -3355,6 +3422,12 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if random.random() < 0.096:  # -20% (was 0.12)
             await asyncio.sleep(random.uniform(4, 7))
             await msg.reply_text(pick_phrase(FOLLOWUP_MESSAGES))
+        return
+
+    # ── Fish emoji (🐟🐠🐡🎣🦈🦞🦀🦐🐙🍣🍤, no "fish" word needed) ─────────────
+    if _contains_word(tl, FISH_EMOJI_TRIGGERS) and random.random() < 0.52:
+        await asyncio.sleep(random.uniform(0.5, 2.0))
+        await msg.reply_text(pick_phrase(FISH_EMOJI_REPLIES))
         return
 
     # ── Direct @mention ────────────────────────────────────────────────────
