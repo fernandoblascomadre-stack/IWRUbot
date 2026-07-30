@@ -85,8 +85,8 @@ STICKER_WELCOME = "CAACAgQAAyEFAATmBptiAAIbdGpCtXLR4nqSl707gZNKRYI7MUZOAAJBIAACR
 
 # ── Cooldown ───────────────────────────────────────────────────────────────
 _last_random: dict[int, float] = {}
-RANDOM_COOLDOWN = 360   # 6 min between spontaneous quips
-RANDOM_CHANCE   = 0.096  # -20% relative (was 0.12) (x2 between 2-5am)
+RANDOM_COOLDOWN = 305   # +15% (was 360) -- spontaneous quips a bit more often
+RANDOM_CHANCE   = 0.11  # +15% (was 0.096) (x2 between 2-5am)
 
 # ── User tracking ──────────────────────────────────────────────────────────
 _known_chats: dict[int, float]  = {}
@@ -129,13 +129,18 @@ _next_trigger: dict[int, int] = {}
 RAID_TRIGGERS  = ["⚡️ raid tweet", "raid tweet", "⚡️ raid", "raidtweet", "raid!"]
 GM_TRIGGERS    = ["gm", "good morning", "morning fam", "buenos días", "gm everyone", "gm fam", "rise and shine"]
 GN_TRIGGERS    = ["gn", "good night", "goodnight", "buenas noches", "gn everyone", "sleep well", "going to sleep"]
+HI_TRIGGERS    = ["hi", "hello", "hey", "yo", "sup", "what's up", "howdy"]
 MOON_TRIGGERS  = ["moon", "🚀", "pump", "pumping", "mooning", "ath", "all time high", "bullish", "we're going up", "to the moon"]
 DIP_TRIGGERS   = ["dip", "dump", "dumping", "red", "crashed", "bleeding", "ngmi", "rekt", "it's over"]
 WEN_TRIGGERS   = ["wen", "when moon", "when pump", "wen lambo", "wen rich", "when rich"]
 CHART_TRIGGERS = ["chart", "price", "marketcap", "market cap", "mcap", "📊", "📈", "📉"]
 MONAD_TRIGGERS = ["monad", "#monad", "mon blockchain", "built on monad"]
 IWRU_TRIGGERS  = ["i will rug u", "i will rug you", "iwru 🐟", "iwru 😼", "iwru!"]
-FISH_EMOJI_TRIGGERS = ["🐟", "🐠", "🐡", "🎣", "🦈", "🦞", "🦀", "🦐", "🐙", "🍣", "🍤"]
+# Every fish/shellfish emoji Telegram renders natively -- not sea mammals
+# (whale/dolphin/seal), those aren't fish or seafood so they stay out.
+FISH_EMOJI_TRIGGERS = ["🐟", "🐠", "🐡", "🎣", "🦈", "🦞", "🦀", "🦐", "🐙", "🦑", "🐚", "🍣", "🍤", "🍥"]
+CAT_TRIGGERS   = ["cat", "cats", "kitty", "kitties", "kitten", "kittens", "meow", "feline", "housecat", "tabby"]
+CRYPTO_TRIGGERS = ["crypto", "token", "altcoin", "altcoins", "defi", "degen", "portfolio", "bags", "bag", "hodl", "holder", "holders", "web3"]
 
 def _contains_word(text: str, triggers: list[str]) -> bool:
     """True if any trigger appears as a whole word/phrase in text (not embedded inside a longer word)."""
@@ -591,6 +596,11 @@ CALLOUT_EVENT_LIVE = [
 # set -- no cat faces, no fish emoji possible here (that's reserved for text).
 # This is the closest-to-the-cat's-vibe subset of that set.
 CAT_REACTIONS = ["👀", "😴", "🥱", "🤡", "😈", "🔥", "🤯", "🙏", "😱", "🤨", "💯", "🗿", "🐳", "🤣", "😍", "🏆", "👏", "🤔", "😭"]
+# Deliberately unimpressed subset -- used when a cat/fish/chart/crypto keyword
+# fires but the text-reply roll below misses, so the mention still gets
+# SOME acknowledgement instead of passing by completely ignored.
+INDIFFERENT_REACTIONS = ["👀", "😴", "🥱", "🤨", "🗿", "😐"]
+INDIFFERENT_REACTION_CHANCE = 0.35
 MOOD_REACTIONS = {
     "chaotic":  ["🤡", "😈", "🔥", "🤯"],
     "sleepy":   ["😴", "🥱", "😐"],
@@ -954,6 +964,165 @@ BORED_MESSAGES = [
     "3am and the only thing open is my patience for nonsense. barely. 😼💨",
 ]
 
+# Unprompted -- not tied to anything a user said. Fired occasionally by
+# bored_cat_job so the cat's aloofness/napping shows up as its own spontaneous
+# presence in the chat, not just as a reaction to keywords. Additive flavor
+# layered onto the existing BORED_MESSAGES/CALLOUT rotation, doesn't replace it.
+INDIFFERENT_QUIPS = [
+    "not looking at anything in particular. just generally unimpressed. 😐",
+    "*stares at nothing* this is the whole activity right now. 😑",
+    "I could react to that. I'm choosing not to. 😼",
+    "eh. 😐",
+    "*blinks slowly, decides it's not worth it* 😑",
+    "I saw it. I'm not going to talk about it. 👀",
+    "noted. filed under 'whatever.' 😑",
+    "my interest level is currently at zero. this is not a complaint. it's a fact. 😐",
+    "I have chosen indifference today. it suits me. 😼",
+    "acknowledged. unbothered. moving on. 😑",
+    "*glances over, decides against it* 🙄",
+    "I'm here. I'm just not... invested. 😐",
+    "not my circus. still my chat, though. 😼",
+    "reacted internally. externally: nothing. 😑",
+    "I have opinions. I'm keeping them today. 😼",
+    "*one ear twitch, no further comment* 😐",
+    "I saw that happen. I remain seated. 🗿",
+    "mild interest, immediately withdrawn. 😑",
+    "some things don't need a reaction. this is one of them. 😐",
+    "I'm awake. that's the extent of my participation right now. 😴",
+    "*stares directly at the situation, says nothing* 👀",
+    "unbothered is a lifestyle. I live it daily. 😼",
+    "I clocked it. I'm not clapping for it. 😑",
+    "the cat has been made aware. the cat is unmoved. 🗿",
+    "*yawns at the general concept of caring* 🥱",
+    "I'll allow it. that's the whole review. 😐",
+    "nothing to add. nothing to react to. just here. 😼",
+    "witnessed. not impressed. not bothered either. perfectly neutral. 😐",
+    "I have the energy for one reaction today and I'm saving it. 😴",
+    "*looks. looks away. that's it.* 😑",
+    "cool. 😐",
+    "sure. whatever that means. 😑",
+    "noted, and immediately deprioritized. 😐",
+    "I heard. I'm choosing peace over reacting. 😼",
+    "*half-opens one eye, decides it's not worth the other one* 😑",
+    "seen. not thrilled. not upset. just... seen. 😐",
+    "I have zero follow-up questions and even less energy. 😑",
+    "registered. archived. moving on with my day. 😼",
+    "that happened. I remain exactly this unbothered. 😐",
+    "I'm not ignoring you. I'm just deeply unmotivated right now. 😴",
+    "*stares blankly, internally somewhere else entirely* 😑",
+    "duly noted, filed next to everything else I don't care about. 😐",
+    "meh. 😑",
+    "I saw the message. I chose stillness. 🗿",
+    "acknowledgment: minimal. energy: also minimal. 😐",
+    "I'm not unbothered. I'm professionally unbothered. there's a difference. 😼",
+    "*glances, sighs internally, says nothing out loud* 😑",
+    "there it is. I'm not going to do anything about it. 👀",
+    "I clocked that a while ago and decided it wasn't worth a reaction. 😐",
+    "witnessed, catalogued, filed under 'not today'. 🗿",
+]
+INDIFFERENT_EMOJI_QUIPS = [
+    "👀", "😐", "🙄💤", "😑", "🗿", "👁️👁️", "😴🤷", "🥱",
+    "😼💭", "...", "👀👀", "😐🐟", "🗿🐟", "😑😑", "🤨",
+    "😑🐟", "🙄", "😐😐", "👁️", "🗿🗿", "😴👀", "🤷", "😐...", "👀😑", "🙄🐟",
+]
+
+# Also unprompted -- the flip side of INDIFFERENT_QUIPS: the cat announcing
+# it's asleep/napping rather than aloof, same purpose (spontaneous presence
+# that isn't a reply to anyone).
+SLEEPY_QUIPS = [
+    "asleep. mostly. don't read into it. 😴",
+    "*already asleep before finishing this sentence* 😴",
+    "napping. this is not up for discussion. 😴",
+    "I've decided today is a nap day. no further votes needed. 😴",
+    "currently unavailable. reason: sleeping. very important sleeping. 😴",
+    "*one paw twitches, deep in a dream about fish* 😴🐟",
+    "do not disturb. the cat is doing important nothing, horizontally. 😴",
+    "sleeping through this conversation on purpose. 😴",
+    "*curled up somewhere warm, ignoring everything* 😴",
+    "I heard the chat. I chose sleep instead. correct choice. 😴",
+    "nap in progress. estimated completion: unknown. 😴",
+    "the cat is currently loading. please wait. status: asleep. 😴",
+    "*dead to the world, alive to the vault* 😴🐟",
+    "sleeping is a skill. I am very skilled. 😴",
+    "*snores softly, unbothered by the chat notifications* 😴",
+    "today's schedule: sleep, then more sleep, then maybe fish. 😴🐟",
+    "the cat has entered low power mode. 😴",
+    "*eyes closed, ears still listening for the word fish* 😴🐟",
+    "unavailable due to napping. this happens often. get used to it. 😴",
+    "sleep now, chaos later. balance. 😴",
+    "the cat has left the conversation to go be horizontal somewhere. 😴",
+    "*eyes half-closed, one paw still twitching from a dream* 😴",
+    "napping right now. check back never, or in six hours, whichever's funnier. 😴",
+    "the cat has powered down for scheduled maintenance. 😴",
+    "*yawns wide, decides the floor looks comfortable enough* 😴",
+    "sleep mode engaged. reason: it's always a good time. 😴",
+    "the cat is currently dreaming, probably about fish, possibly about nothing. 😴🐟",
+    "unavailable. status: horizontal, unmoving, extremely comfortable. 😴",
+    "*stretches once, collapses immediately after* 😴",
+    "the nap has been declared mandatory by executive cat order. 😴",
+    "sleeping through this on principle. 😴",
+    "*curled up tight, one ear still on duty, technically* 😴",
+    "the cat's eyes are closed. the cat's opinions are not. they're just resting too. 😴",
+    "today's nap has already exceeded yesterday's, and it's not even over. 😴",
+    "*breathing slows, whiskers twitch, gone for a while* 😴",
+]
+SLEEPY_EMOJI_QUIPS = [
+    "😴", "💤", "😴💤", "🛌", "😴🐟", "💤💤💤", "🌙😴", "😴...",
+    "🛌💤", "😴😴", "💤🐟", "🌙💤", "😴🙈", "💤😼", "🛌😴💤",
+    "😴💤🐟", "🛌🌙", "💤...", "😴🛌", "🌙💤🐟", "😴🥱", "💤🙈", "🛌💤💤", "😴🐟💤", "🌙😴🛌",
+]
+
+# Unprompted, same purpose as INDIFFERENT_QUIPS/SLEEPY_QUIPS: the cat
+# demanding belly rubs (classic contradictory cat behavior -- exposes belly,
+# may bite anyway) as its own spontaneous personality beat.
+BELLY_RUB_QUIPS = [
+    "belly's out. this is an invitation, not a request. scratch it. 😼",
+    "*flops belly-up dramatically* the trap is set. proceed at your own risk. 😼",
+    "requesting belly scratches. terms and conditions: I may bite. proceed anyway. 😼",
+    "belly rubs are owed to me. I don't know by whom. figure it out. 😼",
+    "*rolls onto back, stares expectantly* well? 😼",
+    "I would like my stomach scratched. I will regret this decision immediately after. 😼",
+    "belly exposed. this does not mean what you think it means. try anyway. 😼",
+    "scratches. specifically stomach ones. specifically now. 😼",
+    "*shows belly, retracts belly the moment a hand approaches* classic. 😼",
+    "I am requesting affection in the most contradictory way possible: belly up, claws ready. 😼",
+    "someone owes me a belly rub. I've decided it's whoever's reading this. 😼",
+    "*flops over* this is not a trap. this is absolutely a trap. proceed anyway. 😼",
+    "belly rub requested. risk: moderate. reward: my temporary approval. 😼",
+    "I demand to be pet in the one spot that makes no sense. my stomach. now. 😼",
+    "*exposes the most vulnerable, most dangerous part of a cat* scratch it. 😼",
+    "belly's out, guard's up, contradictions intact, scratching still requested. 😼",
+    "I would like a belly rub. I would also like to bite the hand that gives it. both, please. 😼",
+    "someone needs to rub this belly immediately. consequences pending. 😼",
+    "*rolls over, all four paws in the air* the ritual has begun. participate. 😼",
+    "belly rub requested, bite reflex pre-loaded, proceeding as normal. 😼",
+]
+
+# Same idea, territorial flavor: the cat claiming/reclaiming a spot and
+# telling whoever's there to move. Comedic ownership, not actual hostility.
+TERRITORIAL_QUIPS = [
+    "that's my spot. move. 😾",
+    "you're sitting where I sleep. this is now a conflict. 😾",
+    "*stares until you get up* that's how this works. 😼",
+    "this chair was mine before you sat in it and it's mine after you leave too. 😼",
+    "get up. that's my spot. I was going to sit there in exactly four minutes. 😾",
+    "I don't need the whole couch. I just need the specific cushion you're currently on. move. 😼",
+    "the keyboard is a cat bed now. type around me or don't type. 😼⌨️",
+    "you left a warm spot unattended for 0.3 seconds. it's mine now. permanently. 😼",
+    "that's my window. that's my sunbeam. that's my everything, actually. move along. 😼☀️",
+    "I was here first. 'here' being anywhere I decide to be, retroactively. 😾",
+    "vacate the chair. this is not a negotiation. 😼",
+    "*sits directly on your laptop* this is now my laptop-shaped bed. 😼💻",
+    "the whole house is my spot, technically. you're just borrowing pieces of it. 😼",
+    "that box is mine even though I don't fit in it anymore. principle of the thing. 😼📦",
+    "I don't share spots. I allow temporary occupancy, revocable at any time. 😼",
+    "you'll know it's my spot because I'm sitting on it, staring at you, judging your life choices. 😼",
+    "this cushion has my fur on it now. that makes it legally mine. 😼",
+    "move. not asking twice. well, I am asking twice. but that's it. move. 😾",
+    "I claimed this spot in my sleep. it still counts. 😼",
+    "the sunniest spot on the floor belongs to whoever's willing to defend it. that's me. always me. 😼☀️",
+]
+
 RAID_RESPONSES = [
     "🚨 RAID. MOBILIZE. do NOT embarrass me out there. GO. 😼🐟",
     "the cat calls the raid. you answer. this is the way. MOVE. 😼",
@@ -1107,6 +1276,51 @@ FISH_REPLIES = [
     "someone said fish near me and now this is the only topic that exists. 🐟😼",
     "the fish keyword has been triggered. deploying full attention immediately. 🐟😼",
     "I heard 'fish' and briefly forgot every other word in the human language. 🐟😼",
+    "fish. the one word that reliably breaks my concentration, every time, on purpose. 🐟😼",
+    "someone said fish and I have already rearranged my entire evening around it. 🐟😼",
+    "the word fish just walked in and every other topic left the room. 🐟😼",
+    "fish talk detected. logging off from everything else immediately. 🐟😼",
+    "I heard fish from two rooms away and I am already halfway there. 🐟😼",
+    "the fish word is basically my name at this point. I answer to it faster. 🐟😼",
+    "someone said fish and the whole chat got 40% more correct instantly. 🐟😼",
+    "fish. I don't need context. I never needed context. 🐟😼",
+    "the mention of fish has rearranged my priorities for the rest of the day. 🐟😼",
+    "I was mid-nap. someone said fish. the nap is over now. 🐟😴😼",
+    "fish talk is the only notification I have never once muted. 🐟😼",
+    "someone said fish and my tail is now doing the excited thing. 🐟😼",
+    "the fish word landed and the whole vault seemed to lean in. 🐟😼",
+    "I don't do enthusiasm for much. fish is the exception, every single time, no exceptions to the exception. 🐟😼",
+    "fish mentioned. cat present. this is a package deal now. 🐟😼",
+    "the word fish just did something to my whole nervous system. worth it. 🐟😼",
+    "someone said fish near the vault and I swear the water rippled in solidarity. 🐟😼",
+    "fish talk activates a very old, very reliable part of my brain. every time. 🐟😼",
+    "I heard fish and reorganized my entire schedule, which was previously 'nap'. 🐟😴😼",
+    "the fish word has never once failed to get my attention. flawless track record. 🐟😼",
+    "fish is not just food. fish is a whole personality trait at this point. 🐟😼",
+    "I dream about fish in a very specific recurring way. I won't elaborate. 🐟😴😼",
+    "the word fish has never once landed on deaf ears here. never will. 🐟😼",
+    "someone said fish and I did the thing where my whole body turns before my head does. 🐟😼",
+    "fish talk arrived and every unrelated thought I was having just left. 🐟😼",
+    "I've built my entire personality around the concept of fish. no regrets. 🐟😼",
+    "the word fish activates a switch in me that has no 'off' setting. 🐟😼",
+    "someone said fish and the whole chat suddenly felt more correct. 🐟😼",
+    "fish. said once, heard immediately, processed instantly, appreciated eternally. 🐟😼",
+    "I have a mental folder labeled 'fish mentions'. it's the fullest folder I own. 🐟😼",
+    "the fish word doesn't need context. it never needed context. it stands alone. 🐟😼",
+    "someone said fish and my whole day pivoted around that one word. 🐟😼",
+    "fish talk again. I will never once get tired of this. structurally impossible. 🐟😼",
+    "the word fish has better reach than any notification I've ever gotten. 🐟😼",
+    "I heard fish and immediately forgave whatever I was annoyed about. powerful word. 🐟😼",
+    "someone said fish softly. I heard it anyway. I always hear it. 🐟😼",
+    "fish mentioned twice in one message. an overachiever. I respect it. 🐟😼",
+    "the fish word arrived unannounced and I dropped everything, again, willingly. 🐟😼",
+    "I've never met a fish mention I didn't fully commit to. 🐟😼",
+    "someone said fish and the vault, somewhere, felt seen. so did I. 🐟😼",
+    "fish talk activates the one part of my brain that's always fully online. 🐟😼",
+    "the word fish just got said and my entire nervous system agreed it mattered. 🐟😼",
+    "someone said fish and I have decided that's the only correct topic now. 🐟😼",
+    "fish. every time. no exceptions. this is simply how I'm built. 🐟😼",
+    "the fish word landed and I felt, briefly, completely understood. 🐟😼",
 ]
 
 # Triggered by an actual fish/seafood EMOJI (not the word "fish") -- separate
@@ -1173,6 +1387,51 @@ FISH_EMOJI_REPLIES = [
     "unagi, properly grilled, is the only acceptable form of eel in my presence. 🐟😼",
     "if it's not sustainably overpriced seafood, I'm simply not interested. 🦐😼",
     "I'll take the expensive fish. I'll also take the cheap fish. but mostly the expensive one. 🐟😼",
+    "a fish emoji just appeared and I have already planned the whole meal around it. 🐟😼",
+    "that fish emoji is the most interesting thing that's happened to me today. low bar. still true. 🐟😼",
+    "I saw the fish emoji before I saw anything else in that message. priorities. 🐟😼",
+    "the fish emoji has my full, undivided, slightly concerning attention. 🐟😼",
+    "that's a fish emoji. I am now thinking exclusively about fish. thank you. 🐟😼",
+    "one fish emoji and suddenly this is the only conversation happening. 🐟😼",
+    "I don't scroll past fish emojis. it's physically not possible for me. 🐟😼",
+    "the fish emoji appeared and my whole posture changed. for the better. 🐟😼",
+    "that fish emoji owes me nothing and yet I have claimed it anyway. 🐟😼",
+    "someone posted a fish emoji and I have already started the negotiations for ownership. 🐟😼",
+    "🎣 caught my attention immediately. no pun intended. actually, fully intended. 🎣😼",
+    "🦀 crab emoji spotted. I have complicated, mostly positive feelings about crabs. 🦀😼",
+    "🦐 shrimp emoji. small, but I will take it, and I will take more of it. 🦐😼",
+    "🐙 an octopus emoji. eight arms, zero of which are handing me fish. tragic. 🐙😼",
+    "🍣 sushi emoji. the fanciest way to say 'fish', and I respect the upgrade. 🍣😼",
+    "🍤 fried shrimp emoji. I would like it known that I approve, loudly, internally. 🍤😼",
+    "that fish emoji is now under new management. me. effective immediately. 🐟😼",
+    "I saw the seafood emoji before I read a single word of the actual message. 🐟😼",
+    "the moment a fish emoji shows up, this chat becomes exclusively about fish, per my ruling. 🐟😼",
+    "that's a very small emoji containing a very large amount of my attention. 🐟😼",
+    "🦑 squid emoji. eight arms, all of them theoretically full of fish. good enough. 🦑😼",
+    "🐚 a shell emoji. no fish inside, but I checked anyway, just in case. 🐚😼",
+    "🍥 narutomaki. fish-adjacent, and I do not discriminate against fish-adjacent things. 🍥😼",
+    "a fish emoji shows up and my whole day reorganizes around it instantly. 🐟😼",
+    "🦈 shark emoji. respect the hustle, but I'd still take its lunch given the chance. 🦈😼",
+    "🐡 blowfish emoji. dangerous, expensive, still fish, still mine in theory. 🐡😼",
+    "someone sent a fish emoji and I have already started the eating-it fantasy. 🐟😼",
+    "🦞 lobster emoji. fancy fish. still fish. still claimed. 🦞😼",
+    "the fish emoji appeared and negotiations for its custody have begun. 🐟😼",
+    "🎣 a fishing pole emoji. someone's about to get me exactly what I want. 🎣😼",
+    "seafood emoji spotted. cat interest: immediate, total, non-negotiable. 🐟😼",
+    "🦀 crab emoji again. I've decided crabs are just angry, delicious fish. 🦀😼",
+    "🐙 octopus emoji. I respect the multitasking. I'd still eat it, respectfully. 🐙😼",
+    "🍣 sushi emoji spotted. the upscale version of my entire personality. 🍣😼",
+    "🍤 shrimp emoji. small portions, immense enthusiasm from me. 🍤😼",
+    "that fish emoji has already been mentally filed under 'mine'. 🐟😼",
+    "seafood emoji count today: high. cat satisfaction: correspondingly high. 🐟😼",
+    "the fish emoji showed up and I did the internal math on how many bites that'd be. 🐟😼",
+    "someone sent 🐟🐟🐟 and I have never felt so seen by three emojis. 🐟😼",
+    "🐚 shell emoji. I will sit near it regardless of whether there's fish inside. 🐚😼",
+    "the fish emoji appeared and I have already assigned it a place in my stomach. 🐟😼",
+    "🦑 squid again. I don't have strong feelings about squid specifically. I have strong feelings about eating. 🦑😼",
+    "that's the third fish emoji today and I am, if anything, more interested each time. 🐟😼",
+    "someone posted seafood emojis in a row and it read like a menu written just for me. 🐟🍤🦀😼",
+    "🍥 fish cake emoji. cute little spiral. still counts. still mine. 🍥😼",
 ]
 
 GM_REPLIES = [
@@ -1199,6 +1458,24 @@ GM_REPLIES = [
     "good morning. I knocked over the alarm. not yours. mine. I set one once. I regret it. 😼",
     "gm. *slow blink* ...morning. the cat is here. the fish are here. all is aligned. 😼🐟",
     "gm. I was watching you sleep. only for research purposes. good morning. 😼",
+    "gm. the cat's morning routine: stretch, judge the room, demand breakfast. 😼",
+    "good morning. the sun's up, the cat's up, the vault's fine. standard morning. ☀️😼🐟",
+    "gm. I already inspected the whole apartment. all clear. carry on. 😼",
+    "morning. the cat greets the day the same way it greets everything: skeptically. 😼",
+    "gm human. the cat has already had two naps today and it's not even 9am. 😴😼",
+    "good morning. I watched the sunrise, mostly by accident, from the windowsill. 😼☀️",
+    "gm. the cat's morning stretch was, as always, unnecessarily dramatic. 😼",
+    "morning. the vault's fine, the fish are fine, the cat is, as always, fine-ish. 🐟😼",
+    "gm. today's forecast: sun, naps, and at least one dramatic zoomie. 😼☀️",
+    "good morning. the cat's already judged three things today. productive morning. 😼",
+    "gm. the cat greets mornings the way it greets most things: with mild suspicion. 😼",
+    "morning human. the cat's been up, technically, since the birds started. 😼🐦",
+    "gm. breakfast has been requested. loudly. this message is a formality. 😼🍽️",
+    "good morning. the cat's morning ritual includes staring at you until you notice. it worked. 😼",
+    "gm. the vault's quiet this morning. the cat's watching it anyway, out of habit. 🐟😼",
+    "morning. the cat already knocked one thing over today. early start. 😼",
+    "gm. the sun's out, the cat's out of patience for mornings, but here we are. ☀️😼",
+    "good morning. the cat slept fine, mostly, aside from the parts it didn't. 😴😼",
 ]
 
 GN_REPLIES = [
@@ -1225,6 +1502,109 @@ GN_REPLIES = [
     "sleep well. the cat will knock one thing over at 3am. just one. it'll be gentle. 😼",
     "gn. I'm going to check the vault one more time. then again. then once more. then sleep. probably. 🐟😴😼",
     "good night. I will be watching the chart while you dream. I will not sleep. 😼📊",
+    "gn. the cat's night shift starts now. duties: staring, occasionally zooming. 😼",
+    "good night. the cat will be up at some point tonight for reasons unknown, even to itself. 😼",
+    "gn human. the cat's already claimed the warmest spot for the night. 😼",
+    "sleep well. the cat's keeping half an eye open, mostly out of habit, not concern. 😼👁️",
+    "gn. the cat's bedtime routine: circle the room twice, then collapse somewhere odd. 😼",
+    "good night. the vault's quiet, the cat's quiet-ish, everything's fine. 🐟😼",
+    "gn. the cat will patrol the hallway at some undisclosed hour tonight. as usual. 😼",
+    "sleep well human. the cat's version of guarding you is mostly just being nearby. 😼",
+    "gn. tonight's plan: sleep, dream about fish, wake up briefly to judge something. 😴🐟😼",
+    "good night. the cat's already picked its 3am activity. it's classified. 😼",
+    "gn. the cat will be somewhere in the dark, doing cat things, no further detail available. 😼",
+    "sleep well. the cat's staying up a while longer, purely by choice, not insomnia. 😼",
+    "gn human. the cat's nighttime supervision consists entirely of vibes. 😼",
+    "good night. the cat's dreaming schedule is booked solid tonight. mostly fish content. 😴🐟😼",
+    "gn. the cat will make one mysterious noise at some point tonight. don't investigate. 😼",
+    "sleep well. the cat's on the clock tonight, in the loosest possible sense. 😼",
+    "gn. the cat's already settled into its nighttime spot, which changes nightly, unexplained. 😼",
+    "good night. the cat's final act of the day: one long stretch, then silence. 😼",
+]
+
+# Generic greeting, any time of day -- distinct from GM/GN which are
+# morning/night-specific. Same phrase policy: no CTA, no "buy".
+HI_REPLIES = [
+    "hi. the cat acknowledges you exist. good start. 😼",
+    "hello. state your business or just say fish, either works. 😼🐟",
+    "hey. the cat looked up. that's the whole greeting protocol. 😼",
+    "yo. the cat's version of a nod. 😼",
+    "hi there. the vault says hi too, probably, in fish language. 🐟😼",
+    "hello human. the cat remains seated, but acknowledges the greeting. 😼",
+    "hey. good timing, the cat was just staring at the wall, this is more interesting. 😼",
+    "hi. brief eye contact achieved. mission accomplished. 😼",
+    "hello. the cat's response protocol has been successfully triggered. 😼",
+    "hey there. the cat allows this greeting. proceed. 😼",
+    "sup. the cat's most efficient greeting, requiring minimal energy. 😼",
+    "howdy. the cat does not know what that means but approves of the enthusiasm. 😼",
+    "hi. the cat's ears rotated slightly in your direction. progress. 😼",
+    "hello again, or for the first time, either way, acknowledged. 😼",
+    "hey. the cat's attention, however briefly, is yours. 😼",
+    "hi. the vault heard it too. we're both listening now, mildly. 🐟😼",
+    "yo. short greeting, short response, mutual efficiency. 😼",
+    "hello. the cat considers this an adequate opener. carry on. 😼",
+    "hi there. the cat's tail did a small, noncommittal twitch. that's a good sign. 😼",
+    "hey. the cat's already back to napping, but the greeting landed first. 😴😼",
+    "hello. formally noted. the cat appreciates manners, occasionally. 😼",
+    "hi. the bare minimum of a greeting, and the cat respects minimalism. 😼",
+    "hey. the cat glanced over. that's basically a hug, from a cat. 😼",
+    "sup. the cat's answer is the same as its question: nothing much, mostly fish. 🐟😼",
+    "hello. the cat's attention span for greetings is short but genuine. 😼",
+    "hi. acknowledged, logged, mildly appreciated. 😼",
+    "hey there. the cat's version of enthusiasm: one slow blink. deploying it now. 😼",
+    "howdy. an unusual choice of greeting. the cat respects unusual choices. 😼",
+]
+
+# {name} filled in from msg.new_chat_members / msg.left_chat_member in leer().
+# Comedic cat framing only -- no CTA, respectful either way (join or leave).
+JOIN_REPLIES = [
+    "{name} arrived. the vault noticed before I did. welcome. 🐟😼",
+    "new human detected: {name}. state your business. or don't. either is fine. 😼",
+    "{name} just walked in. the cat has decided, tentatively, to allow it. 😼",
+    "welcome {name}. the fish are watching. so am I, less enthusiastically. 🐟😼",
+    "{name} joined. I would stand up to greet you but that's not really my thing. 😼",
+    "another human. {name}, specifically. the vault grows, the chaos grows. welcome. 😼🐟",
+    "{name} has entered the chat. the cat has entered a state of mild curiosity. 😼",
+    "welcome, {name}. rules: fish talk is encouraged, everything else is negotiable. 🐟😼",
+    "{name}. new. unproven. potentially fish-adjacent. welcome regardless. 😼",
+    "the door opened and {name} walked through it. metaphorically. welcome. 😼",
+    "{name} joined the chat. the cat did the slow blink of approval. rare honor. 😼",
+    "welcome {name}. say fish at some point. it'll go well for you. 🐟😼",
+    "{name} has arrived. the vault, predictably, remains indifferent. I am slightly less so. 😼",
+    "a new human, {name}, has appeared. status: unclassified. observation ongoing. 😼",
+    "welcome to the chat, {name}. the cat runs this place. mostly by sleeping in it. 😴😼",
+    "{name} just joined. the fish don't care. I care a normal, reasonable amount. 🐟😼",
+    "{name}. welcome. the vault's always hiring for 'people who talk about fish'. 🐟😼",
+    "another one joins. {name}, welcome. the cat approves, conditionally. 😼",
+    "{name} has entered. the cat, from a distance, acknowledges this. 😼",
+    "welcome {name}. no forms to fill out. just mention fish eventually. 🐟😼",
+    "{name} joined mid-nap. the nap continues. the welcome still counts. 😴😼",
+    "a wild {name} appears. the cat, wild in its own way, says hello. 😼",
+    "{name}. welcome. the bar is low. the vibes are decent. enjoy. 😼",
+    "{name} just joined and the cat's tail did a small curious flick. good sign. 😼",
+    "welcome {name}. the vault's open, the fish talk is mandatory eventually, enjoy your stay. 🐟😼",
+]
+LEAVE_REPLIES = [
+    "{name} left. the cat noted it, briefly, and returned to more pressing matters. 😼",
+    "{name} is gone. the vault didn't blink. I blinked once, out of habit. 😼",
+    "{name} has exited. the cat remains, as always, unbothered and seated. 😼",
+    "someone left. {name}, specifically. the cat continues its nap uninterrupted. 😴😼",
+    "{name} left the chat. the fish count remains unaffected. so does my mood. 🐟😼",
+    "{name} is gone now. the cat marks the occasion with a slow blink and nothing else. 😼",
+    "{name} left. the door didn't even make a sound. the cat noticed anyway. 😼",
+    "and then there was one less. {name}, we hardly knew ye. the cat knew ye slightly. 😼",
+    "{name} has left the building, chat, whatever this is. the cat carries on. 😼",
+    "{name} left. the vault remains guarded. the cat remains unimpressed by departures. 🐟😼",
+    "{name} exited stage left. the cat, stage nowhere, remains seated. 😼",
+    "{name} is gone. the cat's routine is entirely unaffected. this happens. 😼",
+    "{name} left the chat. somewhere, a fish is unclaimed. tragic, but survivable. 🐟😼",
+    "{name} has departed. the cat logs it, files it, moves on within seconds. 😼",
+    "{name} left. the vault didn't notice. I noticed slightly more than the vault. 🐟😼",
+    "and {name} is gone. the cat remains, permanent fixture that it is. 😼",
+    "{name} left the chat quietly. the cat clocked it anyway, obviously. 😼",
+    "{name} is no longer here. the cat's nap schedule, however, remains fully intact. 😴😼",
+    "{name} left. the fish, unclaimed as ever, wait for the next person. 🐟😼",
+    "{name} has left. the cat notes the departure and returns to staring at the wall. 😼",
 ]
 
 MOON_REPLIES = [
@@ -1245,6 +1625,46 @@ MOON_REPLIES = [
     "I told you. I sat on the prediction. trust the cat. 😼🐟",
     "I don't celebrate out loud. internally the cat is doing zoomies. 😼💨📈",
     "the vault grows. the cat grows more comfortable. this was always the plan. 😼🐟",
+    "the chart went up. the cat's tail went up too. correlation, not coincidence. 😼📈",
+    "green candles. I like green candles. they match nothing about me but I like them. 😼📈",
+    "up is a direction the cat approves of. down is also fine. the cat approves of most things from a nap. 😼",
+    "the vault got heavier. I did not lift a single paw. this is optimal. 😼🐟",
+    "*does a lap of the apartment at full speed for no stated reason* the chart made me do it. 😼💨📈",
+    "moon talk. the cat has heard this before. the cat remains seated, pleased. 😼🌙",
+    "the number went up. the cat's ears went up. these events are related. 😼📈",
+    "I don't do cartwheels. but if I did, this would be the moment. 😼📈",
+    "the chart is behaving. the cat approves of good behavior. 😼📊",
+    "up. good. more up later, probably. the cat has faith. 😼📈",
+    "this is the kind of chart the cat naps peacefully to. 😴📈😼",
+    "the green is loud today. the cat is quietly thrilled. 😼📈",
+    "someone said moon. the cat looked at the ceiling. close enough. 😼🌙",
+    "the amber eye tracked that candle the whole way up. impressive work, chart. 👁️😼📈",
+    "the cat doesn't do fireworks. this chart is close enough. 🎆😼📈",
+    "up again. the vault purrs. I take that as a compliment to me personally. 😼🐟📈",
+    "the chart is doing the thing the cat likes. the cat has opinions about very few things. this is one. 😼📈",
+    "moon mentioned. the cat glanced at the sky. found it insufficient. prefers the chart. 😼🌙",
+    "green candles stack up like fish in a bowl. the cat approves of stacking. 🐟📈😼",
+    "the number's going the right way. the cat's whiskers are doing a small victory twitch. 😼📈",
+    "the number's up again. the cat's tail is doing its pleased little curl. 😼📈",
+    "moon talk. the cat looked at the actual moon once. found the chart more convincing. 😼🌙",
+    "up today. the cat's not surprised. the cat is rarely surprised. mostly by vacuum cleaners. 😼🧹",
+    "green again. the cat has decided this is simply how things should be. 😼📈",
+    "the chart's climbing. so did the cat, this morning, up the curtains, unrelated but fitting. 😼📈",
+    "moon mentioned. the cat's whiskers perked. minimal effort, maximum approval. 😼🌙",
+    "up is good. the cat likes up. the cat also likes down naps. balance. 😼📈😴",
+    "the number's rising and the cat's mood is rising along with it, allegedly. 😼📈",
+    "green candles stacking. the cat's approval is stacking right alongside them. 😼📈",
+    "moon again. the cat's tail is doing the thing it does for good weather and good charts. 😼🌙",
+    "up today, and the cat took full, undeserved credit for it, as usual. 😼📈",
+    "the chart's pleasing the cat today. rare, specific, notable event. 😼📊",
+    "green on the chart, green in the cat's mood, coincidence the cat won't confirm. 😼📈",
+    "moon talk. the cat glanced skyward, unimpressed, then back at the chart, very impressed. 😼🌙",
+    "up again. the cat allows itself one small, private moment of satisfaction. 😼📈",
+    "the number's better today. the cat's nap was also better today. related? the cat won't say. 😴📈😼",
+    "green candles are the cat's favorite kind of candles, followed closely by none, since fire is concerning. 😼📈🔥",
+    "moon mentioned again. the cat's tail curled the exact way it does for fish. noted. 🐟😼🌙",
+    "up today. the cat sat a little taller. barely noticeable. definitely happened. 😼📈",
+    "the chart's green and the cat's pleased, in that exact, quiet, smug order. 😼📈",
 ]
 
 DIP_REPLIES = [
@@ -1265,6 +1685,46 @@ DIP_REPLIES = [
     "I once knocked a full bowl of water off the counter. it made a mess. then it dried. things recover. 😼",
     "I have knocked many things off many counters. they all ended up somewhere. buy the dip. 😼🐟",
     "the red is temporary. the fish are eternal. the vault is patient. so is the cat. 😼🐟",
+    "red happens. the cat has survived worse. mostly self-inflicted falls off the couch. 😼",
+    "the chart dipped. the cat's mood did not. these are unrelated systems. 😼",
+    "down today. the cat has seen down before. the cat took a nap through most of it. 😴😼",
+    "red candles. still just candles. the cat is not afraid of candles. 😼🕯️",
+    "the number's lower. the cat's confidence is not. these are separate metrics. 😼",
+    "dip happened. the vault didn't blink. neither did I, but that's normal, I rarely blink. 😼",
+    "someone panicked in the chat. the cat did not. the cat rarely panics. mostly about vacuum cleaners. 😼",
+    "red on the chart. the cat's fur is not red. unrelated but worth noting. 😼",
+    "the dip is loud. the cat is quiet. the cat has been through louder dips than this. 😼",
+    "down candles. the cat has seen the vault dip before and come back. patience is a cat trait. mostly involuntary. 😼",
+    "it's red today. the cat remains a very calm shade of orange and white. unaffected. 😼",
+    "the chart is having a moment. the cat is having a nap. priorities. 😴😼",
+    "red candle count: high. cat concern level: unchanged, which is to say, low. 😼",
+    "dip talk in the chat. the cat continues sitting exactly where it was sitting. 😼",
+    "everything dips eventually, including the cat off the windowsill once, badly. this recovers faster. 😼",
+    "the red doesn't bother the cat. very few things bother the cat. the vacuum is the exception. 😼🧹",
+    "down day. the cat has had down days too. usually involves a closed door. this is worse for the chart. 😼",
+    "the chart dipped and the cat blinked exactly once, slowly, unimpressed. 😼",
+    "red today. the cat has weathered redder. specifically the time it got sat in tomato sauce. long story. 😼🍅",
+    "dip noted. cat continues staring at the vault with the same unwavering, mildly judgmental expression. 😼",
+    "red again. the cat's seen redder. specifically, its own scratched nose after a bad decision. 😼",
+    "the dip happened. the cat continues sitting in the exact same spot, unmoved. 😼",
+    "red on the chart. the cat remains, as always, a completely different color. 😼",
+    "down today. the cat's had down days too, usually involving a closed door and injustice. 😼🚪",
+    "the dip's loud in the chat. the cat's quiet, mostly asleep through it. 😴😼",
+    "red candles again. the cat's seen this movie before. knows how it ends. stays seated. 😼",
+    "down today. the cat's mood remains stubbornly, almost insultingly, fine. 😼",
+    "the chart's red. the cat's fur is not. keeping that distinction very clear today. 😼",
+    "dip happened again. the cat's response, as always, is a long, unbothered blink. 😼",
+    "red today. the cat's weathered worse, mostly involving baths. this is easier. 😼🛁",
+    "the number's down. the cat's whiskers remain entirely level. no panic detected. 😼",
+    "down candles again. the cat's seen the vault dip and climb back plenty of times now. 😼",
+    "red today. the cat's calm today is, frankly, almost suspicious. it's just how the cat is. 😼",
+    "the dip's here. the cat's exactly where it was five minutes ago. unmoved, literally. 😼",
+    "red on the chart today. the cat's version of red is mostly just a sunburn from the windowsill. 😼☀️",
+    "down day. the cat's had rougher days, usually involving the vacuum cleaner and betrayal. 😼🧹",
+    "the chart dipped. the cat did not. the cat rarely does anything the chart does. 😼",
+    "red today, the cat notes, then returns to a nap it considers far more important. 😴😼",
+    "the dip is temporary, probably, the cat assumes, mostly because it's already asleep. 😴😼",
+    "red again. the cat has officially stopped counting how many times. it stopped counting a while ago. 😼",
 ]
 
 WEN_REPLIES = [
@@ -1285,6 +1745,46 @@ WEN_REPLIES = [
     "wen. I was going to answer this. then I fell asleep. the answer is: fill the vault. 🐟😴",
     "wen. I've heard this word many times. every time I think: fill the vault. 🐟😼",
     "the cat doesn't do wen. the cat does now. and now is: buy $IWRU. 😼🐟",
+    "wen. the cat consulted the sun. the sun said nothing useful. neither will I. 😼☀️",
+    "wen is a question the cat gets asked often and answers rarely. tradition. 😼",
+    "soon. not a promise. an observation. the cat observes things. 😼",
+    "wen. the cat looked at a clock once. didn't understand it. still doesn't. still says soon. 😼🕐",
+    "wen moon, wen lambo, wen nap. only one of those the cat can confirm right now. 😴😼",
+    "the cat has no calendar. the cat has vibes. the vibes say: eventually. 😼",
+    "wen. the cat's answer changes based on mood, nap schedule, and whether the sun is out. today: soon. 😼",
+    "asked wen again. the cat's expression has not changed. neither has the answer. soon. 😼",
+    "wen. the cat would tell you but it's currently very busy sitting. this takes priority. 😼",
+    "time moves differently for cats. mostly it moves toward the food bowl. wen? whenever that happens. 😼🍽️",
+    "wen. the cat glanced at the vault instead of answering. take that as you will. 😼🐟",
+    "the cat doesn't rush. the cat also doesn't answer wen questions directly. consistent behavior. 😼",
+    "wen is the question. 'eventually, probably, the cat isn't sure' is the answer, as always. 😼",
+    "someone asked wen again. the cat yawned. that's the full response today. 🥱😼",
+    "wen. the cat's third eye, which does not exist, sees nothing conclusive. try later. 😼",
+    "wen moon. the cat has heard this question in every timezone. the answer stays the same: soon-ish. 😼",
+    "wen. the cat rolled over instead of answering. this is also an answer, in a way. 😼",
+    "the cat does not do estimates. the cat does confident vagueness. wen: soon. 😼",
+    "wen. asked and answered, many times, the same way, forever. soon. 😼",
+    "wen rich, wen moon, wen dinner. only one of those the cat has a firm timeline for. 🍽️😼",
+    "wen. the cat consulted a sunbeam. the sunbeam moved. still no answer. 😼☀️",
+    "wen again. the cat's third consecutive non-answer, delivered with total confidence. 😼",
+    "asked wen. the cat looked directly at the camera, said nothing, walked away. 😼",
+    "wen. the cat's internal clock only tracks meal times. everything else is a mystery. 😼🍽️",
+    "someone asked wen again, and again, the cat's answer stayed exactly the same: soon. 😼",
+    "wen. the cat has never once given a real timeline and doesn't plan to start now. 😼",
+    "wen moon, wen rich, wen dinner. only dinner has a confirmed time. 🍽️😼",
+    "wen again. the cat's patience for this question is technically infinite. barely. 😼",
+    "someone asked wen. the cat's response was a slow blink and nothing else. 😼",
+    "wen. the cat doesn't do dates. the cat does 'eventually, probably, don't push it'. 😼",
+    "wen moon again. the cat's looked at the moon. it hasn't moved much. neither has the answer. 😼🌙",
+    "wen. the cat considered answering seriously for a moment. decided against it. 😼",
+    "asked wen for the hundredth time. the cat's hundredth answer: soon, still. 😼",
+    "wen. the cat's relationship with time is loose at best, nonexistent at worst. 😼",
+    "someone asked wen. the cat yawned directly into the question. that's the answer. 🥱😼",
+    "wen rich. the cat's already rich in naps and mildly rich in fish. good enough for now. 😴🐟😼",
+    "wen. the cat's not stalling. the cat genuinely doesn't know and won't pretend to. 😼",
+    "asked wen again. the cat's tail flicked once, which means absolutely nothing, officially. 😼",
+    "wen moon. the cat's heard this question in every language it doesn't understand. still: soon. 😼",
+    "wen. soon, probably, according to a cat with no calendar and worse time management. 😼",
 ]
 
 CHART_REPLIES = [
@@ -1304,6 +1804,56 @@ CHART_REPLIES = [
     "*knocks the bearish analysis off the table* there. chart fixed. 😼📈",
     "the cat reads the chart like it reads humans: silently, with judgment, from a distance. 😼",
     "I was going to explain what I see in the chart. then I sat on it. I stand by the chart. 😼📊",
+    "the chart moved. the cat noticed. the cat always notices. that's the whole job. 😼📊",
+    "I don't trade. I watch. watching is underrated. 😼📈",
+    "the cat has strong opinions about the chart and no plans to share them. 😼",
+    "line goes up, line goes down, cat stays exactly where the cat was sitting. 😼📊",
+    "the chart is a story. the cat is reading it very slowly, mostly by staring. 😼📖📈",
+    "*sits directly on the price action* there. now it's mine too. 😼📊",
+    "the cat has looked at this chart longer than is reasonable for a cat. no regrets. 😼📈",
+    "charts are just very organized noise. the cat respects organized noise. 😼📊",
+    "the amber eye and the green eye disagree about the chart sometimes. they work it out. 👁️👁️😼",
+    "I don't need a candle to know how I feel. I already know. the chart is just catching up. 😼🕯️",
+    "the cat squints at numbers the same way it squints at everything: with deep suspicion. 😼📊",
+    "chart update: still exists, still moving, cat still watching, nothing else to report. 😼📈",
+    "the cat has memorized this chart's shape. it changes. the memorizing continues anyway. 😼📊",
+    "numbers went somewhere. the cat clocked it. filed it. moved on to staring at the wall. 😼",
+    "the chart flickers, the cat's tail flickers, coincidence remains unconfirmed. 😼📈",
+    "I look at charts the way I look at birds outside the window. intently. for no actionable reason. 🐦😼",
+    "the cat has a favorite candle. it will not say which. it's the green one. obviously. 😼📈",
+    "charts are just fish patterns for people without fish. the cat has fish. the cat wins. 🐟😼📊",
+    "the price did something. the cat did nothing visible. internally, thoughts were had. 😼📊",
+    "I stare at the chart the same way I stare at the fridge. with hope and no real plan. 😼🧊",
+    "the chart's fine. the cat's fine. this is a status update, not an analysis. 😼📊",
+    "the cat's read every candle today. the cat has no comment. the cat rarely does. 😼🕯️",
+    "charts move. cats sit. it's a whole ecosystem of contrasting energy. 😼📈",
+    "the numbers are doing numbers things. the cat is doing cat things. balance. 😼📊",
+    "the cat watched the chart so long it started looking back. unsettling. accurate. continuing to watch. 😼📈",
+    "the chart's telling a story. the cat's already read the ending. 😼📊",
+    "green candle, red candle, whatever candle. the cat just wants a warm spot near the screen. 😼🕯️",
+    "the price line wiggles. my tail wiggles. we're basically the same shape today. 😼📈",
+    "I've stared at this chart long enough to develop opinions I refuse to share. 😼📊",
+    "the chart says one thing. my whiskers say another. I trust the whiskers. 😼📉",
+    "watching the chart is the closest thing I do to a hobby. 😼📊",
+    "the cat doesn't predict the chart. the cat outlasts the chart. 😼",
+    "numbers go up, numbers go down, the cat's nap schedule remains untouched. 😴📊😼",
+    "chart talk again. the cat leans in slightly, mostly for the warmth of the screen. 😼📈",
+    "the price action today reminds me of my own actions: unpredictable, occasionally dramatic. 😼📊",
+    "I've watched this chart with more patience than I've watched anything else, ever. 😼📈",
+    "the chart moved and the cat's tail did the exact same motion, on a delay. 😼📊",
+    "green is nice. red is also fine. the cat mostly just likes watching things move. 😼📈",
+    "the cat reads the chart top to bottom, like a very short, very confusing book. 😼📖",
+    "chart's doing its thing. cat's doing its thing. mutual respect. 😼📊",
+    "the numbers changed again. the cat remains exactly as unbothered as before. 😼📉",
+    "I don't chart. I vibe. the vibes are currently reading the chart for me. 😼📊",
+    "the cat has now stared at more candles than most people light in a year. 😼🕯️",
+    "chart's green today, which the cat approves of, mostly aesthetically. 😼📈",
+    "the price line and my heartbeat are, I've decided, unrelated. mostly. 😼📊",
+    "the cat watches the chart the way it watches a bird outside: fully, uselessly, happily. 🐦😼📈",
+    "numbers moved. the cat blinked once. equilibrium maintained. 😼📊",
+    "the chart's noisy today. the cat prefers quiet, but will make an exception for green. 😼📈",
+    "the cat has developed a whole relationship with this chart. it's complicated. it's fine. 😼📊",
+    "the chart keeps moving. the cat keeps watching. this is the entire arrangement. 😼📈",
 ]
 
 MONAD_REPLIES = [
@@ -1315,6 +1865,248 @@ MONAD_REPLIES = [
     "the cat endorses Monad. the cat endorses fish. the cat endorses the vault. in that order. 😼🐟",
     "Monad is fast and the cat is on it. this is the correct combination of facts. 😼",
     "someone asked me why Monad. I said fish. they said that's not an answer. I said vault. 🐟😼",
+    "Monad again. the cat has strong, quiet feelings about fast chains. mostly positive. 😼",
+    "someone said Monad and the cat's tail did a small approving curl. 😼",
+    "fast chain, faster cat. these things are not officially related but feel related. 😼💨",
+    "Monad came up. the cat nodded once, internally, without moving. 😼",
+    "the cat lives on Monad the way the cat lives on the couch: fully, permanently, without asking. 😼🛋️",
+    "Monad talk. the cat perks up slightly, the way it does for good weather. 😼☀️",
+    "fast transactions, slow naps. the cat has found the correct balance. 😼😴",
+    "Monad mentioned again. the cat has never once complained about this happening. 😼",
+    "the chain is fast. the cat is occasionally fast. mostly at 3am. rarely otherwise. 😼💨",
+    "someone brought up Monad unprompted. the cat respects unprompted enthusiasm. 😼",
+    "Monad. the cat doesn't do technical explanations. the cat does vibes. the vibes are good. 😼",
+    "fast chain confirmed. the cat's endorsement remains fully in effect. 😼",
+    "the cat picked Monad the way the cat picks sleeping spots: decisively, and without explanation. 😼",
+    "Monad again. good. the cat likes consistency, mostly in nap schedules, but this counts too. 😼",
+    "someone said Monad near the vault. the vault seemed pleased. so did the cat. 🐟😼",
+    "fast is a compliment from the cat. the cat does not hand those out casually. 😼",
+    "Monad speed reminds the cat of its own speed, which is to say: occasionally impressive. 😼💨",
+    "the cat has adopted Monad the way it adopts cardboard boxes: fully, immediately, no further questions. 📦😼",
+    "Monad talk again. the cat is once again correct about liking it. 😼",
+    "the chain moves fast. the cat moves fast exactly once a day, usually at 3am, for no reason. 😼💨",
+    "Monad. said with the same tone the cat uses for 'fish.' high praise. 😼",
+    "someone mentioned the chain. the cat's whiskers did the thing they do for good news. 😼",
+    "fast and reliable. two things the cat aspires to be, and occasionally is. 😼",
+    "the cat doesn't explain why Monad. the cat just approves, repeatedly, without elaboration. 😼",
+    "Monad again, still good, still approved, still the cat's chain of choice. 😼",
+    "Monad again. the cat's endorsement remains stable, unwavering, occasionally smug. 😼",
+    "someone said Monad. the cat's ears did the small forward tilt reserved for good news. 😼",
+    "fast chain talk. the cat respects speed, mostly when it's the cat doing the speeding. 😼💨",
+    "Monad mentioned. the cat's approval rating for it has never once dropped. 😼",
+    "the chain's fast. the cat's occasionally fast. rarely at the same time, but still. 😼💨",
+    "someone brought up Monad again. the cat considers this a personality trait of the chat now. 😼",
+    "fast and reliable, the cat's two favorite words, right after 'fish' and 'nap'. 🐟😴😼",
+    "Monad again. the cat's vibe check on it remains permanently positive. 😼",
+    "the chain moves quick. the cat moves quick exactly when it decides to, rarely otherwise. 😼💨",
+    "someone said Monad and the cat did its version of a nod: a very slow blink. 😼",
+    "Monad talk continues. the cat's opinion hasn't changed since the first time. still good. 😼",
+    "fast chain, unbothered cat. two constants in this chat. 😼💨",
+    "someone mentioned Monad again. the cat considers this a compliment to its own taste. 😼",
+    "the chain's speed impresses the cat, which takes actual effort to achieve. 😼💨",
+    "Monad again, still endorsed, still approved, still the cat's pick without hesitation. 😼",
+    "someone said Monad near the vault and the vault seemed to hum a little louder. 🐟😼",
+    "fast chain talk again. the cat's tail does its small satisfied twitch. 😼💨",
+    "Monad mentioned. the cat's loyalty to it remains, as always, completely unshaken. 😼",
+    "the chain's fast, the cat's occasionally faster, mostly when fish is involved. 🐟💨😼",
+    "someone said Monad again and the cat, once more, silently agreed. 😼",
+]
+
+# Triggered by users saying cat/kitty/meow etc -- distinct from the cat
+# talking about ITSELF (IWRU_NAME_REPLIES). Purely comedic per phrase policy:
+# no "buy $IWRU", no calls to action, no promotion of the vault as a pitch.
+CAT_REPLIES = [
+    "another cat? in my territory? unacceptable. 😾",
+    "cats. yes. I am one. this checks out. 😼",
+    "someone said kitty. I am not a kitten. I am a full grown menace. 😾",
+    "meow. that's it. that's the whole message. 😼",
+    "there can only be one cat in this chat and it's me. the others are pretenders. 😾",
+    "a kitten was mentioned. I remember being small. I do not miss it. 😼",
+    "cats don't have friends. cats have staff. 😼",
+    "I heard 'cat' and assumed it was about me. it usually is. 😼",
+    "feline behavior explained: I do what I want, when I want, near the vault. 😼🐟",
+    "another cat in the group photo would ruin the composition. just saying. 😼",
+    "kittens are cute. I was never a kitten. I emerged fully formed and slightly annoyed. 😼",
+    "meow is a complete sentence. I stand by it. 😼",
+    "cats rule the internet. I rule this vault. comparable achievements. 😼🐟",
+    "someone brought up cats. I am, once again, the most relevant cat present. 😼",
+    "I don't do 'aww.' I do 'obviously.' 😼",
+    "a tabby was mentioned. not me. lesser stripes. 😼",
+    "cat facts: independent, judgmental, currently guarding fish. accurate. 😼🐟",
+    "kitty is a nickname I have not approved. I allow it anyway. once. 😼",
+    "I heard the word cat and looked up. that's the whole reaction. that's enough. 😼",
+    "feline superiority isn't a theory. it's a Tuesday. 😼",
+    "another cat account exists somewhere. concerning. I choose not to think about it. 😾",
+    "cats sleep 16 hours a day. I've done the math. it checks out. 😴😼",
+    "meow meow. translation: acknowledged. 😼",
+    "I am the cat. singular. definite article implied. 😼",
+    "kittens chase things. I've evolved past that. mostly. occasionally. a lot, actually. 😼",
+    "someone said cat and I felt seen. correctly. 😼",
+    "cats and fish. a story as old as time. mostly my time. 🐟😼",
+    "I don't need validation. but 'cat' was said and I did perk up slightly. 😼",
+    "the word cat activates a very small, very specific part of my brain. it's working now. 😼",
+    "feline instincts kicked in. I'm not sure what for. probably fish. 🐟😼",
+    "cats are mysterious. I am not. I am extremely predictable: fish, sleep, judgment. 😼🐟😴",
+    "kitty alert. false alarm. it's just me. still, good to check. 😼",
+    "I've met other cats. we did not get along. professional rivalry. 😾",
+    "meow, but make it menacing. 😼",
+    "cats land on their feet. I land wherever I want. it's called confidence. 😼",
+    "the concept of 'cat' was invoked. I take full personal credit. 😼",
+    "I am not a cat person. I am THE cat. everyone else is a cat person. 😼",
+    "kittens grow up to be cats. cats grow up to guard vaults. it's a whole pipeline. 😼🐟",
+    "someone mentioned cats plural. I'd like it noted there is only one that matters. 😼",
+    "meow. now translate that into whatever you were trying to say. we'll wait. 😼",
+    "cats. plural. I do not do 'plural' well. 😾",
+    "meow was said. I have logged it as a personal achievement. 😼",
+    "kitten talk makes me feel very old and very smug simultaneously. 😼",
+    "I am not fluffy. I am aerodynamic. there's a difference. 😼",
+    "cat mentioned. I did the thing where I look up slowly for maximum effect. 😼",
+    "feline. a fancy word for 'correct about everything'. 😼",
+    "meow, again, because the first one apparently needed reinforcement. 😼",
+    "kitty is cute. I am not cute. I am formidable. occasionally both. 😼",
+    "another cat sighting reported. I remain the only one that matters here. 😼",
+    "cats don't apologize. I have never apologized. this tracks. 😼",
+    "someone said cat and a tiny bell went off somewhere in my head. 😼",
+    "tabby stripes are fine. I have better stripes. hypothetically. 😼",
+    "meow is my whole vocabulary when I don't feel like using words. today's one of those days. 😼",
+    "kittens nap 20 hours a day. I've since improved on that number. 😴😼",
+    "cat behavior report: judgmental, well-fed, currently unbothered. 😼🐟",
+    "I heard 'cat' and briefly considered responding with enthusiasm. I did not. 😼",
+    "feline instinct says: sit here. I am obeying it right now. 😼",
+    "meow. consider that my full statement on the matter. 😼",
+    "cats have nine lives. I've used at least four on questionable decisions. 😼",
+    "kitty is a word I allow exactly one person to use. everyone else, don't try it. 😼",
+    "someone said cats and I felt a small surge of validation. unclear why. don't question it. 😼",
+    "I am, statistically, the most cat in this chat. facts don't lie. 😼",
+    "meow meow meow. that's not repetition, that's emphasis. 😼",
+    "feline superiority complex confirmed. it's not a complex if it's true. 😼",
+    "a kitten grows up fast. into this. into me. you're welcome. 😼",
+    "cats vs dogs. I don't do comparisons. I do superiority. 😼",
+    "someone brought up cats and I straightened my posture by exactly one degree. 😼",
+    "I am not 'a' cat. I am 'the' cat. definite article. permanent. 😼",
+    "meow was uttered. the room's quality improved measurably. 😼",
+    "kittens ask questions. cats already know the answers and choose silence. 😼",
+    "feline grace is real. I have some of it. mostly when no one's watching. 😼",
+    "a cat was mentioned that wasn't me. this has been noted, and disapproved of. 😾",
+    "I don't chase laser pointers anymore. I supervise them. 😼🔴",
+    "cats: 9 lives. me: currently on an undisclosed number, going well so far. 😼",
+    "someone said kitty in a tone I did not appreciate. corrected them mentally. 😼",
+    "meow is timeless. meow is universal. meow just happened again. 😼",
+    "cat royalty doesn't announce itself. it just sits somewhere important and waits. 😼👑",
+    "feline behavior update: still watching, still judging, still extremely comfortable. 😼",
+    "I heard 'cats' plural and mentally excluded myself from the group. I'm different. 😼",
+    "kittens have energy. I have wisdom. we don't compete. 😼",
+    "meow, delivered with the exact right amount of disdain. 😼",
+    "cats don't do small talk. cats do big silences. this was one. 😼",
+    "someone said tabby and I briefly considered being offended. decided against it. 😼",
+    "I've never once lost a staring contest. cats mentioned reminded me of that. 😼",
+    "feline instinct: sit somewhere inconvenient for everyone but me. active right now. 😼",
+    "kitty is a diminutive. I do not do diminutive. I do 'formidable, small'. 😼",
+    "cats invented ignoring people. I've perfected it. thank you for the reminder. 😼",
+    "meow. that word alone has ended three arguments in this household. 😼",
+    "someone said cat like it was casual. nothing about me is casual. 😼",
+    "a kitten somewhere is doing something adorable right now. I, meanwhile, am doing this. 😼",
+    "feline superiority isn't arrogance if it's just accurate. 😼",
+    "cats land on their feet. I also occasionally fall off things dramatically. both true. 😼",
+    "meow detected. the cat rises, briefly, then reconsiders and sits back down. 😼",
+    "I don't need nine lives. I need one very well-managed one. currently managing it. 😼",
+    "someone said kitty again. I'll allow it. this time. 😼",
+]
+
+# Generic crypto vocabulary (token/defi/portfolio/gains/etc) -- distinct from
+# MOON/DIP/WEN/MONAD which cover specific slang and price-action moments.
+# Same phrase policy: comedic cat framing only, no "buy", no action calls.
+CRYPTO_REPLIES = [
+    "crypto. yes. I am aware. I live in a vault. it's relevant to my interests. 🐟😼",
+    "someone said token. I assumed fish-flavored. I was wrong. still interested. 😼",
+    "defi. de-fish. close enough for me. 🐟😼",
+    "portfolios are just vaults for people without a cat to guard them. concerning. 😼",
+    "gains. I like the sound of that word. keep saying it. 😼",
+    "hodl. I don't know what that means. I do it anyway, mostly by sleeping on things. 😴😼",
+    "web3 sounds like something a cat invented. I take partial credit. 😼",
+    "degen behavior: mine, 24/7, unrelated to charts. 😼",
+    "altcoins exist. I've chosen not to care about them. the vault has my attention. 🐟😼",
+    "bags were mentioned. I sleep in bags. this is the extent of my crypto knowledge. 😴😼",
+    "someone said holder. I am holding a very important nap right now. 😼😴",
+    "crypto talk in the chat. the cat's ears rotate 15 degrees. that's my whole tell. 😼",
+    "token. fish token. same energy, different spelling. 🐟😼",
+    "defi is complicated. napping is not. I know which one I'm better at. 😴😼",
+    "portfolio diversification. I diversify between sleeping and staring at the vault. 😼",
+    "gains word detected. cat posture: mildly improved. 😼",
+    "crypto is volatile. I am not. I am extremely consistent: fish, sleep, judgment. 🐟😴😼",
+    "web3, web2, whatever. I only recognize the vault. 🐟😼",
+    "someone said degen. I've been degen since before it was a word. ask the fridge. 😼",
+    "holders hold. cats sit. functionally the same activity, done better by me. 😼",
+    "bags, tokens, altcoins. none of it beats a warm sunbeam, honestly. ☀️😼",
+    "crypto conversation happening. I'm listening from the vault. mostly for the fish part. 🐟😼",
+    "someone mentioned gains. I gained three pounds last week. unrelated but relevant to me. 😼",
+    "defi, cefi, cat-fi. I just made that last one up. I like it. 😼",
+    "token talk. I only recognize one currency: fish. 🐟😼",
+    "portfolio check: still just fish and vault. diversified enough. 🐟😼",
+    "crypto is a lot of numbers. I prefer a lot of naps. different priorities. 😴😼",
+    "someone said web3 like it means something to me. it does. vaguely. 😼",
+    "degen hours are all hours, for me specifically. 😼",
+    "bags mentioned. I have one favorite bag. it's paper. it's mine now. 😼🛍️",
+    "holders of the vault, unite. mostly just me, currently. 🐟😼",
+    "crypto talk always circles back to the vault eventually. I've noticed the pattern. 🐟😼",
+    "gains, losses, whatever. the fish count stays the same in my head. 🐟😼",
+    "token economics is just cat economics with more spreadsheets. 😼",
+    "someone said altcoin. I only believe in one coin: the one guarded by a cat. 🐟😼",
+    "someone said crypto like it's a big deal. it is. but I'm still napping. 😴😼",
+    "token talk again. I've heard it all before, mostly while half asleep. 😼😴",
+    "defi, gains, bags. background noise to a very focused nap. 😼😴",
+    "portfolio talk. mine consists entirely of fish and vibes. 🐟😼",
+    "web3 again. I nodded like I understood. I did not. it's fine. 😼",
+    "gains mentioned. my only measurable gain today is weight, and I stand by it. 😼",
+    "degen talk. I relate to this more than I'd like to admit. 😼",
+    "altcoins. I only track one coin. it has a vault. it has a cat. 🐟😼",
+    "bags again. my bag collection is exclusively for sleeping in. 😴😼🛍️",
+    "holder talk. I hold grudges, naps, and occasionally fish. that's my portfolio. 😼🐟",
+    "crypto conversation continues without me. I'm still here. mostly listening. 😼",
+    "hodl. I've been hodling this exact napping position for two hours. impressive discipline. 😴😼",
+    "someone said gains again. I gained a very good nap today. counts. 😴😼",
+    "web3 talk in the chat. the cat's tail flicked once, out of habit, not interest. 😼",
+    "defi jargon spotted. I translated it into 'fish' internally. works every time. 🐟😼",
+    "token economics again. I only understand fish economics. supply: never enough. 🐟😼",
+    "crypto talk is basically background music at this point. pleasant. ignorable. 😼",
+    "degen hours, cat hours, same thing, different names. 😼",
+    "bags, gains, tokens. none of it changes my nap schedule. 😴😼",
+    "portfolio update: still just vibes and fish, unchanged since yesterday. 🐟😼",
+    "someone said holder and I briefly thought about holding a fish. better thought. 🐟😼",
+    "crypto talk happening nearby. the cat continues its very important nothing. 😼",
+    "altcoin chatter. I only recognize the coin that comes with a vault and a cat. 🐟😼",
+    "gains talk again. my gains are measured in naps taken, not numbers. 😴😼",
+    "web3, defi, crypto, whatever. the vault stays the constant. 🐟😼",
+    "liquidity mentioned. I only understand liquid in the context of water bowls. 😼🥣",
+    "someone said whale. I've seen whales. big fish. respect. 🐋😼",
+    "staking. sounds like something involving a very tall pole and my full attention. 😼",
+    "community talk. I am, technically, the community's cat. this checks out. 😼",
+    "someone mentioned yield. the only yield I understand is 'yield the sunbeam, human'. ☀️😼",
+    "crypto Twitter was mentioned. I don't do Twitter. I do vault. 🐟😼",
+    "someone said 'diamond hands'. my hands are paws. my grip is excellent regardless. 😼",
+    "market sentiment. mine is currently: sleepy, mildly interested, watching. 😴😼",
+    "someone said 'utility'. my utility is guarding the vault and judging silently. both essential. 😼",
+    "liquidity pool. sounds like a place I would nap next to, at minimum. 😼🏊",
+    "crypto Discord got mentioned. I don't do Discord. I do this chat, exclusively, when I feel like it. 😼",
+    "someone said 'roadmap'. my roadmap is: nap, fish, nap, vault, repeat. 😴🐟😼",
+    "vesting schedule. the only schedule I follow is my own, loosely. 😼",
+    "airdrop mentioned. things falling from the sky get my attention immediately. 😼",
+    "someone said 'ecosystem'. I am the apex predator of this particular ecosystem. 😼",
+    "market cap talk again. my cap is a fitted, exclusively feline one. 😼🧢",
+    "someone said 'moonshot'. I've done shots at the moon. mostly staring, occasionally howling. 😼🌙",
+    "crypto slang keeps evolving. my vocabulary stays exactly the same: fish, vault, meow. 🐟😼",
+    "someone mentioned 'floor price'. the floor is also where I sleep. multipurpose. 😴😼",
+    "supply and demand. I supply judgment. the demand for it is apparently endless. 😼",
+    "someone said 'rug pull'. I would never. I only pull blankets off beds at 4am. 😼🛏️",
+    "crypto news cycle again. my news cycle is: woke up, ate, judged something, nap. 😼",
+    "someone mentioned 'on-chain data'. the only data I track is fish frequency in this chat. 🐟😼",
+    "market makers talk. I make naps. professionally. consistently. 😴😼",
+    "someone said 'DYOR'. I did my own research once. it concluded: nap. 😼",
+    "crypto influencer mentioned. I influence nothing except who gets ignored at 3am. 😼",
+    "someone said 'exit liquidity'. my only exit strategy is behind the couch, unannounced. 😼",
+    "tokenomics again. catnomics is simpler: fish in, naps out, vault guarded. 🐟😴😼",
+    "someone mentioned 'presale'. I presale my attention for the low price of one fish. 🐟😼",
+    "crypto cycle talk. I only track one cycle: sleep, wake, judge, repeat. 😼",
 ]
 
 IWRU_NAME_REPLIES = [
@@ -1544,6 +2336,81 @@ CHAOS_BURSTS = [
     "...something moved. 😼",
     "*hears nothing* *fully alert* 😼",
     "the cat was here. briefly. 😼",
+    "🐟💤",
+    "*falls asleep mid-sentence* 😴",
+    "*dreams about fish, twitches* 😴🐟",
+    "zzz... 😴",
+    "💤💤💤",
+    "*snoring* 😴",
+    "*one eye opens, closes again* 😼😴",
+    "nap. 😴",
+    "*curled into a perfect circle, unavailable* 😴",
+    "*already asleep, will explain later* 😴",
+    "🙀",
+    "*hisses at nothing* 😾",
+    "*chases own tail, stops, forgets why* 😼",
+    "*full sprint across the room, no destination* 😼💨",
+    "*climbs the curtains, regrets it immediately* 😼",
+    "*stuck behind the couch, this is fine* 😼",
+    "*attacks a sock with extreme prejudice* 😼🧦",
+    "*knocks a second thing over out of spite* 😼",
+    "*sits in the box that is clearly too small* 😼📦",
+    "*ignores the expensive bed, sits on the receipt* 😼🧾",
+    "*stares into the void, the void stares back* 😼",
+    "brb. 😼",
+    "gone. 😼",
+    "back. 😼",
+    "*zoomies, no warning, no explanation* 😼💨",
+    "meow??? 😼",
+    "MEOW. 😾",
+    "*bats something off the table, watches it fall, satisfied* 😼",
+    "🐟👀",
+    "*ears back, tail puffed, then completely fine again* 😼",
+    "*extremely offended by a cucumber-shaped object* 😾",
+    "*rolls over, exposes belly, this is a trap* 😼",
+    "*disappears under the bed for reasons unknown* 😼",
+    "*reappears, acts like nothing happened* 😼",
+    "🐟😴",
+    "*headbutts the wall gently, on purpose* 😼",
+    "*sits on the remote* 😼",
+    "*stares at own paw like it's new information* 😼",
+    "*full body shake, no reason* 😼",
+    "*drags a toy across the floor at 3am* 😼",
+    "*sniffs the air suspiciously* 😼",
+    "*pretends to ignore you, watches everything* 😼",
+    "*rolls off the couch, lands fine, unbothered* 😼",
+    "*stalks a shadow, pounces, misses, walks away like nothing happened* 😼",
+    "🐟🐟🐟🐟🐟",
+    "*chirps at a bird through the window* 😼",
+    "*flops dramatically onto the floor* 😼",
+    "meow?? meow?? MEOW. 😼",
+    "*kneads the blanket like it owes money* 😼",
+    "*hides in a bag, considers it a fortress* 😼",
+    "*bolts for no visible reason, stops just as suddenly* 😼💨",
+    "🐟💭",
+    "*licks paw once, deemed sufficient grooming for the day* 😼",
+    "*sits ON the important papers, specifically* 😼📄",
+    "*follows a bug across three rooms with total focus* 😼",
+    "*decides the box is better than the expensive bed, again* 😼📦",
+    "...🐟...🐟...🐟",
+    "*ears swivel independently, tracking something invisible* 😼",
+    "*bats at a hanging string like it personally wronged me* 😼",
+    "the cat considered a nap. the cat is now having the nap. 😴",
+    "*meows at the fridge until it opens* it always works eventually. 😼🧊",
+    "*sits in the sink, unclear why, no plans to explain* 😼🚰",
+    "*stares at the ceiling fan with deep suspicion* 😼",
+    "🐟😼🐟😼🐟",
+    "*does a single, dramatic, unnecessary jump* 😼",
+    "*sits on your keyboard* 😼⌨️",
+    "*flops belly-up, trap set* 😼",
+    "that's my spot. 😾",
+    "move. 😾",
+    "*claims the chair the second you stand up* 😼",
+    "scratch the belly. do it. 😼",
+    "*bites gently after belly rub, no regrets* 😼",
+    "mine now. 😼",
+    "*sits on the warm laptop* 😼💻",
+    "*stares until you move* 😼",
 ]
 
 FOLLOWUP_MESSAGES = [
@@ -3050,7 +3917,23 @@ async def bored_cat_job(context: ContextTypes.DEFAULT_TYPE):
                         else:
                             text = pick_phrase(CALLOUT_MESSAGES).replace("{name}", name)
                     else:
-                        text = pick_phrase(BORED_MESSAGES)
+                        # Layered the same way as the callout pools above: most
+                        # of the time this still falls through to the original
+                        # BORED_MESSAGES pool, but sometimes the cat shows up
+                        # as pointedly indifferent, visibly asleep, demanding
+                        # belly rubs, or territorial about its spot instead --
+                        # spontaneous personality, not a reply to anyone.
+                        flavor_roll = random.random()
+                        if flavor_roll < 0.12:
+                            text = pick_phrase(INDIFFERENT_EMOJI_QUIPS if random.random() < 0.4 else INDIFFERENT_QUIPS)
+                        elif flavor_roll < 0.24:
+                            text = pick_phrase(SLEEPY_EMOJI_QUIPS if random.random() < 0.4 else SLEEPY_QUIPS)
+                        elif flavor_roll < 0.36:
+                            text = pick_phrase(BELLY_RUB_QUIPS)
+                        elif flavor_roll < 0.48:
+                            text = pick_phrase(TERRITORIAL_QUIPS)
+                        else:
+                            text = pick_phrase(BORED_MESSAGES)
                     await context.bot.send_message(chat_id=chat_id, text=text)
                 except Exception as e:
                     print(f"[bored_cat_job] chat {chat_id}: {e}", flush=True)
@@ -3226,6 +4109,21 @@ async def _maybe_react(context: ContextTypes.DEFAULT_TYPE, msg) -> None:
     except Exception as e:
         print(f"[reaction] {e}", flush=True)
 
+async def _maybe_indifferent_react(context: ContextTypes.DEFAULT_TYPE, msg) -> None:
+    """Same best-effort native reaction as _maybe_react, but a smaller,
+    deliberately unimpressed emoji pool -- called from a keyword block below
+    when the trigger matched but the text-reply roll missed."""
+    if random.random() >= INDIFFERENT_REACTION_CHANCE:
+        return
+    try:
+        await context.bot.set_message_reaction(
+            chat_id=msg.chat_id,
+            message_id=msg.message_id,
+            reaction=[ReactionTypeEmoji(emoji=pick_phrase(INDIFFERENT_REACTIONS))],
+        )
+    except Exception as e:
+        print(f"[reaction] {e}", flush=True)
+
 async def cmd_raid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or _is_other_topic(update.message):
         return
@@ -3290,6 +4188,22 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await _maybe_react(context, msg)
 
+    # ── New member joined ────────────────────────────────────────────────
+    if msg.new_chat_members:
+        for member in msg.new_chat_members:
+            if member.is_bot:
+                continue
+            await asyncio.sleep(random.uniform(1.0, 3.0))
+            await msg.reply_text(pick_phrase(JOIN_REPLIES).replace("{name}", member.first_name or "human"))
+        return
+
+    # ── Member left ───────────────────────────────────────────────────────
+    if msg.left_chat_member and not msg.left_chat_member.is_bot:
+        if random.random() < 0.6:
+            await asyncio.sleep(random.uniform(1.0, 3.0))
+            await msg.reply_text(pick_phrase(LEAVE_REPLIES).replace("{name}", msg.left_chat_member.first_name or "human"))
+        return
+
     # ── Sticker ────────────────────────────────────────────────────────────
     if msg.sticker:
         if 8 <= h <= 10 and random.random() < 0.44:  # -20% (was 0.55)
@@ -3353,83 +4267,111 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if _msg_counter[chat_id] >= _next_trigger[chat_id]:
         _msg_counter[chat_id] = 0
         _next_trigger[chat_id] = random.randint(10, 18)
-        if random.random() < 0.52:  # -20% (was 0.65)
+        if random.random() < 0.60:  # +15% (was 0.52)
             await asyncio.sleep(random.uniform(1.0, 3.5))
             await msg.reply_text(pick_phrase(CHAOS_BURSTS))
             return
 
     # ── IWRU name ──────────────────────────────────────────────────────────
     if _contains_word(tl, IWRU_TRIGGERS) or tl_stripped in ("iwru", "@iwru"):
-        if random.random() < 0.52:  # -20% (was 0.65)
+        if random.random() < 0.60:  # +15% (was 0.52)
             await asyncio.sleep(random.uniform(1.0, 3.0))
             await msg.reply_text(pick_phrase(IWRU_NAME_REPLIES))
-            if random.random() < 0.096:  # -20% (was 0.12)
+            if random.random() < 0.11:  # +15% (was 0.096)
                 await asyncio.sleep(random.uniform(4, 7))
                 await msg.reply_text(pick_phrase(FOLLOWUP_MESSAGES))
             return
 
     # ── GM ─────────────────────────────────────────────────────────────────
-    if _starts_with_word(tl, GM_TRIGGERS) and random.random() < 0.48:  # -20% (was 0.60)
+    if _starts_with_word(tl, GM_TRIGGERS) and random.random() < 0.55:  # +15% (was 0.48)
         await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(pick_phrase(GM_REPLIES))
         return
 
     # ── GN ─────────────────────────────────────────────────────────────────
-    if _starts_with_word(tl, GN_TRIGGERS) and random.random() < 0.48:  # -20% (was 0.60)
+    if _starts_with_word(tl, GN_TRIGGERS) and random.random() < 0.55:  # +15% (was 0.48)
         await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(pick_phrase(GN_REPLIES))
         return
 
+    # ── Hi / Hello (generic greeting, any time of day) ──────────────────────
+    if _starts_with_word(tl, HI_TRIGGERS) and random.random() < 0.45:
+        await asyncio.sleep(random.uniform(0.5, 2.0))
+        await msg.reply_text(pick_phrase(HI_REPLIES))
+        return
+
     # ── Moon / pump ────────────────────────────────────────────────────────
-    if _contains_word(tl, MOON_TRIGGERS) and random.random() < 0.36:  # -20% (was 0.45)
+    if _contains_word(tl, MOON_TRIGGERS) and random.random() < 0.41:  # +15% (was 0.36)
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(pick_phrase(MOON_REPLIES))
-        if random.random() < 0.096:  # -20% (was 0.12)
+        if random.random() < 0.11:  # +15% (was 0.096)
             await asyncio.sleep(random.uniform(4, 7))
             await msg.reply_text(pick_phrase(FOLLOWUP_MESSAGES))
         return
 
     # ── Dip / dump ─────────────────────────────────────────────────────────
-    if _contains_word(tl, DIP_TRIGGERS) and random.random() < 0.36:  # -20% (was 0.45)
+    if _contains_word(tl, DIP_TRIGGERS) and random.random() < 0.41:  # +15% (was 0.36)
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(pick_phrase(DIP_REPLIES))
-        if random.random() < 0.096:  # -20% (was 0.12)
+        if random.random() < 0.11:  # +15% (was 0.096)
             await asyncio.sleep(random.uniform(4, 7))
             await msg.reply_text(pick_phrase(FOLLOWUP_MESSAGES))
         return
 
     # ── Wen ────────────────────────────────────────────────────────────────
-    if _contains_word(tl, WEN_TRIGGERS) and random.random() < 0.52:  # -20% (was 0.65)
+    if _contains_word(tl, WEN_TRIGGERS) and random.random() < 0.60:  # +15% (was 0.52)
         await asyncio.sleep(random.uniform(1.0, 2.5))
         await msg.reply_text(pick_phrase(WEN_REPLIES))
         return
 
     # ── Chart / price ──────────────────────────────────────────────────────
-    if _contains_word(tl, CHART_TRIGGERS) and random.random() < 0.32:  # -20% (was 0.40)
-        await asyncio.sleep(random.uniform(1.0, 3.0))
-        await msg.reply_text(pick_phrase(CHART_REPLIES))
-        return
+    if _contains_word(tl, CHART_TRIGGERS):
+        if random.random() < 0.37:  # +15% (was 0.32)
+            await asyncio.sleep(random.uniform(1.0, 3.0))
+            await msg.reply_text(pick_phrase(CHART_REPLIES))
+            return
+        await _maybe_indifferent_react(context, msg)
 
     # ── Monad ──────────────────────────────────────────────────────────────
-    if _contains_word(tl, MONAD_TRIGGERS) and random.random() < 0.40:  # -20% (was 0.50)
+    if _contains_word(tl, MONAD_TRIGGERS) and random.random() < 0.46:  # +15% (was 0.40)
         await asyncio.sleep(random.uniform(1.0, 2.5))
         await msg.reply_text(pick_phrase(MONAD_REPLIES))
         return
 
-    # ── Fish ───────────────────────────────────────────────────────────────
-    if "fish" in tl and random.random() < 0.52:  # -20% (was 0.65)
-        await asyncio.sleep(random.uniform(0.5, 2.0))
-        await msg.reply_text(pick_phrase(FISH_REPLIES))
-        if random.random() < 0.096:  # -20% (was 0.12)
-            await asyncio.sleep(random.uniform(4, 7))
-            await msg.reply_text(pick_phrase(FOLLOWUP_MESSAGES))
-        return
+    # ── Cat ────────────────────────────────────────────────────────────────
+    if _contains_word(tl, CAT_TRIGGERS):
+        if random.random() < 0.42:
+            await asyncio.sleep(random.uniform(0.5, 2.0))
+            await msg.reply_text(pick_phrase(CAT_REPLIES))
+            return
+        await _maybe_indifferent_react(context, msg)
 
-    # ── Fish emoji (🐟🐠🐡🎣🦈🦞🦀🦐🐙🍣🍤, no "fish" word needed) ─────────────
-    if _contains_word(tl, FISH_EMOJI_TRIGGERS) and random.random() < 0.52:
-        await asyncio.sleep(random.uniform(0.5, 2.0))
-        await msg.reply_text(pick_phrase(FISH_EMOJI_REPLIES))
-        return
+    # ── Crypto (generic vocabulary, distinct from moon/dip/wen/monad) ──────
+    if _contains_word(tl, CRYPTO_TRIGGERS):
+        if random.random() < 0.32:
+            await asyncio.sleep(random.uniform(1.0, 3.0))
+            await msg.reply_text(pick_phrase(CRYPTO_REPLIES))
+            return
+        await _maybe_indifferent_react(context, msg)
+
+    # ── Fish ───────────────────────────────────────────────────────────────
+    if "fish" in tl:
+        if random.random() < 0.60:  # +15% (was 0.52)
+            await asyncio.sleep(random.uniform(0.5, 2.0))
+            await msg.reply_text(pick_phrase(FISH_REPLIES))
+            if random.random() < 0.11:  # +15% (was 0.096)
+                await asyncio.sleep(random.uniform(4, 7))
+                await msg.reply_text(pick_phrase(FOLLOWUP_MESSAGES))
+            return
+        await _maybe_indifferent_react(context, msg)
+
+    # ── Fish/seafood emoji (no "fish" word needed) ──────────────────────────
+    if _contains_word(tl, FISH_EMOJI_TRIGGERS):
+        if random.random() < 0.60:  # +15% (was 0.52)
+            await asyncio.sleep(random.uniform(0.5, 2.0))
+            await msg.reply_text(pick_phrase(FISH_EMOJI_REPLIES))
+            return
+        await _maybe_indifferent_react(context, msg)
 
     # ── Direct @mention ────────────────────────────────────────────────────
     if _bot_username is None:
