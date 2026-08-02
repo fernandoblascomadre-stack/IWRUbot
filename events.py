@@ -1313,7 +1313,12 @@ async def on_owner_remind(update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # ══════════════════════════════════════════════════════════════════════════
 async def cmd_owner_panel(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
-    if not _is_owner(user.id):
+    # update.effective_user is None for updates with no associated user (e.g.
+    # a channel post -- CommandHandler matches on update.effective_message,
+    # which includes channel posts, and a channel post's from_user is often
+    # empty). Without this guard, `/events` posted to a channel the bot
+    # administers would crash this handler with AttributeError on user.id.
+    if user is None or not _is_owner(user.id):
         return  # no reply anywhere -- don't reveal the command exists
     try:
         await context.bot.send_message(
