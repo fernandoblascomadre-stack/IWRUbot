@@ -2498,7 +2498,26 @@ MERCH_ANNOUNCEMENT = (
 
 MERCH_LAUNCHPAD_URL = "https://www.unchainedlab.net/launchpad/iwru-universe"
 MERCH_TWEET_TAGLINE = "Chaos, now within reach. That's IWRU. 🐈‍⬛"
-MERCH_TWEET_HASHTAGS = "#IWRU #Monad #Streetwear #Merch #unchainedlab #猫好き"
+
+# Hashtag pool for merch-drop tweets. #IWRU is the brand tag and is always
+# prepended in code (see _pick_merch_hashtags) -- everything here is the
+# rotating remainder, picked via pick_phrase so consecutive posts vary
+# without repeating a tag before the rest of the pool has had a turn.
+MERCH_TWEET_HASHTAG_POOL = [
+    "#Monad", "#MonadEcosystem", "#MonadMedia", "#Web3", "#CryptoMerch",
+    "#CryptoApparel", "#CryptoClothing", "#Streetwear", "#StreetwearBrand",
+    "#Merch", "#AIart", "#AIArtwork", "#GenerativeArt", "#CatCoin",
+    "#MemeCoin", "#CryptoCat", "#unchainedlab", "#CryptoTwitter",
+    "#Hypebeast", "#OnchainFashion",
+]
+
+
+def _pick_merch_hashtags(count: int = 4) -> str:
+    """#IWRU always leads (it's the brand tag); the remaining `count` slots
+    rotate through MERCH_TWEET_HASHTAG_POOL, capped at 5 tags total."""
+    tags = ["#IWRU"] + [pick_phrase(MERCH_TWEET_HASHTAG_POOL) for _ in range(count)]
+    return " ".join(tags)
+
 
 # One-line jokes that open each merch-drop tweet -- picked via pick_phrase so
 # consecutive posts (one every MERCH_TWEET_INTERVAL_DAYS) don't repeat the
@@ -2512,6 +2531,18 @@ MERCH_TWEET_OPENERS = [
     "IWRU traded 9 lives for 1 merch collection. Somehow still the better deal.",
     "The cat that keeps threatening your bags now also threatens your wardrobe. Meet the IWRU collection.",
     "Forget the rug. IWRU is out here selling actual fabric now. The chaos had to go somewhere.",
+    "The cat cornered the fish market, then the hoodie market. Diversification, they call it.",
+    "Nine lives, one merch collection, zero regrets. IWRU finally found a use for the treasury besides tuna.",
+    "This cat rugged your portfolio and now wants to sell you a t-shirt about it. The audacity is the whole brand.",
+    "Somewhere between chaos and commerce, the cat found hoodies. And caps. And an entire wardrobe you didn't ask for.",
+    "IWRU spent the dev wallet on a clothing line and, shockingly, this was the good decision.",
+    "The rug got upgraded to a hoodie. Somehow that's an improvement.",
+    "IWRU's business model: rug the chart, sell the merch, repeat. At least the hoodies are real.",
+    "New cap just dropped. Still can't explain where the fish went, but the merch checks out.",
+    "The cat has range: portfolio destruction on weekdays, fashion drops on weekends.",
+    "IWRU finally monetized the chaos properly. Hoodies, caps, tees -- wear the rug with pride.",
+    "Somebody let the cat near a print shop. Now there's a whole collection. No refunds, no regrets.",
+    "The most feared cat on Monad also has the best hoodies on Monad. Uncomfortable, but true.",
 ]
 
 TWEET_PHRASES = [
@@ -3821,7 +3852,7 @@ async def merch_tweet_job(context: ContextTypes.DEFAULT_TYPE):
                     print("[twitter] merch_tweet_job: merch/ folder is empty, skipping", flush=True)
                 else:
                     opener = pick_phrase(MERCH_TWEET_OPENERS)
-                    text = f"{opener}\n\n{MERCH_TWEET_TAGLINE}\n\n{MERCH_LAUNCHPAD_URL}\n\n{MERCH_TWEET_HASHTAGS}"
+                    text = f"{opener}\n\n{MERCH_TWEET_TAGLINE}\n\n{MERCH_LAUNCHPAD_URL}\n\n{_pick_merch_hashtags()}"
                     image_path = os.path.join(MERCH_IMAGES_DIR, image_name)
                     try:
                         await asyncio.get_event_loop().run_in_executor(None, _post_merch_tweet, text, image_path)
