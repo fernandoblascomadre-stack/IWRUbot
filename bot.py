@@ -2480,6 +2480,27 @@ DIVIDENDS_REMINDERS = [
     f"free money is sitting in your nad.fun profile and you're here reading cat facts instead. priorities. 🐟\n\n🟣 {NAD_LINK}",
 ]
 
+DAILY_CATCH_IMAGE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "treasure.jpg")
+
+# Same image every time -- only the caption rotates (per the user, 2026-08-23:
+# "siempre es la misma imagen, solo rota el texto"). 10 variants, all in the
+# cat's own voice, but every one MUST keep the same facts intact: the 4-item
+# pool, first-CATCH-wins, IWRU DMs the winner instructions, an IWRU token tx
+# follows, timing is unannounced, and /iwru opens the control panel -- only
+# the wording/personality varies, per the user's explicit instruction.
+DAILY_CATCH_ANNOUNCEMENTS = [
+    "🎁 *Daily Catch Event* 🐾\n\nSomewhere in this chat, once a day, I drop something: a mouse 🐭, a salmon 🐟, a mystery box 📦, or — if I'm feeling generous — a crown 👑.\n\nFirst human to hit *CATCH* gets it. I'll message you privately with what to do next, and an IWRU token lands in your wallet after.\n\n⚠️ No schedule. No warning. Could be now. Could be in 3 hours. Stay alert.\n\nType */iwru* to open the control panel any time. 🐈‍⬛",
+    "🐾 One random treasure appears in this chat every day — mouse 🐭, salmon 🐟, mystery box 📦, or crown 👑. Purely at my whim, timing-wise.\n\nWhoever taps *CATCH* first wins it. I'll slide into your DMs with instructions — follow them and the IWRU token is yours.\n\n⚠️ Could drop any minute, so don't blink.\n\n*/iwru* opens the full control panel, right here in the chat. 😼",
+    "🎁 *Daily Catch Event* — still running, still chaotic.\n\nEvery day I hide one item somewhere in this chat: mouse 🐭, salmon 🐟, mystery box 📦, or crown 👑. Random moment, no warning.\n\nFirst to smash *CATCH* claims it. I'll DM you the fine print — do what I say and I'll send an IWRU token straight to you.\n\n⚠️ Blink and you'll miss it.\n\nControl panel: */iwru* 🐈‍⬛",
+    "🐭🐟📦👑 one of these shows up in the chat every single day. Nobody knows when. Not even me, technically — I just enjoy the chaos.\n\nFirst person to hit *CATCH* gets it. I message the winner privately with instructions; follow them, and an IWRU token transaction follows.\n\n⚠️ Stay alert — items don't announce themselves twice.\n\nType */iwru* for the control panel. 😼",
+    "🎁 *Daily Catch Event* 🐾\n\nA gift appears in this chat once a day — mouse 🐭, salmon 🐟, mystery box 📦, or crown 👑. I pick when. You don't get a say.\n\nFirst to press *CATCH* wins it. I'll message you directly with what happens next — listen to the cat, get an IWRU token sent your way.\n\n⚠️ Could be any hour. Watch the chat.\n\n*/iwru* — control panel, on demand. 🐈‍⬛",
+    "Every day, somewhere in this chat, I drop one of four things: 🐭 mouse, 🐟 salmon, 📦 mystery box, or 👑 crown.\n\nFirst human fast enough to hit *CATCH* takes it home. I'll DM you the instructions myself — follow them, and an IWRU token transaction shows up.\n\n⚠️ No fixed time. That's the point.\n\nOpen the control panel any time with */iwru*. 😼",
+    "🎁 *Daily Catch Event* is live, as always.\n\nOne random item per day — mouse 🐭, salmon 🐟, mystery box 📦, crown 👑 — appears somewhere in this chat with zero warning.\n\nFirst *CATCH* wins. I'll speak to you privately after — follow my instructions and an IWRU token lands in your wallet.\n\n⚠️ Items don't wait around. Neither should you.\n\nControl panel lives at */iwru*. 🐈‍⬛",
+    "🐾 Reminder, for the humans who keep missing it: I hide one treasure in this chat every day. Mouse 🐭, salmon 🐟, mystery box 📦, or crown 👑 — your guess is as good as mine on timing.\n\nFirst to press *CATCH* claims the reward. I'll DM you what to do — do it, and an IWRU token transaction follows.\n\n⚠️ Random hour. Every day. Stay sharp.\n\n*/iwru* opens the control panel. 😼",
+    "🎁 *Daily Catch Event* 🐾 — the cat's favorite chaos.\n\nOne item, once a day, somewhere in this chat: 🐭 mouse, 🐟 salmon, 📦 mystery box, or 👑 crown.\n\nFirst *CATCH* takes it. Then I message you privately — follow the instructions, and an IWRU token transaction gets sent straight to you.\n\n⚠️ Could drop at 3am. Could drop right now. Not my problem.\n\nType */iwru* for the control panel. 🐈‍⬛",
+    "🐭🐟📦👑 — every day, one of these shows up somewhere in this chat, at a time I choose and you don't get warned about.\n\nWhoever hits *CATCH* first gets it. I'll DM you privately with instructions; follow them and an IWRU token transaction is yours.\n\n⚠️ Miss it and you wait until tomorrow. Stay alert.\n\n*/iwru* — control panel, whenever you want it. 😼",
+]
+
 PENKMARKET_ANNOUNCEMENTS = [
     f"Buying Monad tokens used to feel like solving a side quest.\n\nThanks to PenkMarket, you can now buy Monad tokens like IWRU directly with ETH.\n\nETH in. Chaos out.\n\nThe black cat is pleased. 🐈‍⬛\n\n🛒 {PENKMARKET_LINK}",
     f"Buying Monad tokens used to require faith, patience, and three open tabs.\n\nNow, thanks to PenkMarket, IWRU is one ETH swap away. No side quest required.\n\nETH in. IWRU out.\n\nThe black cat approves. 🐈‍⬛\n\n🛒 {PENKMARKET_LINK}",
@@ -4092,6 +4113,44 @@ async def dividends_reminder_job(context: ContextTypes.DEFAULT_TYPE):
         context.application.job_queue.run_once(dividends_reminder_job, delay)
 
 # once/day, random moment inside this UTC window
+DAILY_CATCH_ANNOUNCEMENT_WINDOW_UTC = (12, 22)
+
+async def daily_catch_announcement_job(context: ContextTypes.DEFAULT_TYPE):
+    """Posts one DAILY_CATCH_ANNOUNCEMENTS variant, with the treasure.jpg photo,
+    once per calendar day (UTC) to every known chat -- same restart-safe
+    calendar-day dedupe as merch_announcement_job/dividends_reminder_job.
+
+    The image never changes, only the caption rotates (per the user). Telegram
+    lets a photo already sent once be resent to other chats/days by its
+    `file_id` instead of re-uploading the file bytes -- cached in the DB (not
+    memory) so it survives a Render restart, same reasoning as the merch image
+    queue in [[project_iwrubot_merch_section]]."""
+    try:
+        today = datetime.utcnow().date().isoformat()
+        if db.get_config("last_daily_catch_announcement_date") != today:
+            db.set_config("last_daily_catch_announcement_date", today)
+            text = pick_phrase(DAILY_CATCH_ANNOUNCEMENTS)
+            cached_file_id = db.get_config("daily_catch_image_file_id")
+            for chat_id in list(_known_chats.keys()):
+                try:
+                    if cached_file_id:
+                        msg = await context.bot.send_photo(
+                            chat_id=chat_id, photo=cached_file_id, caption=text, parse_mode="Markdown"
+                        )
+                    else:
+                        with open(DAILY_CATCH_IMAGE_PATH, "rb") as f:
+                            msg = await context.bot.send_photo(
+                                chat_id=chat_id, photo=f, caption=text, parse_mode="Markdown"
+                            )
+                        cached_file_id = msg.photo[-1].file_id
+                        db.set_config("daily_catch_image_file_id", cached_file_id)
+                except Exception as e:
+                    print(f"[daily_catch_announcement_job] chat {chat_id}: {e}", flush=True)
+    finally:
+        delay = _seconds_until_window(*DAILY_CATCH_ANNOUNCEMENT_WINDOW_UTC, force_next_day=True)
+        context.application.job_queue.run_once(daily_catch_announcement_job, delay)
+
+# once/day, random moment inside this UTC window
 PENKMARKET_ANNOUNCEMENT_WINDOW_UTC = (12, 22)
 
 async def penkmarket_announcement_job(context: ContextTypes.DEFAULT_TYPE):
@@ -4469,6 +4528,7 @@ def build_app():
     a.job_queue.run_once(nft_reminder_job, random.uniform(21600, 32400))      # first reminder: 6-9h
     a.job_queue.run_once(merch_announcement_job, _seconds_until_window(*MERCH_ANNOUNCEMENT_WINDOW_UTC))
     a.job_queue.run_once(dividends_reminder_job, _seconds_until_window(*DIVIDENDS_REMINDER_WINDOW_UTC))
+    a.job_queue.run_once(daily_catch_announcement_job, _seconds_until_window(*DAILY_CATCH_ANNOUNCEMENT_WINDOW_UTC))
     a.job_queue.run_once(penkmarket_announcement_job, _seconds_until_window(*PENKMARKET_ANNOUNCEMENT_WINDOW_UTC))
     buybot.register(a)  # $IWRU buy alerts; self-gated on BUYBOT_ENABLED
     if TWITTER_ENABLED:
