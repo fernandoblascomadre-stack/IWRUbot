@@ -40,6 +40,7 @@ def init_db() -> None:
             telegram_id INTEGER PRIMARY KEY,
             username TEXT,
             first_name TEXT,
+            chat_id INTEGER,
             first_seen TEXT,
             last_seen TEXT
         );
@@ -81,16 +82,24 @@ _EVENTS_TABLE_MIGRATIONS = [
     ("sticker_message_id", "ALTER TABLE events ADD COLUMN sticker_message_id INTEGER"),
 ]
 
+# Same idiom as _EVENTS_TABLE_MIGRATIONS, for the `users` table. chat_id
+# added so the roster bot.py uses for CALLOUT_MESSAGES/professor_quip_job
+# (previously in-memory only, wiped on every Render restart) can be
+# rehydrated from here at startup via load_known_users().
+_USERS_TABLE_MIGRATIONS = [
+    ("chat_id", "ALTER TABLE users ADD COLUMN chat_id INTEGER"),
+]
 
-def _migrate_schema() -> None:
+
+def _migrate_table(table: str, migrations: list) -> None:
     """CREATE TABLE IF NOT EXISTS is a no-op against a table that already
-    exists -- it does NOT add newly-introduced columns to an existing events
-    table from a prior run. Without this, any bot instance with an events.db
+    exists -- it does NOT add newly-introduced columns to an existing table
+    from a prior run. Without this, any bot instance with an events.db
     predating a schema change would crash the instant that column is read,
     since sqlite3.Row raises on a missing key exactly like a real bug would,
     not a graceful None."""
-    existing_columns = {row["name"] for row in _conn.execute("PRAGMA table_info(events)")}
-    for column_name, ddl in _EVENTS_TABLE_MIGRATIONS:
+    existing_columns = {row["name"] for row in _conn.execute(f"PRAGMA table_info({table})")}
+    for column_name, ddl in migrations:
         if column_name in existing_columns:
             continue
         try:
@@ -107,6 +116,11 @@ def _migrate_schema() -> None:
             # reach, so treat it as success rather than crashing startup.
             if "duplicate column" not in str(e).lower():
                 raise
+
+
+def _migrate_schema() -> None:
+    _migrate_table("events", _EVENTS_TABLE_MIGRATIONS)
+    _migrate_table("users", _USERS_TABLE_MIGRATIONS)
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -133,20 +147,56 @@ def events_enabled() -> bool:
 # ══════════════════════════════════════════════════════════════════════════
 #  USERS
 # ══════════════════════════════════════════════════════════════════════════
-def upsert_user(telegram_id: int, username, first_name) -> None:
+def upsert_user(telegram_id: int, username, first_name, chat_id: int = None) -> None:
+    """chat_id defaults to None for the pre-existing event-claim call site
+    (events.py), which doesn't have an obvious single chat to attribute a
+    user to. bot.py's leer() call always passes the real chat_id. COALESCE
+    keeps whatever chat_id is already on file when a caller omits it,
+    instead of a claim update wiping out what leer() already learned."""
     now = _now()
     _conn.execute(
         """
-        INSERT INTO users (telegram_id, username, first_name, first_seen, last_seen)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO users (telegram_id, username, first_name, chat_id, first_seen, last_seen)
+        VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(telegram_id) DO UPDATE SET
             username = excluded.username,
             first_name = excluded.first_name,
+            chat_id = COALESCE(excluded.chat_id, users.chat_id),
             last_seen = excluded.last_seen
         """,
-        (telegram_id, username, first_name, now, now),
+        (telegram_id, username, first_name, chat_id, now, now),
     )
     _conn.commit()
+
+
+def load_known_users() -> dict:
+    """Rehydrates bot.py's in-memory _known_users roster (used by
+    CALLOUT_MESSAGES/bored_cat_job/professor_quip_job to pick a
+    recently-active member to name) from this table at startup -- so a
+    Render restart no longer wipes the cat's memory of who's around until
+    everyone posts again (per the user, 2026-08-29: "aumentar el alcance de
+    aprendizaje del bot... que pueda guardarlo en memoria").
+
+    Skips rows with no chat_id (event-claim-only upserts from before this
+    column existed, or a claim from a user who's never posted in the group
+    the bot tracks) -- those can't be targeted by chat anyway. Skips rows
+    with an unparseable last_seen rather than raising, since a hand-edited
+    or pre-migration NULL there must not take startup down with it."""
+    rows = _conn.execute(
+        "SELECT telegram_id, chat_id, first_name, last_seen FROM users WHERE chat_id IS NOT NULL"
+    ).fetchall()
+    result = {}
+    for row in rows:
+        try:
+            last_seen_epoch = datetime.fromisoformat(row["last_seen"]).timestamp()
+        except (TypeError, ValueError):
+            continue
+        result[row["telegram_id"]] = {
+            "chat_id": row["chat_id"],
+            "name": row["first_name"] or "human",
+            "last_seen": last_seen_epoch,
+        }
+    return result
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -471,6 +521,25 @@ def top_hunters(limit: int = 5):
         (limit,),
     ).fetchall()
     return [(_display(r["winner_username"], r["winner_name"]), r["c"]) for r in rows]
+
+
+def top_hunter_first_name():
+    """Same 'deterministic latest row per winner' logic as top_hunters, but
+    returns just the current #1 leader's plain first name (never an
+    @-mention) plus their win count -- for bot.py's playful leaderboard-brag
+    flavor line, which must never ping anyone (per the user, 2026-08-29:
+    names only, never @-tags). None if nobody has ever won anything."""
+    row = _conn.execute(
+        "SELECT e.winner_name, t.c FROM events e "
+        "JOIN ("
+        "  SELECT winner_id, COUNT(*) c, MAX(id) latest_id FROM events "
+        "  WHERE winner_id IS NOT NULL AND status != 'cancelled' GROUP BY winner_id"
+        ") t ON t.latest_id = e.id "
+        "ORDER BY t.c DESC, e.winner_id ASC LIMIT 1"
+    ).fetchone()
+    if row is None:
+        return None
+    return (row["winner_name"] or "human", row["c"])
 
 
 def most_of(event_key: str, limit: int = 3):

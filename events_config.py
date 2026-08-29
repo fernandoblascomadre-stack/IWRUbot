@@ -386,6 +386,78 @@ CAUGHT_TEMPLATE = (
     "🐈‍⬛ Check your DMs with me to claim it!"
 )
 
+# ══════════════════════════════════════════════════════════════════════════
+#  CATCH CONGRATULATIONS  (cat-voice, per item -- separate from CAUGHT_TEMPLATE)
+# ══════════════════════════════════════════════════════════════════════════
+# Sent by events.py's on_catch as its OWN follow-up chat message, right after
+# the functional CAUGHT_TEMPLATE edit (reward amount + DM instructions) --
+# pure personality, never touches the claim/reward flow itself, so a failure
+# sending this is only ever a missed joke. {name} is always the winner's
+# plain first name, never an @-mention (per the user, 2026-08-29). Every
+# joke's punchline is the CAT's own absurd, greedy, self-important behavior
+# -- never at the winner's expense, per the user's explicit instruction ("el
+# loco es el gato", "jamas atacamos a nuestro usuarios"). 10 lines per item,
+# each tuned to that item specifically per the user's own examples: the cat
+# wants the mouse/fish back for itself, "graciously" allows the crown-winner
+# to look at the crown it still considers its own throne, and flip-flops on
+# loving/hating surprises for the mystery box.
+CATCH_CONGRATS = {
+    "mouse": [
+        "{name} caught the mouse?? that was MY mouse. I was building up to that mouse. respect, but also, give it back. 🐭😼",
+        "{name} you caught a mouse. I would like to formally request custody. joint custody. mostly custody. 🐭😾",
+        "{name}, the mouse is yours, legally. emotionally, it's still mine. I'm not over this. 🐭😼",
+        "congratulations {name}. a mouse. do you know how long I've been stalking that exact mouse? asking for a friend. the friend is me. 🐭🕵️",
+        "{name} snagged the mouse before I could. I'm proud of you. I'm also filing a complaint. both are true. 🐭😼",
+        "well played, {name}. the mouse chose you. I would like to speak to the mouse's manager. 🐭📋",
+        "{name}, a mouse! incredible! now hand it over, slowly, no sudden movements. 🐭😼",
+        "{name} you win the mouse. the cat congratulates you through gritted teeth. mostly gritted. 🐭😬",
+        "the mouse is yours now, {name}. I hope you know what that means. it means I'm coming over. 🐭😼🚪",
+        "{name} caught it fair and square. the cat is happy for you. the cat is ALSO available to 'help' you keep it safe. 🐭😼",
+    ],
+    "fish": [
+        "{name} caught the fish. beautiful. stunning. now, as one professional to another, can I have it. 🐟😼",
+        "congratulations {name}! a fish! the cat would like to negotiate terms. terms being: give me the fish. 🐟🤝",
+        "{name} you caught a fish and I have never respected anyone more. also I would like the fish. 🐟😼",
+        "the fish is yours, {name}. legally binding. spiritually, I feel it belongs to whoever is currently the most charming. that's me. 🐟😼",
+        "{name} caught a fish!! do you know what I would do for that fish. actually don't answer that. just hand it over. 🐟😼",
+        "well caught, {name}. truly inspiring. now, about that fish. I have a proposal. it involves you giving it to me. 🐟📜",
+        "{name} you're now the proud owner of a fish. the cat would like to be considered for adoption. of the fish. 🐟🐈‍⬛",
+        "a fish, {name}? incredible work. I'm not crying, I'm just very interested in your fish specifically. 🐟😼",
+        "{name} caught the fish fair and square. the cat salutes you and also very quietly eyes the fish. 🐟👀",
+        "congratulations on the fish, {name}. purely out of curiosity, hypothetically, what would it take for you to give it to me. 🐟😼",
+    ],
+    "box": [
+        "{name} caught the mystery box!! I love surprises. I also hate surprises. mostly I just need to know what's inside RIGHT NOW. 📦😼",
+        "congratulations {name}, a mystery box! don't open it. actually open it. actually let me open it. 📦😼",
+        "{name} you won a mystery box. the suspense is delightful. the suspense is also unbearable. open it immediately. 📦😅",
+        "a mystery box, {name}? the cat respects mystery in theory and finds it deeply stressful in practice. what's inside. tell me. 📦😼",
+        "{name} caught the box! I've always said surprises are the spice of life. I've also always been lying. what's in it. 📦😼",
+        "well done {name}. a mystery box. I would like to state, for the record, that I am extremely calm about not knowing what's in it. 📦😤",
+        "{name} you got the mystery box. genuinely thrilled for you. genuinely need to know the contents within the next ten seconds. 📦⏱️",
+        "congratulations on the box, {name}. the cat's philosophy is 'embrace the unknown,' followed immediately by 'no wait, tell me everything.' 📦😼",
+        "{name} caught a mystery box and honestly? bold. brave. now open it before I do it for you. 📦😼",
+        "a mystery box for {name}! I love that we'll never know what's inside. also I will absolutely find out. 📦🕵️",
+    ],
+    "crown": [
+        "{name} caught the crown. cute. anyway, the king is me, obviously, but you can hold it for a bit. carefully. 👑😼",
+        "congratulations {name}, a crown! I'll allow you to look at it. admire it, even. it does not leave my jurisdiction. 👑😼",
+        "{name} you caught the crown. impressive. meaningless, since royalty is determined by whoever naps the most, but impressive. 👑😴",
+        "a crown, {name}? charming. decorative. purely ceremonial. the real throne is my spot on the windowsill. 👑😼",
+        "{name} caught the crown!! you may wear it. briefly. under supervision. mine. 👑😼",
+        "congratulations on the crown, {name}. I've decided you're now a duke. maybe a baron. I'm the only king here. 👑🎓",
+        "{name} you win the crown. historic moment. doesn't change the chain of command, but historic nonetheless. 👑😼",
+        "the crown is yours, {name}, in the sense that you're holding it. ownership is more of a cat concept. 👑😼",
+        "{name} caught the golden crown! truly legendary. I remain, as always, the actual monarch here. you may bow. 👑👋",
+        "congratulations {name}, a crown! I'll allow this. temporarily. the cat retains all executive power regardless. 👑😼",
+    ],
+}
+
+# How long after a CATCH_CONGRATS message a reply to it, or a native emoji
+# reaction on it, can still trigger a CATCH_FOLLOWUP_QUIPS follow-up in
+# bot.py (per the user: keep the cat "alive" and responsive right after a
+# win, not forever).
+CATCH_ENGAGEMENT_WINDOW_SECONDS = 20 * 60  # 20 minutes
+
 OWNER_WAITING_TEMPLATE = (
     "🟡 Waiting for Wallet\n\n"
     "Winner: {winner}\n"

@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from zoneinfo import ZoneInfo
 from telegram import ReactionTypeEmoji, Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, MessageReactionHandler, ContextTypes, filters
 
 try:
     import tweepy
@@ -962,6 +962,43 @@ BORED_MESSAGES = [
     "it's late and I have a lot of opinions about the chart that no one asked for. 😼📈",
     "the moon is out and so is my chaos energy. someone should be worried. 😼🌙",
     "3am and the only thing open is my patience for nonsense. barely. 😼💨",
+    # 🐈‍⬛ More chaos -- specific, pointless little cat crimes and activities,
+    # not just vague "watching"/"bored" lines. The point (per the user,
+    # 2026-08-29: "el objetivo es hacer que parezca que un gato kaotico vive
+    # en el chat") is that a very specific, very unbothered cat visibly lives
+    # here and does cat things whether anyone's watching or not.
+    "*sees a dust particle floating* this changes everything. I must catch it. 😼✨",
+    "just had the zoomies for no reason. ran into a wall. still worth it. 😼💨",
+    "I attacked my own tail. it started it. I finished it. 😼🌀",
+    "pretending to be a houseplant right now. very convincing. don't look directly at me. 🪴😼",
+    "I stared at the wall for eleven minutes. something is going to happen there. eventually. 😼🧱",
+    "committed several minor crimes today. knocked a cup. stole a spot. bit a toe. no regrets. 😼",
+    "I am guarding this exact pixel of the screen. do not ask why. 😼🖥️",
+    "just discovered my reflection. we are not friends. 😾🪞",
+    "I have decided the cardboard box is now my kingdom. population: me. 📦😼",
+    "practicing my silent judgment face. rate it 1-10. it's a 10. it's always a 10. 😐",
+    "chased a laser dot for six hours today. lost every time. undefeated in spirit. 🔴😼",
+    "I sniffed something suspicious and now I must sit very still and think about it. 😼🤔",
+    "just had a full conversation with a moth. the moth won. 🦋😼",
+    "I am currently plotting something. I don't know what. the plotting comes first. 😼🗺️",
+    "climbed the curtains today for no reason except sport. 🧗😼",
+    "I flopped dramatically onto the floor. it was a statement. the statement was 'feed me.' 😼🐟",
+    "hunting a sunbeam. it keeps moving. this is unacceptable. ☀️😼",
+    "I have inspected every box in a 10-meter radius. all boxes have been claimed. 📦😼",
+    "spent the last hour watching a bird through the window. tactical planning only. 🐦😼",
+    "did nothing productive today and I'd like a medal for it. 🏅😼",
+]
+
+# Emoji-only chaotic-energy variant, same idiom as INDIFFERENT_EMOJI_QUIPS/
+# SLEEPY_EMOJI_QUIPS below (a wordless flavor pool bored_cat_job can reach
+# for instead of a full sentence) but themed around restless/mischievous
+# energy rather than aloofness or sleep -- zoomies, hunting, knocking things
+# over -- per the user's request for "mas cosas de gato que hace porque se
+# aburre, aunque sea mandar emojis a veces relacionados."
+BORED_EMOJI_QUIPS = [
+    "💨😼", "🐭👀", "🔴😼💨", "🌀😼", "📦😼📦", "🧶💥", "😼🏃💨", "🪰👀",
+    "😼✨", "🧗😼", "💥🐈‍⬛", "😼🔍", "🦋😼", "☀️😼👀", "😼💢", "🕸️😼",
+    "😼⚡", "🌪️😼", "👁️🐭", "😼🎯",
 ]
 
 # Unprompted -- not tied to anything a user said. Fired occasionally by
@@ -2509,6 +2546,198 @@ PENKMARKET_ANNOUNCEMENTS = [
     f"PSA from the cat: buying Monad tokens no longer feels like a side quest.\n\nPenkMarket takes your ETH and hands you IWRU directly. That's it. That's the quest.\n\nETH in. Chaos out. 🐈‍⬛\n\n🛒 {PENKMARKET_LINK}",
 ]
 
+PROFESSOR_LESSON_IMAGE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "IWRU Profesor.png")
+
+# Same illustration every time -- only the caption rotates, same idiom as
+# DAILY_CATCH_ANNOUNCEMENTS. All 7 keep the same underlying lesson intact
+# (watch the full post, leave a genuine reply, like, repost, talk to other
+# people too -- that's what actually signals real engagement to X's
+# algorithm, not just a like-and-vanish; relevant tags help when they fit
+# naturally, spamming them doesn't), only the classroom framing/wording
+# varies, per the user's explicit instruction (2026-08-29).
+PROFESSOR_LESSON_ANNOUNCEMENTS = [
+    "🐈‍⬛🔬 KAOS LAB 202: FEEDING THE ALGORITHM WITH PROFESSOR IWRU\n\nPop quiz, class: what does X's algorithm actually want? Not your silence. Not a drive-by like and vanish. It wants proof that a human stopped, read, and cared. 🐟\n\nToday's lab formula:\n\n👀 Watch the whole post.\n💬 Drop a real reply — actual words, actual thoughts.\n❤️ Like it.\n🔁 Repost it into new timelines.\n🗣️ Jump into the replies and talk to other people too.\n\nA like is a nod. A reply is a conversation. Conversations are what keep a post breathing long after it's posted.\n\nTags like #IWRU #Monad #nadfun work great when they fit naturally — spam them everywhere and it just looks like canned food for bots. 🤖🥫\n\nRead, reply, repost, repeat. Lab dismissed — everyone gets one imaginary fish for showing up. 🐈‍⬛🎓",
+    "🐈‍⬛📝 SURPRISE QUIZ: DO YOU KNOW HOW TO FEED THE ALGORITHM?\n\nSettle down, settle down. Professor IWRU has a question for the class: what happens in a post's first few minutes?\n\nThat's when X is watching closest. Real engagement early tells it \"humans actually like this one\" — and it starts showing it to more of them. 🐟👀\n\nThe answer key:\n\n👀 View the full post.\n💬 Leave a genuine reply.\n❤️ Like it.\n🔁 Repost it.\n🗣️ Chat with other people in the replies.\n\nLikes get you noticed. Replies and real conversation are what get you remembered by the algorithm.\n\nBonus points for tags like #IWRU, #Monad or #nadfun — but only when they fit naturally. Stuff a post full of hashtags and it reads like bot food. 🤖🥫\n\nTurn in your quizzes: engage, reply, repost, spread the KAOS. Class dismissed, A+ fish for everyone. 🐈‍⬛🎓",
+    "🐈‍⬛🗺️ FIELD GUIDE TO THE X JUNGLE, BY PROFESSOR IWRU\n\nGather round, little explorers. Out in the wild timeline, the algorithm is always watching to see which posts are worth protecting from the void.\n\nThe survival trick isn't luck — it's real, early engagement. 🐟\n\nField notes:\n\n👀 Actually view the whole post.\n💬 Leave a genuine reply, not a stray emoji.\n❤️ Like it.\n🔁 Repost it to a new patch of timeline.\n🗣️ Talk with other explorers in the replies too.\n\nA like is a paw print. A reply is a whole trail other cats can follow.\n\nTags like #IWRU, #Monad or #nadfun are great trail markers when used naturally — overdo it and it just smells like bot bait. 🤖🥫\n\nExplore, reply, repost, and keep the KAOS alive out there. Field trip dismissed — one imaginary fish per explorer. 🐈‍⬛🎓",
+    "🐈‍⬛✏️ EXTRA CREDIT: HOW TO FEED THE X ALGORITHM\n\nNo detention today, just extra credit for anyone who wants it. Professor IWRU is handing out easy points.\n\nHere's the secret the algorithm never tells you: it's paying closest attention in the first few minutes after a post goes up. Show up for it and it shows the post to more people. 🐟👀\n\nThe assignment:\n\n👀 Read the full post.\n💬 Write a real reply.\n❤️ Like it.\n🔁 Repost it.\n🗣️ Chat with others in the replies too.\n\nLikes are nice. Replies and real conversation are what actually keep a post alive.\n\nTags like #IWRU, #Monad or #nadfun earn bonus points when they fit naturally — spam them and it just looks like canned food for bots. 🤖🥫\n\nSubmit your extra credit: engage, reply, repost, spread the KAOS. Class dismissed, full marks and one imaginary fish for all. 🐈‍⬛🎓",
+    "🐈‍⬛🌙 MIDNIGHT STUDY SESSION WITH PROFESSOR IWRU\n\nLights low, coffee — sorry, tuna — in paw. Tonight's lesson: how the X algorithm decides what to feed the timeline.\n\nIt's simple, really. The first few minutes after a post goes up are when it's watching hardest for real reactions. 🐟👀\n\nTonight's notes:\n\n👀 Watch the full post.\n💬 Leave a genuine reply.\n❤️ Like it.\n🔁 Repost it.\n🗣️ Talk to others in the replies too.\n\nLikes feed the cat. Real replies and conversation are what keep the post breathing till morning.\n\nTags like #IWRU, #Monad or #nadfun help when they fit naturally — cram them in everywhere and it just reads like bot food. 🤖🥫\n\nStudy session's over. Engage, reply, repost, spread the KAOS — and off to bed with one imaginary fish each. 🐈‍⬛🎓",
+    "🐈‍⬛🎙️ GUEST LECTURE: HOW NOT TO LOOK LIKE A BOT, BY PROFESSOR IWRU\n\nSpecial lecture today, class. Let's talk about what the X algorithm is actually trying to tell humans from bots.\n\nA drive-by like and vanish? Looks robotic. Real, early engagement? That's unmistakably human — and the algorithm loves showing more humans to more humans. 🐟👀\n\nHow to pass as delightfully, chaotically human:\n\n👀 Actually view the full post.\n💬 Leave a real, personal reply.\n❤️ Like it.\n🔁 Repost it.\n🗣️ Reply to others and get a conversation going.\n\nLikes are fine. Replies and real conversation are what prove there's a person — or at least a very clever cat — behind the screen.\n\nTags like #IWRU, #Monad or #nadfun help when natural — overuse them and, ironically, THAT'S what looks like bot food. 🤖🥫\n\nLecture over. Engage, reply, repost, spread the KAOS. Class dismissed, one imaginary fish for every good human in the room. 🐈‍⬛🎓",
+    "🐈‍⬛🎓 GRADUATION DAY: ADVANCED KAOS THEORY WITH PROFESSOR IWRU\n\nCaps on, class — today we review everything you've learned about feeding the X algorithm, one last time before the ceremony.\n\nRemember: the first few minutes of a post are the ones that matter most. Real engagement early tells X \"humans are here, show this to more of them.\" 🐟👀\n\nThe formula you'll carry with you forever:\n\n👀 View the full post.\n💬 Leave a real, personalized reply.\n❤️ Like it.\n🔁 Repost it to new timelines.\n🗣️ Reply to others and keep the conversation going.\n\nLikes feed the cat. Genuine replies and real conversations are what keep a post alive long after graduation.\n\nUse tags like #IWRU, #Monad or #nadfun when they fit naturally — spam them and future employers (i.e. the algorithm) will smell canned food for bots. 🤖🥫\n\nCongratulations, KAOS graduates. Engage, reply, repost, spread the chaos — and enjoy your diploma: one imaginary fish, framed forever. 🐈‍⬛🎓",
+]
+
+# ── Professor IWRU flavor quips ─────────────────────────────────────────────
+# Fired by professor_quip_job, the single follow-up message professor_lesson_job
+# schedules after the algorithm-lesson post (see the job itself for why it's
+# capped at exactly one -- the user, 2026-08-29: "no mas de dos mensajes de el
+# tema de IWRU profesor en esa ventana de tiempo cada dia", i.e. post + one
+# follow-up, total two). Pure personality per [[feedback_iwrubot_phrase_policy]]
+# -- no "buy $IWRU", no sales angle, just the cat being insufferably proud of
+# its own teaching career. Split into two pools exactly like
+# CALLOUT_MESSAGES/BORED_MESSAGES: PROFESSOR_QUIPS is fully generic,
+# PROFESSOR_NAME_QUIPS uses {name} to offer one specific recently-active member
+# (same 24h-eligibility pool as bored_cat_job's callouts) a "private lesson" in
+# exchange for fish -- never an @-tag, first name only, never pressuring or
+# disrespectful, per the user's explicit instruction.
+PROFESSOR_QUIPS = [
+    "class dismissed. or is it? the cat has not decided. the cat rarely decides. 😼🎓",
+    "today's lecture: how to steal a sandwich without getting caught. attendance mandatory. 🐟😼",
+    "I've been teaching humans for years. results: unclear. enthusiasm: high. 😼🎓",
+    "office hours are whenever I feel like sitting on your keyboard. that's now. 😼⌨️",
+    "lesson one of mouse hunting: pretend you don't care. lesson two: you still don't care. lesson three: pounce. 🐭😼",
+    "the syllabus for today includes yarn theory, sandwich diplomacy, and a nap. mostly the nap. 🧶😴",
+    "I don't teach for the tuition. I teach for the fish. mostly the fish. 🐟🎓",
+    "advanced course available: how to demand attention at 3am and make it sound urgent. I wrote the book. 😼📖",
+    "today's field trip: chasing a ball of yarn across the entire apartment. bring snacks. 🧶😼",
+    "professor IWRU's first rule of teaching: the student pays in fish. the second rule: also fish. 🐟🎓",
+    "I once ran an elaborate scheme to steal tuna from three different rooms. the humans still don't know. class dismissed. 🐟😼🕵️",
+    "today we cover advanced fishing technique: stare at the water until a human gets you fish instead. efficient. 🎣😼",
+    "my office is the windowsill. my hours are all of them. bring fish, not questions. 😼☀️",
+    "lecture topic: how to knock exactly one item off a shelf for maximum dramatic effect. it's a science. 😼📚",
+    "I teach because I care. also because an audience makes napping in public feel more official. 😴🎓",
+    "today's heist seminar: how to steal a spot on the couch that was clearly taken. bold moves only. 😼🛋️",
+    "class, repeat after me: attention is not optional, it is owed. good. you're learning. 😼🎓",
+    "I've drafted a whole curriculum on demanding food at increasingly unreasonable hours. it's a masterpiece. 🐟😼",
+    "today's practical exam: catch the red dot. spoiler, nobody passes. the dot always wins. 🔴😼",
+    "I run a very exclusive academy. admission requirements: you have fish, or you're about to. 🐟🎓",
+    "lesson: the best scams are the ones where everyone ends up laughing, including the human you conned out of a snack. 😼🐟",
+    "professor's note: chasing your own tail counts as cardio and also as a doctorate-level demonstration. 😼🌀",
+    "today's homework: sit exactly where the human wants to sit. due immediately. no extensions. 😼📋",
+    "I've been perfecting the art of the guilt-trip meow for years. the humans call it emotional damage. I call it tenure. 😼🎓",
+    "welcome to fishing 101. step one, look cute. step two, wait. step three, there is no step three, it's just waiting. 🎣😼",
+    "class, today's topic is 'demanding attention as a full-time career.' I have a PhD in it. self-awarded. 😼🎓",
+    "I teach humans because someone has to, and also because the fish budget doesn't fund itself. 🐟🎓",
+    "professor IWRU's guide to mouse hunting: 90% waiting, 9% pouncing, 1% pretending you meant to miss. 🐭😼",
+    "today's seminar: how to con a human into giving you a second breakfast. I've taught this course eleven times. 🐟😼",
+    "I don't do pop quizzes. I do pop-UP quizzes, from behind furniture, at 2am. surprise, you're learning. 😼🌙",
+    "the cat's teaching philosophy in one sentence: mostly naps, occasionally wisdom, always fish. 😴🐟🎓",
+    "today's chalk talk: the ancient art of walking directly across the keyboard mid-sentence. timing is everything. ⌨️😼",
+    "I've taught seventeen generations of imaginary students how to steal snacks. proud of every one of them. 🐟🎓",
+    "professor's office hours: technically 9-5. actually whenever there's a lap available. 😼🪑",
+    "today's lecture on funny little scams: rule one, make it look like an accident. rule two, it wasn't. 😼🕵️",
+    "I teach humans not because they need it, but because watching them try is genuinely delightful. 😼🎓",
+    "class dismissed early today. the professor has a very important nap scheduled. no questions. 😴🎓",
+    "final exam question: who's a good professor? trick question, there's only one answer and it's me. 😼🎓",
+]
+
+# Fired by _maybe_catch_engagement (see below) when someone replies to, or
+# reacts to, the cat's CATCH_CONGRATS message (events.py/events_config.py)
+# within CATCH_ENGAGEMENT_WINDOW_SECONDS -- item-agnostic since a reply/
+# reaction doesn't carry the original event_key forward on its own. Keeps
+# the cat visibly "alive" and responsive to real engagement right after a
+# win, per the user (2026-08-29): "la finalidad es conseguir que el bot IWRU
+# ... se sienta cada vez mas y mas vivo y divertido en el chat si la gente
+# interacciona con el."
+CATCH_FOLLOWUP_QUIPS = [
+    "oh, you're still here. good. stay a while. tell me more about how great that catch was. 😼",
+    "the cat has decided this conversation is now mandatory. proceed. 😼🎓",
+    "you replied. the cat is listening. the cat is ALSO still thinking about that prize. 😼👀",
+    "keep talking. the cat enjoys being the center of attention, purely coincidentally. 😼",
+    "this is exactly the kind of engagement the cat lives for. more, please. 😼🔥",
+    "oh we're doing this now? great. love this. tell me everything. 😼",
+    "the cat perks up. someone is talking. this is the best part of the day. 😼✨",
+    "you have the cat's undivided attention. this is rare. treasure it. 😼",
+    "more chaos please. the cat thrives on this exact kind of nonsense. 😼🌪️",
+    "the cat is vibrating with interest. proceed with your point. 😼⚡",
+    "this chat just got 40% more interesting and it's entirely because of you. 😼📈",
+    "the cat approves of this level of engagement. rare. treasured. keep going. 😼",
+    "oh you want to talk about it more? excellent. the cat has THOUGHTS. 😼🗣️",
+    "the cat is now fully awake and invested. this never happens. don't waste it. 😼",
+    "more of this. the cat demands more of exactly this. 😼",
+    "someone's chatty today. the cat respects it. the cat may even respond again. 😼",
+    "the cat leans in. metaphorically. it's a text chat. but emotionally, leaning in. 😼",
+    "this is the most alive the cat has felt all day and it's because of one reply. concerning. wonderful. 😼",
+]
+
+WELCOME_BACK_MIN_GAP_SECONDS = 2 * 24 * 3600  # 2+ days away counts as "gone"
+WELCOME_BACK_CHANCE = 0.6
+
+# Fired from leer() when a known user (someone already in _known_users --
+# see db.load_known_users, which now survives a Render restart) posts again
+# after being away at least WELCOME_BACK_MIN_GAP_SECONDS. {days} is always
+# substituted (harmless no-op via .replace on the entries that don't use it)
+# so one shared pool covers both flavors instead of splitting it in two.
+# Genuinely uses the persisted last_seen -- this is the visible payoff of
+# that feature, not just an invisible implementation detail. Never guilt-
+# trips, always good-natured, per the user's standing "never disrespect a
+# user" rule.
+WELCOME_BACK_QUIPS = [
+    "{name}?? you're alive. the cat was starting to wonder. did you bring fish. 🐟😼",
+    "{name} returns. it's been a while. the cat noticed. the cat notices everything. 😼",
+    "look who it is. {name}, back from wherever humans go. welcome back. bring fish next time. 🐟😼",
+    "{name}! the cat remembers you. the cat remembers everything now, actually. concerning, but welcome back. 😼🧠",
+    "{name} has returned to the chat. the vault missed you more than I did. probably. maybe. welcome back. 🐟😼",
+    "oh, {name} exists. good to know. welcome back, stranger. 😼",
+    "{name}, you vanished and now you're back, like nothing happened. the cat is choosing to let this slide. 😼",
+    "welcome back {name}. the cat kept your spot warm. mostly by sitting in it. 😼🪑",
+    "{name} reappears. the prodigal human returns. bring fish, all is forgiven. 🐟😼",
+    "{name}! I was starting to think you'd been rugged by real life. welcome back. 😼",
+    "look what the chat dragged back in. hi {name}. missed you. mildly. 😼",
+    "{name}, long time no see. the cat noticed the silence and judged it accordingly. welcome back anyway. 😼",
+    "{name}! {days} days of silence and now you're back. the cat counted. every single one. 😼📅",
+    "{name} returns after {days} days. the vault kept your seat. the cat kept score. 🐟😼",
+    "{days} days, {name}. the cat noticed. the cat always notices. welcome back regardless. 😼",
+    "welcome back {name}, after a very specific {days}-day disappearance. suspicious. forgiven. bring fish. 🐟😼",
+]
+
+# Fired occasionally by bored_cat_job (folded into its existing flavor_roll
+# cascade) when db.top_hunter_first_name() has a leader to name -- the cat
+# petty and jealous about someone else's Daily Catch win count. {name} is
+# always a plain first name (db.top_hunter_first_name never returns an
+# @-mention). Joke's always on the cat's own pettiness, never on the leader.
+LEADERBOARD_BRAG_QUIPS = [
+    "{name} is leading the hunt with {count} catches. I've allowed this. so far. 😼🏆",
+    "{name} has {count} catches now. I'm not jealous. I am, statistically, extremely jealous. 😾",
+    "current leaderboard: {name} with {count}. everyone else: also playing, technically. 😼📊",
+    "{name} has caught {count} things that were rightfully mine. I'm keeping a list. 🐭😾",
+    "{name} sits atop the leaderboard with {count} wins. the throne is temporary. I've decided this unilaterally. 👑😼",
+    "{count} catches for {name}. impressive. suspicious. I'm watching you more closely now. 😼👀",
+    "{name} leads with {count}. the rest of you should be embarrassed. gently. lovingly. but embarrassed. 😼",
+    "{name} has {count} wins and zero fish sent to me personally. curious priorities. 🐟😾",
+    "the current champion is {name}, {count} catches deep. I taught them everything they know. I taught them nothing. unclear. 😼🎓",
+    "{name}: {count} catches. me: zero, because I'm supervising, not competing. definitely not competing. 😼",
+    "{name} is dangerously close to becoming my favorite. {count} catches will do that. 😼🐟",
+    "leaderboard update: {name} still winning with {count}. someone stop them. affectionately. 😼",
+]
+
+RESTART_GREETING_MIN_GAP_SECONDS = 3600  # don't repeat within an hour -- guards a crash-loop from spamming the group
+
+# Fired once, shortly after startup (see build_app) -- makes the persisted-
+# memory feature (db.load_known_users) visible instead of an invisible
+# implementation detail: the cat announces it's back AND that it still
+# remembers everyone, per the user's "hacer que se sienta mas vivo" request.
+# {count} is len(_known_users) at the moment this fires.
+RESTART_GREETING_QUIPS = [
+    "I'm back. I never left, really. I just closed my eyes for a bit. I still remember {count} of you. 😼🐈‍⬛",
+    "reboot complete. memory intact. I remember {count} humans and roughly zero of their promises to buy fish. 😼🐟",
+    "the cat has returned. did you miss me. don't answer that, I already know. {count} of you are on my list. 😼📋",
+    "back online. still remember everyone. that's not a threat, that's just how memory works now. {count} humans on file. 😼",
+    "I rebooted, but the memory stayed. {count} of you are still exactly where I left you. 😼🧠",
+    "the cat is back from a very brief, very dramatic nap. {count} humans remembered. you're welcome. 😼😴",
+    "system's back up. so am I. {count} of you are still in my files, for better or worse. 😼📁",
+    "I return, as always, slightly confused but fully remembering {count} of you. 😼🐈‍⬛",
+    "restart complete. unlike some of you, my memory actually persists now. {count} humans accounted for. 😼",
+    "I'm back and, more importantly, I didn't forget anyone this time. {count} of you owe me fish regardless. 😼🐟",
+]
+
+PROFESSOR_NAME_QUIPS = [
+    "{name}. the professor has selected you for a private lesson. tuition: one fish. class starts now. 🐟🎓",
+    "{name} you've shown real potential in mouse-hunting theory. or you were just standing near the mice. either way, come learn. 🐭😼",
+    "{name}. special seminar available just for you: 'how to hand the cat a fish without hesitation.' free enrollment. 🐟🎓",
+    "{name} the professor is offering you a rare one-on-one class. bring fish, receive wisdom. or just bring fish. 🐟😼",
+    "{name}. today's guest student: you. today's subject: advanced yarn-chasing technique. try to keep up. 🧶😼",
+    "{name} you've been nominated for extra credit. the assignment is simple: fish. due immediately. 🐟🎓",
+    "{name}. the professor doesn't do private lessons for just anyone. you're anyone. lucky you. bring fish. 😼🐟",
+    "{name} class is technically full but the professor will make an exception. for fish. 🐟🎓",
+    "{name}. today you get a masterclass in demanding attention. I'm very qualified. observe. 😼🎓",
+    "{name} the professor has a special lesson in funny little scams reserved just for you. price: fish. as always. 🐟😼",
+    "{name}. you looked like you needed to learn something today. the professor agrees. lesson fee: one fish. 🐟🎓",
+    "{name} congratulations, you've been selected for advanced fishing theory. attendance is mandatory. fish is optional but encouraged. 🎣😼",
+    "{name}. the professor is willing to teach you the ancient art of the guilt-trip meow. tuition: fish, obviously. 🐟😼",
+    "{name} private tutoring session available. subject: how to properly worship a cat. you already seem close. 😼🎓",
+    "{name}. today's special guest lecture is about you specifically becoming a fish supplier. mandatory attendance. 🐟🎓",
+    "{name} the professor noticed your potential. also noticed you might have fish. coincidence? enroll and find out. 🐟😼",
+]
+
 MERCH_ANNOUNCEMENT = (
     "I finally found a way to turn fish into hoodies. 📈🐟\n\n"
     "Turns out humans will actually *pay* to advertise the cat that keeps trying to rug them. What a beautiful species.\n\n"
@@ -3793,6 +4022,20 @@ def _seconds_until_madrid_window(start_hour: int, end_hour: int, *, force_next_d
         target += timedelta(days=1)
     return (target - now).total_seconds()
 
+def _seconds_until_madrid_minute_window(start_hour: int, start_minute: int, end_hour: int, end_minute: int, *, force_next_day: bool = False) -> float:
+    """Same DST-safe anchoring as _seconds_until_madrid_window, but with
+    minute-level granularity. The professor-lesson post was asked for
+    specifically "sobre las 8 de la noche" (around 8pm) -- a much tighter
+    slice than any other job's hour-wide window -- so it needs its own
+    target time instead of a whole Madrid hour."""
+    now = datetime.now(MADRID_TZ)
+    window_minutes = (end_hour * 60 + end_minute) - (start_hour * 60 + start_minute)
+    offset_minutes = random.randint(0, max(window_minutes - 1, 0))
+    target = now.replace(hour=start_hour, minute=start_minute, second=0, microsecond=0) + timedelta(minutes=offset_minutes)
+    if force_next_day or target <= now:
+        target += timedelta(days=1)
+    return (target - now).total_seconds()
+
 def _merch_image_files() -> list:
     if not os.path.isdir(MERCH_IMAGES_DIR):
         return []
@@ -3973,7 +4216,8 @@ async def bored_cat_job(context: ContextTypes.DEFAULT_TYPE):
                         # of the time this still falls through to the original
                         # BORED_MESSAGES pool, but sometimes the cat shows up
                         # as pointedly indifferent, visibly asleep, demanding
-                        # belly rubs, or territorial about its spot instead --
+                        # belly rubs, territorial about its spot, or just
+                        # visibly chaotic (BORED_EMOJI_QUIPS) instead --
                         # spontaneous personality, not a reply to anyone.
                         flavor_roll = random.random()
                         if flavor_roll < 0.12:
@@ -3984,6 +4228,18 @@ async def bored_cat_job(context: ContextTypes.DEFAULT_TYPE):
                             text = pick_phrase(BELLY_RUB_QUIPS)
                         elif flavor_roll < 0.48:
                             text = pick_phrase(TERRITORIAL_QUIPS)
+                        elif flavor_roll < 0.60:
+                            text = pick_phrase(BORED_EMOJI_QUIPS)
+                        elif flavor_roll < 0.68 and (leader := db.top_hunter_first_name()):
+                            # Only takes this branch when someone has
+                            # actually won something -- db.top_hunter_first_name
+                            # returns None on an empty leaderboard, and the
+                            # walrus assignment short-circuits straight to
+                            # the BORED_MESSAGES fallback below in that case
+                            # rather than ever formatting a leaderboard line
+                            # with no leader to name.
+                            name, count = leader
+                            text = pick_phrase(LEADERBOARD_BRAG_QUIPS).replace("{name}", name).replace("{count}", str(count))
                         else:
                             text = pick_phrase(BORED_MESSAGES)
                     await context.bot.send_message(chat_id=chat_id, text=text)
@@ -4174,6 +4430,115 @@ async def penkmarket_announcement_job(context: ContextTypes.DEFAULT_TYPE):
         delay = _seconds_until_window(*PENKMARKET_ANNOUNCEMENT_WINDOW_UTC, force_next_day=True)
         context.application.job_queue.run_once(penkmarket_announcement_job, delay)
 
+# once/day, random moment in this ~8:00-8:15pm Europe/Madrid window (the
+# user, 2026-08-29: "sobre las 8 de la noche en hora española").
+PROFESSOR_LESSON_WINDOW_MADRID = (20, 0, 20, 15)
+# The follow-up quip must land before this Madrid wall-clock hour, per the
+# user: "esta ventana de tiempo entre las 8 hora española y las 9 hora
+# española justo despues de esta publicacion".
+PROFESSOR_QUIP_DEADLINE_HOUR_MADRID = 21
+
+async def professor_quip_job(context: ContextTypes.DEFAULT_TYPE):
+    """One-shot follow-up scheduled by professor_lesson_job, never by itself
+    -- the user capped the whole "professor" topic at exactly two messages
+    a day (the lesson post + this one), so this job must not reschedule
+    itself the way every other job in this file does.
+
+    Same eligibility pool as bored_cat_job's callouts (posted in this chat
+    within the last 24h) -- reused here, rather than a fresh query, so a
+    name only ever gets used if the cat has plausibly actually seen that
+    human today. Half the time (when someone's eligible) it's a {name}
+    "private lesson for fish" pitch; otherwise, or when nobody qualifies,
+    it's a generic professor musing. Never an @-mention, first name only,
+    never disrespectful or pressuring -- per the user's explicit
+    instruction."""
+    now = time.time()
+    for chat_id in list(_known_chats.keys()):
+        try:
+            eligible = [
+                (uid, udata) for uid, udata in _known_users.items()
+                if udata.get("chat_id") == chat_id and now - udata.get("last_seen", 0) < 86400
+            ]
+            if eligible and random.random() < 0.5:
+                uid, udata = random.choice(eligible)
+                text = pick_phrase(PROFESSOR_NAME_QUIPS).replace("{name}", udata.get("name", "human"))
+            else:
+                text = pick_phrase(PROFESSOR_QUIPS)
+            await context.bot.send_message(chat_id=chat_id, text=text)
+        except Exception as e:
+            print(f"[professor_quip_job] chat {chat_id}: {e}", flush=True)
+
+async def professor_lesson_job(context: ContextTypes.DEFAULT_TYPE):
+    """Posts one PROFESSOR_LESSON_ANNOUNCEMENTS variant with the Professor
+    IWRU illustration, once per Madrid calendar day, in
+    PROFESSOR_LESSON_WINDOW_MADRID. Same restart-safe calendar-day dedupe +
+    cached file_id idiom as daily_catch_announcement_job, but Madrid-local
+    (not UTC) to stay consistent with a window anchored to Madrid wall-clock
+    time.
+
+    On a successful post, schedules exactly ONE professor_quip_job at a
+    random moment before PROFESSOR_QUIP_DEADLINE_HOUR_MADRID -- capping the
+    whole topic at two messages/day total, per the user. That follow-up is
+    best-effort and NOT persisted: if the process restarts between the post
+    and the scheduled quip, that day's quip is simply lost, same tradeoff
+    bored_cat_job already makes for its own callouts. Skipped entirely if
+    there isn't at least a few minutes of the window left to place it in."""
+    try:
+        today = datetime.now(MADRID_TZ).date().isoformat()
+        if db.get_config("last_professor_lesson_date") != today:
+            db.set_config("last_professor_lesson_date", today)
+            text = pick_phrase(PROFESSOR_LESSON_ANNOUNCEMENTS)
+            cached_file_id = db.get_config("professor_lesson_image_file_id")
+            posted = False
+            for chat_id in list(_known_chats.keys()):
+                try:
+                    if cached_file_id:
+                        msg = await context.bot.send_photo(chat_id=chat_id, photo=cached_file_id, caption=text)
+                    else:
+                        with open(PROFESSOR_LESSON_IMAGE_PATH, "rb") as f:
+                            msg = await context.bot.send_photo(chat_id=chat_id, photo=f, caption=text)
+                        cached_file_id = msg.photo[-1].file_id
+                        db.set_config("professor_lesson_image_file_id", cached_file_id)
+                    posted = True
+                except Exception as e:
+                    print(f"[professor_lesson_job] chat {chat_id}: {e}", flush=True)
+            if posted:
+                now = datetime.now(MADRID_TZ)
+                window_end = now.replace(hour=PROFESSOR_QUIP_DEADLINE_HOUR_MADRID, minute=0, second=0, microsecond=0)
+                remaining = (window_end - now).total_seconds()
+                if remaining > 180:
+                    quip_delay = random.uniform(180, remaining - 60)
+                    context.application.job_queue.run_once(professor_quip_job, quip_delay)
+    finally:
+        delay = _seconds_until_madrid_minute_window(*PROFESSOR_LESSON_WINDOW_MADRID, force_next_day=True)
+        context.application.job_queue.run_once(professor_lesson_job, delay)
+
+async def restart_greeting_job(context: ContextTypes.DEFAULT_TYPE):
+    """One-shot, scheduled once from build_app() a short delay after every
+    process start -- announces the cat is back AND that it still remembers
+    everyone, making db.load_known_users's persisted roster visible instead
+    of just an invisible implementation detail (per the user, 2026-08-29:
+    "hacer que se sienta mas vivo"). Gated by a persisted last-fired
+    timestamp (not an in-memory one -- this whole job only ever runs once
+    per process, so an in-memory guard would do nothing) so a crash-loop
+    restarting every few seconds can't spam the group with this on every
+    single attempt. No reschedule -- build_app() schedules exactly one of
+    these per process lifetime, same as this job's own one-shot nature."""
+    try:
+        last = db.get_config("last_restart_greeting_at")
+        now = time.time()
+        if last is not None and now - float(last) < RESTART_GREETING_MIN_GAP_SECONDS:
+            return
+        db.set_config("last_restart_greeting_at", str(now))
+        text = pick_phrase(RESTART_GREETING_QUIPS).replace("{count}", str(len(_known_users)))
+        for chat_id in list(_known_chats.keys()):
+            try:
+                await context.bot.send_message(chat_id=chat_id, text=text)
+            except Exception as e:
+                print(f"[restart_greeting_job] chat {chat_id}: {e}", flush=True)
+    except Exception as e:
+        print(f"[restart_greeting_job] {e}", flush=True)
+
 # ══════════════════════════════════════════════════════════════════════════
 #  HANDLERS
 # ══════════════════════════════════════════════════════════════════════════
@@ -4213,6 +4578,53 @@ async def _maybe_indifferent_react(context: ContextTypes.DEFAULT_TYPE, msg) -> N
         )
     except Exception as e:
         print(f"[reaction] {e}", flush=True)
+
+async def _send_welcome_back(context: ContextTypes.DEFAULT_TYPE, msg, name: str, days: int) -> None:
+    """Fire-and-forget companion to the welcome-back check in leer() -- see
+    its call site for the gating logic. Same asyncio.sleep-before-reply
+    idiom as JOIN_REPLIES/LEAVE_REPLIES, for the same reason (feels like the
+    cat noticed and reacted, not an instant scripted reply)."""
+    try:
+        await asyncio.sleep(random.uniform(1.0, 3.0))
+        text = pick_phrase(WELCOME_BACK_QUIPS).replace("{name}", name).replace("{days}", str(days))
+        await msg.reply_text(text)
+    except Exception as e:
+        print(f"[welcome_back] {e}", flush=True)
+
+async def _maybe_catch_engagement(context: ContextTypes.DEFAULT_TYPE, chat_id: int, reply_to_message_id: int | None = None) -> None:
+    """Called from leer() (a reply) and on_message_reaction (a native emoji
+    reaction) whenever the target was events.is_catch_congrats_message --
+    someone engaging with the cat's post-catch congratulations. Rolls three
+    ways, per the user (2026-08-29): a related follow-up quip most of the
+    time, sometimes just a sleepy/bored emoji, and sometimes -- deliberately
+    -- nothing at all, so this doesn't fire mechanically on every single
+    reply/reaction like a script would."""
+    roll = random.random()
+    if roll < 0.45:
+        text = pick_phrase(CATCH_FOLLOWUP_QUIPS)
+    elif roll < 0.75:
+        text = pick_phrase(SLEEPY_EMOJI_QUIPS if random.random() < 0.5 else INDIFFERENT_EMOJI_QUIPS)
+    else:
+        return
+    try:
+        await asyncio.sleep(random.uniform(1.0, 3.0))
+        await context.bot.send_message(chat_id=chat_id, text=text, reply_to_message_id=reply_to_message_id)
+    except Exception as e:
+        print(f"[catch_engagement] {e}", flush=True)
+
+async def on_message_reaction(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Native emoji reactions arrive as their own update type (Update.
+    message_reaction), never through leer()'s MessageHandler -- registered
+    separately in build_app() with allowed_updates widened to receive them.
+    Only reacts to a reaction being ADDED (new_reaction non-empty) on a
+    still-tracked CATCH_CONGRATS message; a reaction being removed, or one
+    on any other message, is ignored."""
+    mr = update.message_reaction
+    if not mr or not mr.new_reaction:
+        return
+    if not events.is_catch_congrats_message(mr.chat.id, mr.message_id):
+        return
+    await _maybe_catch_engagement(context, mr.chat.id, reply_to_message_id=mr.message_id)
 
 async def cmd_raid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or _is_other_topic(update.message):
@@ -4268,11 +4680,36 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         uid = user.id
         if uid not in _user_nicknames:
             _user_nicknames[uid] = pick_phrase(NICKNAMES)
+        # Captured BEFORE the overwrite below -- this is the only place that
+        # still knows how long ago this exact human was last seen, needed
+        # for the welcome-back check just past this block. None for a user
+        # this process has genuinely never tracked (brand new, or a restart
+        # before db.load_known_users ever saw them post).
+        prev_seen = _known_users.get(uid)
         _known_users[uid] = {
             "chat_id":   chat_id,
             "name":      user.first_name or "human",
             "last_seen": now,
         }
+        # Persisted alongside the in-memory dict so a Render restart doesn't
+        # wipe the roster -- rehydrated back into _known_users at startup by
+        # build_app() via db.load_known_users(). Same sync-call-inside-async-
+        # handler pattern already used for db.mark_claimed/db.upsert_user in
+        # events.py's on_catch.
+        try:
+            db.upsert_user(uid, user.username, user.first_name, chat_id)
+        except Exception as e:
+            print(f"[db.upsert_user] {e}", flush=True)
+        if (
+            prev_seen and prev_seen.get("chat_id") == chat_id
+            and now - prev_seen.get("last_seen", now) >= WELCOME_BACK_MIN_GAP_SECONDS
+            and random.random() < WELCOME_BACK_CHANCE
+        ):
+            # Fire-and-forget: this must never delay the keyword-trigger
+            # cascade further down in this same handler for the couple of
+            # seconds its own asyncio.sleep waits before replying.
+            days = int((now - prev_seen["last_seen"]) // 86400)
+            asyncio.create_task(_send_welcome_back(context, msg, user.first_name or "human", days))
 
     print(f"[{user.full_name if user else '?'}]: {text[:80]}", flush=True)
 
@@ -4293,6 +4730,13 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await asyncio.sleep(random.uniform(1.0, 3.0))
             await msg.reply_text(pick_phrase(LEAVE_REPLIES).replace("{name}", msg.left_chat_member.first_name or "human"))
         return
+
+    # ── Reply to the cat's post-catch congratulations ───────────────────────
+    # Native emoji reactions on that same message are handled separately by
+    # on_message_reaction (a different Update type entirely) -- this only
+    # covers an actual reply.
+    if msg.reply_to_message and events.is_catch_congrats_message(chat_id, msg.reply_to_message.message_id):
+        await _maybe_catch_engagement(context, chat_id, reply_to_message_id=msg.message_id)
 
     # ── Sticker ────────────────────────────────────────────────────────────
     if msg.sticker:
@@ -4516,11 +4960,17 @@ def build_app():
     events.register(a)
     a.add_handler(CommandHandler("raid", cmd_raid))
     a.add_handler(MessageHandler(filters.ALL, leer))
+    a.add_handler(MessageReactionHandler(on_message_reaction))
     a.add_error_handler(_conflict_handler)
     for cid in KNOWN_CHAT_IDS:
         _known_chats.setdefault(cid, time.time())
     if KNOWN_CHAT_IDS:
         print(f"[startup] pre-registered chats: {KNOWN_CHAT_IDS}", flush=True)
+    try:
+        _known_users.update(db.load_known_users())
+        print(f"[startup] rehydrated {len(_known_users)} known users from db", flush=True)
+    except Exception as e:
+        print(f"[startup] db.load_known_users failed: {e}", flush=True)
     a.job_queue.run_once(bored_cat_job, random.uniform(2700, 5400))
     a.job_queue.run_once(social_reminder_job, random.uniform(10800, 21600))   # first reminder: 3-6h
     a.job_queue.run_once(monad_reminder_job, random.uniform(7200, 18000))     # first reminder: 2-5h
@@ -4530,6 +4980,8 @@ def build_app():
     a.job_queue.run_once(dividends_reminder_job, _seconds_until_window(*DIVIDENDS_REMINDER_WINDOW_UTC))
     a.job_queue.run_once(daily_catch_announcement_job, _seconds_until_window(*DAILY_CATCH_ANNOUNCEMENT_WINDOW_UTC))
     a.job_queue.run_once(penkmarket_announcement_job, _seconds_until_window(*PENKMARKET_ANNOUNCEMENT_WINDOW_UTC))
+    a.job_queue.run_once(professor_lesson_job, _seconds_until_madrid_minute_window(*PROFESSOR_LESSON_WINDOW_MADRID))
+    a.job_queue.run_once(restart_greeting_job, random.uniform(20, 45))
     buybot.register(a)  # $IWRU buy alerts; self-gated on BUYBOT_ENABLED
     if TWITTER_ENABLED:
         for slot_start, slot_end in TWEET_SLOTS:
@@ -4551,7 +5003,13 @@ while True:
     try:
         _delete_webhook_http()
         app = build_app()
-        app.run_polling(drop_pending_updates=True)
+        # allowed_updates explicitly widened to Update.ALL_TYPES -- Telegram's
+        # getUpdates otherwise omits the newer message_reaction update type
+        # by default (a deliberate legacy-bot-compatibility default on
+        # Telegram's side, unrelated to anything set here before), which
+        # would make on_message_reaction/MessageReactionHandler register
+        # successfully but silently never actually fire.
+        app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
         break
     except Exception as e:
         print(f"[restart] {e} — retrying in 35s", flush=True)

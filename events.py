@@ -53,6 +53,32 @@ def _row_is_legacy_photo_message(row) -> bool:
     return bool(row["has_image"]) and row["sticker_message_id"] is None
 
 
+# chat_id -> {"message_id": int, "expires_at": float}. Tracks the most recent
+# CATCH_CONGRATS message posted per chat, so bot.py's leer() (a reply) and its
+# MessageReactionHandler (a native emoji reaction) can tell whether they're
+# looking at a reaction to the cat's win-congrats and, if so, roll for a
+# CATCH_FOLLOWUP_QUIPS follow-up -- see note_catch_congrats/
+# is_catch_congrats_message below and on_catch's call site.
+_recent_catch_congrats: dict[int, dict] = {}
+
+
+def note_catch_congrats(chat_id: int, message_id: int) -> None:
+    _recent_catch_congrats[chat_id] = {
+        "message_id": message_id,
+        "expires_at": time.time() + cfg.CATCH_ENGAGEMENT_WINDOW_SECONDS,
+    }
+
+
+def is_catch_congrats_message(chat_id: int, message_id: int) -> bool:
+    """True only if message_id is the CATCH_CONGRATS message currently
+    tracked for chat_id AND we're still inside the post-catch engagement
+    window -- a stale/expired or unrelated message_id (including a reply to
+    some OTHER, older congrats message once a newer one has replaced it in
+    the dict) returns False."""
+    info = _recent_catch_congrats.get(chat_id)
+    return bool(info and info["message_id"] == message_id and time.time() < info["expires_at"])
+
+
 _bot_username_cache = None
 
 
@@ -938,6 +964,19 @@ async def on_catch(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # -- the status check at the top of this handler is what actually blocks
     # a second catch and shows the "too late" popup instead).
     await _edit_group_message(context, fresh_check, caught_text, clear_keyboard=False)
+
+    # Cat-voice congratulations, item-flavored (CATCH_CONGRATS), sent as its
+    # OWN separate chat message -- deliberately never merged into caught_text
+    # above, so this purely-cosmetic bit can never risk interfering with that
+    # careful CAS-guarded edit. A failure here is just a missed joke, not
+    # worth taking the real claim/reward flow down with it.
+    try:
+        pool = cfg.CATCH_CONGRATS.get(row["event_key"], cfg.CATCH_CONGRATS["mouse"])
+        congrats_text = random.choice(pool).replace("{name}", user.first_name or "human")
+        congrats_msg = await context.bot.send_message(chat_id=fresh_check["chat_id"], text=congrats_text)
+        note_catch_congrats(fresh_check["chat_id"], congrats_msg.message_id)
+    except TelegramError as e:
+        print(f"[events] catch congrats failed: {e}", flush=True)
 
     # Re-check AGAIN right before notifying the Owner: the group-message
     # edit's own await just above is a SECOND interleaving opportunity for
