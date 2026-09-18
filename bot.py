@@ -2743,10 +2743,10 @@ MERCH_ANNOUNCEMENT = (
     "Turns out humans will actually *pay* to advertise the cat that keeps trying to rug them. What a beautiful species.\n\n"
     "Grab your official IWRU merch before I spend all the profits on tuna and suspicious on-chain experiments.\n\n"
     "🛍️ Collection available now:\n"
-    "[Unchained Lab Launchpad](https://www.unchainedlab.net/launchpad/iwru-universe)"
+    "[Unchained Lab Launchpad](https://www.unchainedlab.net/launchpad/iwru-universe-0n6e)"
 )
 
-MERCH_LAUNCHPAD_URL = "https://www.unchainedlab.net/launchpad/iwru-universe"
+MERCH_LAUNCHPAD_URL = "https://www.unchainedlab.net/launchpad/iwru-universe-0n6e"
 MERCH_TWEET_TAGLINE = "Chaos, now within reach. That's IWRU. 🐈‍⬛"
 
 # Hashtag pool for merch-drop tweets. #IWRU is the brand tag and is always
