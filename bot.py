@@ -5,7 +5,7 @@ import random
 import re
 import threading
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from zoneinfo import ZoneInfo
 from telegram import ReactionTypeEmoji, Update
@@ -27,6 +27,7 @@ TOKEN = os.environ["TOKEN"]
 import events
 import db
 import buybot
+import paradox_cards
 import events_config as cfg
 
 # chats pre-registered via env var (KNOWN_CHAT_IDS="-1003859192674,-100...") so
@@ -4020,7 +4021,9 @@ def _seconds_until_madrid_window(start_hour: int, end_hour: int, *, force_next_d
     target = now.replace(hour=start_hour, minute=0, second=0, microsecond=0) + timedelta(minutes=offset_minutes)
     if force_next_day or target <= now:
         target += timedelta(days=1)
-    return (target - now).total_seconds()
+    # UTC subtraction: same-ZoneInfo datetimes subtract as naive wall-clock times
+    # in Python (DST ignored), contrary to what the docstring above assumed.
+    return (target.astimezone(timezone.utc) - now.astimezone(timezone.utc)).total_seconds()
 
 def _seconds_until_madrid_minute_window(start_hour: int, start_minute: int, end_hour: int, end_minute: int, *, force_next_day: bool = False) -> float:
     """Same DST-safe anchoring as _seconds_until_madrid_window, but with
@@ -4034,7 +4037,9 @@ def _seconds_until_madrid_minute_window(start_hour: int, start_minute: int, end_
     target = now.replace(hour=start_hour, minute=start_minute, second=0, microsecond=0) + timedelta(minutes=offset_minutes)
     if force_next_day or target <= now:
         target += timedelta(days=1)
-    return (target - now).total_seconds()
+    # UTC subtraction: same-ZoneInfo datetimes subtract as naive wall-clock times
+    # in Python (DST ignored), contrary to what the docstring above assumed.
+    return (target.astimezone(timezone.utc) - now.astimezone(timezone.utc)).total_seconds()
 
 def _merch_image_files() -> list:
     if not os.path.isdir(MERCH_IMAGES_DIR):
@@ -4988,6 +4993,7 @@ def build_app():
             a.job_queue.run_once(tweet_slot_job, _seconds_until_window(slot_start, slot_end), data=(slot_start, slot_end))
         print(f"[twitter] {len(TWEET_SLOTS)} tweet jobs scheduled (UTC slots: {TWEET_SLOTS})", flush=True)
         a.job_queue.run_once(merch_tweet_job, _seconds_until_madrid_window(*MERCH_TWEET_WINDOW_MADRID))
+        paradox_cards.register(a)  # IWRU PARADOX card + first reply, 00:00 and 13:00 Madrid
     else:
         print("[twitter] disabled — set TWITTER_API_KEY/SECRET/ACCESS_TOKEN/ACCESS_TOKEN_SECRET to enable", flush=True)
     return a
