@@ -1,7 +1,7 @@
 """
 paradox_cards.py -- "card of the moment" posts on X for IWRU PARADOX (2026-10-04).
 
-Fernando: two IWRU PARADOX cards a day on X, at 00:00 and 13:00 Spain time,
+Fernando: two IWRU PARADOX cards a day on X, at 22:00 and 11:00 UTC,
 starting today; every card from IWRU PARADOX/public/cards goes out once before
 any repeats. The post is always titled "IWRU PARADOX" with a tagline in the line
 of "Choose your faction. Build your deck. Unleash the chaos." and
@@ -15,7 +15,8 @@ people to play/collect/progress, and the site link. 20+ variants of each text.
   serves, so the bot repo doesn't carry 44 MB of art.
 - Rotation persisted in events.db's config table (survives Render restarts and
   redeploys, the disk is persistent): a shuffled queue, refilled only when empty.
-- Exact times in Europe/Madrid, DST-aware. Per-slot, per-Madrid-date dedupe
+- Exact times in UTC (2026-10-10, Fernando: schedules are stated in UTC; was 00:00 / 13:00
+  Europe/Madrid, DST-aware -- the same instants in summer). Per-slot, per-UTC-date dedupe
   written BEFORE posting (same restart-safety idiom as bot.py's tweet jobs).
 - Self-gated: register() does nothing unless the four TWITTER_* keys are set.
 """
@@ -35,8 +36,8 @@ try:
 except ImportError:  # pragma: no cover
     tweepy = None
 
-MADRID_TZ = ZoneInfo("Europe/Madrid")
-CARD_SLOTS_MADRID = [(0, 0), (13, 0)]  # 00:00 and 13:00 Spain time
+SLOT_TZ = timezone.utc
+CARD_SLOTS_UTC = [(22, 0), (11, 0)]  # 22:00 and 11:00 UTC
 CARD_IMAGE_BASE = "https://iwillrugu.com/paradox/cards/"
 SITE_URL = "https://iwillrugu.com/"
 _MANIFEST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "paradox_cards.json")
@@ -151,15 +152,15 @@ def next_card() -> str:
     return chosen
 
 
-def seconds_until_madrid(hour: int, minute: int, *, now=None) -> float:
-    """Seconds until the next hh:mm wall-clock time in Spain (DST-aware)."""
-    now = now or datetime.now(MADRID_TZ)
+def seconds_until_slot(hour: int, minute: int, *, now=None) -> float:
+    """Seconds until the next hh:mm in SLOT_TZ (UTC: no DST, but the calendar-day logic is kept)."""
+    now = now or datetime.now(SLOT_TZ)
     target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
     if target <= now:
         # next calendar day at the same WALL-CLOCK time (not +24h, which drifts
         # by an hour across a DST change)
         d = (now + timedelta(days=1)).date()
-        target = datetime(d.year, d.month, d.day, hour, minute, tzinfo=MADRID_TZ)
+        target = datetime(d.year, d.month, d.day, hour, minute, tzinfo=SLOT_TZ)
     # Subtract in UTC: two datetimes sharing the same ZoneInfo subtract as naive
     # wall-clock times in Python, ignoring the DST jump (the 13:00 post would land
     # at 12:00 on the day the clocks go back).
@@ -235,11 +236,11 @@ def post_card(card: str, tagline: str, cat_line: str) -> tuple:
 
 
 async def card_slot_job(context):
-    """Posts one card at its exact Madrid slot, then reschedules the same slot for
+    """Posts one card at its exact UTC slot, then reschedules the same slot for
     the next day. try/finally so nothing can ever skip the reschedule."""
     hour, minute = context.job.data
     try:
-        today = datetime.now(MADRID_TZ).date().isoformat()
+        today = datetime.now(SLOT_TZ).date().isoformat()
         key = f"paradox_card_posted_{hour:02d}{minute:02d}"
         if db.get_config(key) == today:
             print(f"[paradox-cards] slot {hour:02d}:{minute:02d} already posted today, skipping", flush=True)
@@ -252,7 +253,7 @@ async def card_slot_job(context):
             print(f"[paradox-cards] post error (slot {hour:02d}:{minute:02d}, card {card}): {e}", flush=True)
     finally:
         # +90s so "now" is safely past this slot's minute when computing the next one
-        delay = seconds_until_madrid(hour, minute, now=datetime.now(MADRID_TZ) + timedelta(seconds=90)) + 90
+        delay = seconds_until_slot(hour, minute, now=datetime.now(SLOT_TZ) + timedelta(seconds=90)) + 90
         context.application.job_queue.run_once(card_slot_job, delay, data=(hour, minute))
 
 
@@ -260,8 +261,8 @@ def register(application) -> bool:
     if tweepy is None or not all(os.environ.get(k) for k in _KEYS):
         print("[paradox-cards] disabled (tweepy or TWITTER_* keys missing)", flush=True)
         return False
-    for hour, minute in CARD_SLOTS_MADRID:
-        delay = seconds_until_madrid(hour, minute)
+    for hour, minute in CARD_SLOTS_UTC:
+        delay = seconds_until_slot(hour, minute)
         application.job_queue.run_once(card_slot_job, delay, data=(hour, minute))
-        print(f"[paradox-cards] slot {hour:02d}:{minute:02d} Madrid scheduled in {delay/3600:.2f}h", flush=True)
+        print(f"[paradox-cards] slot {hour:02d}:{minute:02d} UTC scheduled in {delay/3600:.2f}h", flush=True)
     return True
