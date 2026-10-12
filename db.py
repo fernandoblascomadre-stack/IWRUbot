@@ -80,6 +80,11 @@ def init_db() -> None:
 _EVENTS_TABLE_MIGRATIONS = [
     ("has_image", "ALTER TABLE events ADD COLUMN has_image INTEGER NOT NULL DEFAULT 0"),
     ("sticker_message_id", "ALTER TABLE events ADD COLUMN sticker_message_id INTEGER"),
+    # 2026-10-12 PARADOX card prizes: prize = 'card:<rarity>' (NULL = the
+    # old IWRU reward in `reward`), prize_code = the one-time code, written
+    # the moment someone catches it.
+    ("prize", "ALTER TABLE events ADD COLUMN prize TEXT"),
+    ("prize_code", "ALTER TABLE events ADD COLUMN prize_code TEXT"),
 ]
 
 # Same idiom as _EVENTS_TABLE_MIGRATIONS, for the `users` table. chat_id
@@ -204,7 +209,7 @@ def load_known_users() -> dict:
 # ══════════════════════════════════════════════════════════════════════════
 def create_event(
     event_key: str, token: str, reward: int, chat_id: int, message_id: int, display_text: str, has_image: bool,
-    sticker_message_id: int = None,
+    sticker_message_id: int = None, prize: str = None,
 ) -> int:
     """One atomic INSERT covering everything known at creation time (event
     already posted to Telegram by the caller, so chat_id/message_id/
@@ -223,9 +228,9 @@ def create_event(
     text message when there's no sticker -- see events.py's
     _keyboard_message/_send_event_message."""
     cur = _conn.execute(
-        "INSERT INTO events (event_key, token, reward, chat_id, message_id, display_text, has_image, sticker_message_id, status, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'unclaimed', ?)",
-        (event_key, token, reward, chat_id, message_id, display_text, int(has_image), sticker_message_id, _now()),
+        "INSERT INTO events (event_key, token, reward, chat_id, message_id, display_text, has_image, sticker_message_id, prize, status, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'unclaimed', ?)",
+        (event_key, token, reward, chat_id, message_id, display_text, int(has_image), sticker_message_id, prize, _now()),
     )
     _conn.commit()
     return cur.lastrowid
@@ -367,6 +372,25 @@ def mark_claimed(event_id: int, winner_id: int, winner_username, winner_name: st
     )
     _conn.commit()
     return cur.rowcount > 0
+
+
+def set_prize_code(event_id: int, code: str) -> bool:
+    """Stores the card code of a just-caught card treasure, once: a code
+    already there is never replaced (the winner may already have it)."""
+    cur = _conn.execute(
+        "UPDATE events SET prize_code = ? WHERE id = ? AND status = 'claimed' AND prize_code IS NULL",
+        (code, event_id),
+    )
+    _conn.commit()
+    return cur.rowcount == 1
+
+
+def cards_distributed() -> int:
+    """Card codes actually delivered to a winner (status 'paid')."""
+    row = _conn.execute(
+        "SELECT COUNT(*) c FROM events WHERE status = 'paid' AND prize LIKE 'card:%'"
+    ).fetchone()
+    return row["c"]
 
 
 def set_wallet(event_id: int, wallet: str) -> bool:
@@ -587,7 +611,12 @@ def user_rewards_summary(telegram_id: int) -> dict:
         "SELECT COUNT(*) c FROM events WHERE winner_id = ? AND status != 'cancelled'",
         (telegram_id,),
     ).fetchone()["c"]
+    cards = _conn.execute(
+        "SELECT COUNT(*) c FROM events WHERE winner_id = ? AND status != 'cancelled' AND prize LIKE 'card:%'",
+        (telegram_id,),
+    ).fetchone()["c"]
     return {
+        "cards": cards,
         "won": won,
         "paid": paid,
         "pending": won - paid,

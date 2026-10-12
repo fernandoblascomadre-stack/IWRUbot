@@ -575,21 +575,21 @@ CALLOUT_QUIET = [
 # cat's personality to something actually happening in the bot right now,
 # instead of always being generic.
 CALLOUT_EVENT_LIVE = [
-    "{name}. there's a {emoji} {ev_name} loose in the vault right now, worth {reward} IWRU. someone should catch it. you, ideally. {emoji}😼",
-    "{name} a {emoji} {ev_name} just appeared and nobody's caught it yet. {reward} IWRU just sitting there. go. now. {emoji}😼",
-    "{name}. I would catch the {emoji} {ev_name} myself but I don't have thumbs. this is your moment. {reward} IWRU. go. {emoji}😼",
-    "{name} the vault is currently guarding a {emoji} {ev_name}. {reward} IWRU for whoever's fastest. I'm rooting for you, mildly. {emoji}😼",
-    "{name}. a {emoji} {ev_name} is live and unclaimed. {reward} IWRU. you're reading this instead of catching it. your call. {emoji}😼",
-    "{name} somewhere in this chat sits a {emoji} {ev_name} worth {reward} IWRU. I would tell you where. I did. it's here. go. {emoji}😼",
-    "{name}. the {emoji} {ev_name} has been unclaimed for a suspicious amount of time. {reward} IWRU, {name}. do something about it. {emoji}😼",
-    "{name} breaking: a {emoji} {ev_name} is up for grabs. {reward} IWRU. I'm telling you first. mostly because you're who I picked. {emoji}😼",
-    "{name}. I've been staring at the unclaimed {emoji} {ev_name} for a while now. {reward} IWRU. it won't catch itself. neither will I. {emoji}😼",
-    "{name} the vault dropped a {emoji} {ev_name} and it's still sitting there. {reward} IWRU. this message is basically a nudge. {emoji}😼",
-    "{name}. consider this an official cat alert: {emoji} {ev_name} unclaimed, {reward} IWRU on the line. move. {emoji}😼",
-    "{name} I don't do sports but if I did, this would be the moment I'd yell 'go' at you. {emoji} {ev_name}, {reward} IWRU, unclaimed. go. {emoji}😼",
-    "{name}. the {emoji} {ev_name} in the vault is watching you not catch it. {reward} IWRU. awkward. {emoji}😼",
-    "{name} I'd catch the {emoji} {ev_name} myself out of spite if I could. {reward} IWRU is just sitting there. embarrassing, honestly. {emoji}😼",
-    "{name}. today's vault special: one unclaimed {emoji} {ev_name}, {reward} IWRU. limited time, allegedly. go get it. {emoji}😼",
+    "{name}. there's a {emoji} {ev_name} loose in the vault right now, worth {reward}. someone should catch it. you, ideally. {emoji}😼",
+    "{name} a {emoji} {ev_name} just appeared and nobody's caught it yet. {reward} just sitting there. go. now. {emoji}😼",
+    "{name}. I would catch the {emoji} {ev_name} myself but I don't have thumbs. this is your moment. {reward}. go. {emoji}😼",
+    "{name} the vault is currently guarding a {emoji} {ev_name}. {reward} for whoever's fastest. I'm rooting for you, mildly. {emoji}😼",
+    "{name}. a {emoji} {ev_name} is live and unclaimed. {reward}. you're reading this instead of catching it. your call. {emoji}😼",
+    "{name} somewhere in this chat sits a {emoji} {ev_name} worth {reward}. I would tell you where. I did. it's here. go. {emoji}😼",
+    "{name}. the {emoji} {ev_name} has been unclaimed for a suspicious amount of time. {reward}, {name}. do something about it. {emoji}😼",
+    "{name} breaking: a {emoji} {ev_name} is up for grabs. {reward}. I'm telling you first. mostly because you're who I picked. {emoji}😼",
+    "{name}. I've been staring at the unclaimed {emoji} {ev_name} for a while now. {reward}. it won't catch itself. neither will I. {emoji}😼",
+    "{name} the vault dropped a {emoji} {ev_name} and it's still sitting there. {reward}. this message is basically a nudge. {emoji}😼",
+    "{name}. consider this an official cat alert: {emoji} {ev_name} unclaimed, {reward} on the line. move. {emoji}😼",
+    "{name} I don't do sports but if I did, this would be the moment I'd yell 'go' at you. {emoji} {ev_name}, {reward}, unclaimed. go. {emoji}😼",
+    "{name}. the {emoji} {ev_name} in the vault is watching you not catch it. {reward}. awkward. {emoji}😼",
+    "{name} I'd catch the {emoji} {ev_name} myself out of spite if I could. {reward} is just sitting there. embarrassing, honestly. {emoji}😼",
+    "{name}. today's vault special: one unclaimed {emoji} {ev_name}, {reward}. limited time, allegedly. go get it. {emoji}😼",
 ]
 
 # ── Reaction emoji ──────────────────────────────────────────────────────────
@@ -2539,6 +2539,17 @@ DAILY_CATCH_ANNOUNCEMENTS = [
     "🐭🐟📦👑 — every day, one of these shows up somewhere in this chat, at a time I choose and you don't get warned about.\n\nWhoever hits *CATCH* first gets it. I'll DM you privately with instructions; follow them and an IWRU token transaction is yours.\n\n⚠️ Miss it and you wait until tomorrow. Stay alert.\n\n*/iwru* — control panel, whenever you want it. 😼",
 ]
 
+# Card-prize versions (2026-10-12, events_config.CARD_PRIZES): same facts,
+# but the winner gets a code for a random IWRU PARADOX card of the item's
+# rarity instead of IWRU tokens.
+DAILY_CATCH_CARD_ANNOUNCEMENTS = [
+    "🎁 *Daily Catch Event* 🐾\n\nSomewhere in this chat, once a day, I drop something: a mouse 🐭, a fish 🐟, a mystery box 📦, or — if I'm feeling generous — a crown 👑.\n\nFirst human to hit *CATCH* gets it. I'll message you privately with a secret code: redeem it in IWRU PARADOX and a card joins your collection. Common, Rare, Epic or — crown day — Legendary. 🃏\n\n⚠️ No schedule. No warning. Could be now. Could be in 3 hours. Stay alert.\n\nType */iwru* to open the control panel any time. 🐈‍⬛",
+    "🐾 One random treasure appears in this chat every day — mouse 🐭, fish 🐟, mystery box 📦, or crown 👑. Purely at my whim, timing-wise.\n\nWhoever taps *CATCH* first wins it. I'll slide into your DMs with a code for an IWRU PARADOX card. The rarer the treasure, the rarer the card. 🃏\n\n⚠️ Could drop any minute, so don't blink.\n\n*/iwru* opens the full control panel, right here in the chat. 😼",
+    "🎁 *Daily Catch Event* — still running, still chaotic.\n\nEvery day I hide one item somewhere in this chat: mouse 🐭, fish 🐟, mystery box 📦, or crown 👑. Random moment, no warning.\n\nFirst to smash *CATCH* claims it. I DM you a code, you redeem it in IWRU PARADOX, a card lands in your collection. 🃏 Crown = Legendary.\n\n⚠️ Blink and you'll miss it.\n\nControl panel: */iwru* 🐈‍⬛",
+    "🐭🐟📦👑 one of these shows up in the chat every single day. Nobody knows when. Not even me, technically — I just enjoy the chaos.\n\nFirst person to hit *CATCH* gets it: a secret code in your DMs, worth one IWRU PARADOX card. Common, Rare, Epic or Legendary, depending on what you caught. 🃏\n\n⚠️ Stay alert — items don't announce themselves twice.\n\nType */iwru* for the control panel. 😼",
+    "🎁 *Daily Catch Event* 🐾 — the cat's favorite chaos.\n\nOne item, once a day, somewhere in this chat: 🐭 mouse, 🐟 fish, 📦 mystery box, or 👑 crown.\n\nFirst *CATCH* takes it. Then I message you privately with a code — redeem it in IWRU PARADOX and a card is yours. The crown hides a Legendary. 👑🃏\n\n⚠️ Could drop at 3am. Could drop right now. Not my problem.\n\nType */iwru* for the control panel. 🐈‍⬛",
+]
+
 PENKMARKET_ANNOUNCEMENTS = [
     f"Buying Monad tokens used to feel like solving a side quest.\n\nThanks to PenkMarket, you can now buy Monad tokens like IWRU directly with ETH.\n\nETH in. Chaos out.\n\nThe black cat is pleased. 🐈‍⬛\n\n🛒 {PENKMARKET_LINK}",
     f"Buying Monad tokens used to require faith, patience, and three open tabs.\n\nNow, thanks to PenkMarket, IWRU is one ETH swap away. No side quest required.\n\nETH in. IWRU out.\n\nThe black cat approves. 🐈‍⬛\n\n🛒 {PENKMARKET_LINK}",
@@ -4208,7 +4219,7 @@ async def bored_cat_job(context: ContextTypes.DEFAULT_TYPE):
                                 .replace("{name}", name)
                                 .replace("{emoji}", info.get("emoji", "🎁"))
                                 .replace("{ev_name}", info.get("name", "prize"))
-                                .replace("{reward}", str(live_event["reward"]))
+                                .replace("{reward}", events._row_prize_text(live_event))
                             )
                         elif 2 <= h <= 5 and random.random() < 0.5:
                             text = pick_phrase(CALLOUT_NIGHT).replace("{name}", name)
@@ -4390,7 +4401,7 @@ async def daily_catch_announcement_job(context: ContextTypes.DEFAULT_TYPE):
         today = datetime.utcnow().date().isoformat()
         if db.get_config("last_daily_catch_announcement_date") != today:
             db.set_config("last_daily_catch_announcement_date", today)
-            text = pick_phrase(DAILY_CATCH_ANNOUNCEMENTS)
+            text = pick_phrase(DAILY_CATCH_CARD_ANNOUNCEMENTS if cfg.CARD_PRIZES else DAILY_CATCH_ANNOUNCEMENTS)
             cached_file_id = db.get_config("daily_catch_image_file_id")
             for chat_id in list(_known_chats.keys()):
                 try:

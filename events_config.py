@@ -99,6 +99,28 @@ BOT_OWNER_ID = _safe_int_env("BOT_OWNER_ID", 5612550615)
 # ══════════════════════════════════════════════════════════════════════════
 EVENTS_CHAT_ID = int(os.environ["EVENTS_CHAT_ID"])
 
+# ══════════════════════════════════════════════════════════════════════════
+#  PARADOX CARD PRIZES (2026-10-12, Luke)
+# ══════════════════════════════════════════════════════════════════════════
+# With CATCH_PRIZE_SECRET set, every treasure pays one PARADOX card instead of
+# IWRU: the winner gets a one-time code in DM (prize_code.py) and redeems it
+# in PARADOX. The secret must be the SAME value as CATCH_PRIZE_SECRET on the
+# iwillrugu Netlify site, which checks the codes. Unset = the old IWRU flow
+# (wallet in DM, Owner pays by hand), untouched -- also the rollback switch.
+CATCH_PRIZE_SECRET = (os.environ.get("CATCH_PRIZE_SECRET") or "").strip()
+CARD_PRIZES = bool(CATCH_PRIZE_SECRET)
+
+# The Shop opens with the code already typed in (?code=...).
+PARADOX_REDEEM_URL = os.environ.get("PARADOX_REDEEM_URL", "https://iwillrugu.com/paradox/#/shop")
+
+RARITY_LABELS = {"common": "Common", "rare": "Rare", "epic": "Epic", "legendary": "Legendary"}
+
+
+def card_prize_text(rarity: str) -> str:
+    """'1 Rare PARADOX card' -- what a card treasure is worth, wherever the
+    IWRU amount used to be shown."""
+    return f"1 {RARITY_LABELS.get(rarity, rarity.title())} PARADOX card 🃏"
+
 # Buy alerts land in the same chat (and, with no thread id, the same General
 # topic) the bot already posts in. Overridable so alerts can be split out into
 # a dedicated chat later without touching code.
@@ -195,6 +217,7 @@ EVENTS = {
         "name": "Mouse",
         "weight": 50,
         "reward": 250,
+        "card_rarity": "common",
         "stars": "⭐☆☆☆☆",
         "rarity_label": "Common",
         "sticker_filename": "mouse.webp",
@@ -205,6 +228,7 @@ EVENTS = {
         "name": "Purple Fish",
         "weight": 30,
         "reward": 1000,
+        "card_rarity": "rare",
         "stars": "⭐⭐☆☆☆",
         "rarity_label": "Uncommon",
         "sticker_filename": "purple_fish.webp",
@@ -215,6 +239,7 @@ EVENTS = {
         "name": "Mystery Box",
         "weight": 15,
         "reward": 2500,
+        "card_rarity": "epic",
         "stars": "⭐⭐⭐☆☆",
         "rarity_label": "Rare",
         "sticker_filename": "mystery_box.webp",
@@ -225,6 +250,7 @@ EVENTS = {
         "name": "Golden Crown",
         "weight": 5,
         "reward": 10000,
+        "card_rarity": "legendary",
         "stars": "⭐⭐⭐⭐⭐",
         "rarity_label": "Legendary",
         "sticker_filename": "golden_crown.webp",
@@ -382,7 +408,7 @@ DEEPLINK_UNAVAILABLE_LINE = (
 # breaks on users without one.
 CAUGHT_TEMPLATE = (
     "🎉 {winner} caught the {name}!\n\n"
-    "Reward: {reward} IWRU\n\n"
+    "Reward: {reward}\n\n"
     "🐈‍⬛ Check your DMs with me to claim it!"
 )
 
@@ -462,7 +488,7 @@ OWNER_WAITING_TEMPLATE = (
     "🟡 Waiting for Wallet\n\n"
     "Winner: {winner}\n"
     "Event: {emoji} {name}\n"
-    "Reward: {reward} IWRU\n\n"
+    "Reward: {reward}\n\n"
     "Waiting for the winner to submit their Monad wallet."
 )
 
@@ -470,7 +496,7 @@ OWNER_READY_TEMPLATE = (
     "🟠 Ready to Pay\n\n"
     "Winner: {winner}\n"
     "Event: {emoji} {name}\n"
-    "Reward: {reward} IWRU\n"
+    "Reward: {reward}\n"
     "Wallet: {wallet}\n\n"
     "Send the reward from the Fish Vault, then confirm below."
 )
@@ -479,7 +505,7 @@ OWNER_PAID_TEMPLATE = (
     "🟢 Paid\n\n"
     "Winner: {winner}\n"
     "Event: {emoji} {name}\n"
-    "Reward: {reward} IWRU\n"
+    "Reward: {reward}\n"
     "Wallet: {wallet}"
 )
 
@@ -487,7 +513,7 @@ OWNER_CANCELLED_TEMPLATE = (
     "❌ Cancelled\n\n"
     "Winner: {winner}\n"
     "Event: {emoji} {name}\n"
-    "Reward: {reward} IWRU\n"
+    "Reward: {reward}\n"
     "{wallet_line}\n"
     "This claim was cancelled and released."
 )
@@ -516,7 +542,7 @@ OWNER_EXPIRED_TEMPLATE = (
     "⌛ Expired\n\n"
     "Winner: {winner}\n"
     "Event: {emoji} {name}\n"
-    "Reward: {reward} IWRU\n\n"
+    "Reward: {reward}\n\n"
     "This claim expired automatically -- the winner never submitted a wallet before the next treasure appeared."
 )
 
@@ -548,7 +574,7 @@ OWNER_WITHDRAWN_GROUP_TEMPLATE = (
     "The Fish Vault keeps it."
 )
 
-GROUP_PAID_ANNOUNCEMENT_TEMPLATE = "🎉 {winner} has received {reward} IWRU."
+GROUP_PAID_ANNOUNCEMENT_TEMPLATE = "🎉 {winner} has received {reward}."
 
 # ══════════════════════════════════════════════════════════════════════════
 #  HOW TO PLAY
@@ -569,4 +595,60 @@ HOW_TO_PLAY_TEXT = (
     "The rewards are manually sent from the Fish Vault.\n\n"
     "Think you're faster than me?\n\n"
     "Let's find out. 😼"
+)
+
+# ── Card-prize versions (used instead of the above when CARD_PRIZES) ──────
+_HOW_TO_PLAY_CARD_LINES = "\n".join(
+    f"{info['emoji']} {info['name']} — {card_prize_text(info['card_rarity'])}" for info in EVENTS.values()
+)
+
+HOW_TO_PLAY_CARD_TEXT = (
+    "🐈‍⬛ How to Play\n\n"
+    "Welcome to my little game, human.\n\n"
+    "🐾 Once a day I may discover a treasure.\n\n"
+    f"{_HOW_TO_PLAY_CARD_LINES}\n\n"
+    "If you are the first to press Catch, the treasure is yours.\n\n"
+    "I'll send you a secret code in private. Redeem it in IWRU PARADOX and a random card of that rarity joins your collection.\n\n"
+    "Think you're faster than me?\n\n"
+    "Let's find out. 😼"
+)
+
+# {code} = IWRU-XXXXX-..., {link} = the Shop with the code already filled in.
+CARD_CODE_MSG = (
+    "Congratulations! 🎉\n\n"
+    "Your {emoji} {name} is worth {prize}\n\n"
+    "Your code:\n{code}\n\n"
+    "👉 Redeem it here: {link}\n\n"
+    "Log in to IWRU PARADOX with your account first: the card goes to the account that redeems the code. "
+    "One use only, don't share it. 😼"
+)
+
+OWNER_CARD_WAITING_TEMPLATE = (
+    "🟡 Waiting for Winner\n\n"
+    "Winner: {winner}\n"
+    "Event: {emoji} {name}\n"
+    "Reward: {reward}\n\n"
+    "I couldn't DM the winner yet. The code goes out as soon as they press Start with me."
+)
+
+OWNER_CARD_SENT_TEMPLATE = (
+    "🟢 Card code sent\n\n"
+    "Winner: {winner}\n"
+    "Event: {emoji} {name}\n"
+    "Reward: {reward}\n"
+    "Code: {code}\n\n"
+    "Nothing to pay: the winner redeems it in PARADOX."
+)
+
+CARD_CLAIM_EXPIRED_WINNER_MSG = (
+    "😼 Too slow! A new treasure appeared before you came to get your code, "
+    "so this one slipped away. The Fish Vault keeps it."
+)
+
+OWNER_CARD_EXPIRED_TEMPLATE = (
+    "⌛ Expired\n\n"
+    "Winner: {winner}\n"
+    "Event: {emoji} {name}\n"
+    "Reward: {reward}\n\n"
+    "This claim expired automatically -- the winner never opened a DM with me before the next treasure appeared. No code was sent."
 )

@@ -16,6 +16,7 @@ from telegram.ext import (
 
 import events_config as cfg
 import db
+import prize_code
 
 # ══════════════════════════════════════════════════════════════════════════
 #  OWNER CHECK — trivial, no discovery/resolution needed
@@ -37,6 +38,68 @@ def _event_info(event_key: str) -> dict:
     the live EVENTS config (e.g. an event type was renamed/retired) -- a DB
     row referencing it must still render instead of crashing the handler."""
     return cfg.EVENTS.get(event_key, {"emoji": "", "name": event_key})
+
+
+def _row_card_rarity(row):
+    """The card rarity of a PARADOX card treasure, None for an IWRU one
+    (every row from before 2026-10-12, or with CARD_PRIZES off)."""
+    prize = row["prize"] if "prize" in row.keys() else None
+    return prize.split(":", 1)[1] if prize and prize.startswith("card:") else None
+
+
+def _row_prize_text(row) -> str:
+    """What this treasure pays, as shown everywhere: '250 IWRU' or
+    '1 Rare PARADOX card 🃏'. Decided by the ROW, not the current config, so
+    an event posted before a switch keeps the prize it was announced with."""
+    rarity = _row_card_rarity(row)
+    return cfg.card_prize_text(rarity) if rarity else f"{row['reward']} IWRU"
+
+
+def _distributed_text(iwru_total: int) -> str:
+    """'12500 IWRU', plus the PARADOX cards handed out once there are any."""
+    cards = db.cards_distributed()
+    return f"{iwru_total} IWRU" + (f" + {cards} PARADOX cards" if cards else "")
+
+
+def _redeem_link(code: str) -> str:
+    return f"{cfg.PARADOX_REDEEM_URL}?code={code}"
+
+
+async def _deliver_card_code(context: ContextTypes.DEFAULT_TYPE, row) -> bool:
+    """DMs the winner the card code of a caught card treasure, then marks it
+    delivered ('paid') and updates the Owner's message. The code is created
+    once (set_prize_code never replaces one) so a retry always resends the
+    SAME code. False when the winner can't be reached (no DM started yet) --
+    the row stays 'claimed' and cmd_start/on_private_message try again."""
+    if not row["prize_code"]:
+        db.set_prize_code(row["id"], prize_code.new_code(cfg.CATCH_PRIZE_SECRET, _row_card_rarity(row)))
+        row = db.get_event_by_token(row["token"])
+        if row is None or row["status"] != "claimed" or not row["prize_code"]:
+            return False
+    info = _event_info(row["event_key"])
+    text = cfg.CARD_CODE_MSG.format(
+        emoji=info["emoji"], name=info["name"], prize=_row_prize_text(row),
+        code=row["prize_code"], link=_redeem_link(row["prize_code"]),
+    )
+    try:
+        await context.bot.send_message(chat_id=row["winner_id"], text=text, disable_web_page_preview=True)
+    except TelegramError:
+        return False
+    if not db.mark_paid(row["id"], expected_status="claimed"):
+        return True  # cancelled/expired meanwhile: the code is out anyway, it stays redeemable
+    fresh = db.get_event_by_token(row["token"]) or row
+    owner_text, keyboard = _owner_status_render(fresh)
+    try:
+        if fresh["owner_message_id"]:
+            await context.bot.edit_message_text(
+                chat_id=cfg.BOT_OWNER_ID, message_id=fresh["owner_message_id"], text=owner_text, reply_markup=keyboard,
+            )
+        else:
+            msg = await context.bot.send_message(chat_id=cfg.BOT_OWNER_ID, text=owner_text)
+            db.set_owner_message_id(fresh["id"], msg.message_id)
+    except TelegramError as e:
+        print(f"[events] failed to tell the Owner a card code went out (event {row['id']}): {e}", flush=True)
+    return True
 
 
 def _row_is_legacy_photo_message(row) -> bool:
@@ -240,11 +303,16 @@ def _pick_event_id() -> str:
 
 def _build_unclaimed_text(event_key: str) -> str:
     info = cfg.EVENTS[event_key]
+    if cfg.CARD_PRIZES:
+        rarity_label = cfg.RARITY_LABELS[info["card_rarity"]]
+        reward = cfg.card_prize_text(info["card_rarity"])
+    else:
+        rarity_label, reward = info["rarity_label"], f"{info['reward']} IWRU"
     return (
         f"{info['emoji']} {info['name']}\n"
         f"{info['stars']}\n"
-        f"{info['rarity_label']}\n\n"
-        f"Reward:\n{info['reward']} IWRU\n\n"
+        f"{rarity_label}\n\n"
+        f"Reward:\n{reward}\n\n"
         f"{info['catch_text']}"
     )
 
@@ -294,7 +362,10 @@ async def _expire_stale_events(context: ContextTypes.DEFAULT_TYPE) -> None:
             winner_display = _display(row["winner_username"], row["winner_name"])
 
             try:
-                await context.bot.send_message(chat_id=row["winner_id"], text=cfg.CLAIM_EXPIRED_WINNER_MSG)
+                await context.bot.send_message(
+                    chat_id=row["winner_id"],
+                    text=cfg.CARD_CLAIM_EXPIRED_WINNER_MSG if _row_card_rarity(row) else cfg.CLAIM_EXPIRED_WINNER_MSG,
+                )
             except TelegramError as e:
                 print(f"[events] failed to notify winner of expiry (event {row['id']}): {e}", flush=True)
 
@@ -313,8 +384,9 @@ async def _expire_stale_events(context: ContextTypes.DEFAULT_TYPE) -> None:
                 if await _edit_group_message(context, row, expired_text, clear_keyboard=True):
                     db.set_display_text(row["id"], expired_text)
 
-            owner_text = cfg.OWNER_EXPIRED_TEMPLATE.format(
-                winner=winner_display, emoji=info["emoji"], name=info["name"], reward=row["reward"]
+            owner_template = cfg.OWNER_CARD_EXPIRED_TEMPLATE if _row_card_rarity(row) else cfg.OWNER_EXPIRED_TEMPLATE
+            owner_text = owner_template.format(
+                winner=winner_display, emoji=info["emoji"], name=info["name"], reward=_row_prize_text(row)
             )
             owner_notified = False
             if row["owner_message_id"] is not None:
@@ -545,8 +617,9 @@ async def _post_new_event(context: ContextTypes.DEFAULT_TYPE, event_id=None) -> 
         # alongside, so a bump later knows whether there's one to also
         # delete/repost.
         db.create_event(
-            event_id, token, info["reward"], msg.chat_id, msg.message_id, text,
+            event_id, token, 0 if cfg.CARD_PRIZES else info["reward"], msg.chat_id, msg.message_id, text,
             has_image=sticker_message_id is not None, sticker_message_id=sticker_message_id,
+            prize=f"card:{info['card_rarity']}" if cfg.CARD_PRIZES else None,
         )
         # A brand-new event starts its own fresh bump countdown -- without
         # this, a count left over from a PREVIOUS event (claimed/expired
@@ -914,17 +987,27 @@ async def on_catch(update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     winner_display = _display_name(user)
     info = _event_info(row["event_key"])
-    caught_text = cfg.CAUGHT_TEMPLATE.format(winner=winner_display, name=info["name"], reward=row["reward"])
+    caught_text = cfg.CAUGHT_TEMPLATE.format(winner=winner_display, name=info["name"], reward=_row_prize_text(row))
 
-    dm_ok = True
-    try:
-        await context.bot.send_message(chat_id=user.id, text=cfg.PENDING_WALLET_MSG)
-    except TelegramError:
-        # Any failure here (Forbidden, BadRequest, TimedOut, NetworkError, ...)
-        # means "assume we couldn't reach them" -- the display/group-message
-        # update and Owner notification below must still happen regardless,
-        # or the event would be stuck 'claimed' forever with no recovery.
-        dm_ok = False
+    is_card = _row_card_rarity(row) is not None
+    if is_card:
+        # Card treasure: the code goes straight to the winner's DM and the row
+        # becomes 'paid' (delivered). If they never started a chat with the
+        # bot, it stays 'claimed' and cmd_start sends it later.
+        claimed_row = db.get_event_by_token(token)
+        dm_ok = await _deliver_card_code(context, claimed_row) if claimed_row is not None else False
+    else:
+        dm_ok = True
+        try:
+            await context.bot.send_message(chat_id=user.id, text=cfg.PENDING_WALLET_MSG)
+        except TelegramError:
+            # Any failure here (Forbidden, BadRequest, TimedOut, NetworkError, ...)
+            # means "assume we couldn't reach them" -- the display/group-message
+            # update and Owner notification below must still happen regardless,
+            # or the event would be stuck 'claimed' forever with no recovery.
+            dm_ok = False
+    # A delivered card code already moved the row on to 'paid'.
+    live_status = "paid" if is_card and dm_ok else "claimed"
 
     if not dm_ok:
         bot_username = await _get_bot_username(context)
@@ -946,7 +1029,7 @@ async def on_catch(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # everyone -- without this check, we'd blindly overwrite its work back to
     # "caught!" with a live keyboard and send a contradictory second Owner DM.
     fresh_check = db.get_event_by_token(token)
-    if fresh_check is None or fresh_check["status"] != "claimed" or fresh_check["winner_id"] != user.id:
+    if fresh_check is None or fresh_check["status"] != live_status or fresh_check["winner_id"] != user.id:
         return
 
     db.set_display_text(row["id"], caught_text)
@@ -988,12 +1071,11 @@ async def on_catch(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if fresh_check2 is None or fresh_check2["status"] != "claimed" or fresh_check2["winner_id"] != user.id:
         return
 
-    owner_text = cfg.OWNER_WAITING_TEMPLATE.format(
-        winner=winner_display, emoji=info["emoji"], name=info["name"], reward=row["reward"]
-    )
+    # (A delivered card code already told the Owner, see _deliver_card_code.)
+    owner_text, owner_keyboard = _owner_status_render(fresh_check2)
     try:
         owner_msg = await context.bot.send_message(
-            chat_id=cfg.BOT_OWNER_ID, text=owner_text, reply_markup=_owner_claim_keyboard(token, include_pay=False)
+            chat_id=cfg.BOT_OWNER_ID, text=owner_text, reply_markup=owner_keyboard
         )
         # CAS-guarded: if a concurrent expiry won the race during the send
         # above, don't let this stale write point owner_message_id at a
@@ -1025,6 +1107,8 @@ async def cmd_start(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     pending = db.get_pending_wallet_event(user.id)
     if pending is None:
         await update.message.reply_text(cfg.NOT_YOUR_PRIZE_MSG)
+    elif _row_card_rarity(pending):
+        await _deliver_card_code(context, pending)
     elif pending["status"] == "claimed":
         await update.message.reply_text(cfg.PENDING_WALLET_MSG)
     else:  # ready_to_pay -- wallet already on file, awaiting Owner payout
@@ -1051,6 +1135,9 @@ async def on_private_message(update, context: ContextTypes.DEFAULT_TYPE) -> None
     # generated by the Owner while this user's win is still pending can never
     # shadow their wallet submission.
     active = db.get_pending_wallet_event(user.id)
+    if active is not None and _row_card_rarity(active):
+        await _deliver_card_code(context, active)  # card prizes need no wallet
+        return
     if active is None:
         if cfg.WALLET_RE.fullmatch(text):
             # Wallet-shaped input with nothing to attach it to -- most likely
@@ -1081,7 +1168,7 @@ async def on_private_message(update, context: ContextTypes.DEFAULT_TYPE) -> None
     info = _event_info(active["event_key"])
     winner_display = _display_name(user)
     owner_text = cfg.OWNER_READY_TEMPLATE.format(
-        winner=winner_display, emoji=info["emoji"], name=info["name"], reward=active["reward"], wallet=text
+        winner=winner_display, emoji=info["emoji"], name=info["name"], reward=_row_prize_text(active), wallet=text
     )
     keyboard = _owner_claim_keyboard(active["token"], include_pay=True)
 
@@ -1154,7 +1241,7 @@ async def on_owner_paid(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     winner_display = _display(row["winner_username"], row["winner_name"])
 
     owner_text = cfg.OWNER_PAID_TEMPLATE.format(
-        winner=winner_display, emoji=info["emoji"], name=info["name"], reward=row["reward"], wallet=row["wallet"]
+        winner=winner_display, emoji=info["emoji"], name=info["name"], reward=_row_prize_text(row), wallet=row["wallet"]
     )
     # Explicit empty keyboard (not None) so the "✅ Mark as Paid" button is
     # actually removed -- Telegram keeps the existing keyboard when
@@ -1174,7 +1261,7 @@ async def on_owner_paid(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # chat's history by the time payment happens (it never bumps again once
     # claimed), so an edit landing there alone is invisible in the live feed
     # and reads as if the payout had been announced earlier than it was.
-    group_text = cfg.GROUP_PAID_ANNOUNCEMENT_TEMPLATE.format(winner=winner_display, reward=row["reward"])
+    group_text = cfg.GROUP_PAID_ANNOUNCEMENT_TEMPLATE.format(winner=winner_display, reward=_row_prize_text(row))
     try:
         await context.bot.send_message(chat_id=cfg.EVENTS_CHAT_ID, text=group_text)
     except TelegramError as e:
@@ -1205,19 +1292,31 @@ def _owner_status_render(row):
     info = _event_info(row["event_key"])
     winner_display = _display(row["winner_username"], row["winner_name"])
     status = row["status"]
+    if _row_card_rarity(row) and status in ("claimed", "paid"):
+        # Card treasure: nothing to pay, the Owner can only release a claim
+        # whose code hasn't gone out yet.
+        if status == "claimed":
+            text = cfg.OWNER_CARD_WAITING_TEMPLATE.format(
+                winner=winner_display, emoji=info["emoji"], name=info["name"], reward=_row_prize_text(row)
+            )
+            return text, _owner_claim_keyboard(row["token"], include_pay=False)
+        text = cfg.OWNER_CARD_SENT_TEMPLATE.format(
+            winner=winner_display, emoji=info["emoji"], name=info["name"], reward=_row_prize_text(row), code=row["prize_code"]
+        )
+        return text, InlineKeyboardMarkup([])
     if status == "claimed":
         text = cfg.OWNER_WAITING_TEMPLATE.format(
-            winner=winner_display, emoji=info["emoji"], name=info["name"], reward=row["reward"]
+            winner=winner_display, emoji=info["emoji"], name=info["name"], reward=_row_prize_text(row)
         )
         return text, _owner_claim_keyboard(row["token"], include_pay=False)
     if status == "ready_to_pay":
         text = cfg.OWNER_READY_TEMPLATE.format(
-            winner=winner_display, emoji=info["emoji"], name=info["name"], reward=row["reward"], wallet=row["wallet"]
+            winner=winner_display, emoji=info["emoji"], name=info["name"], reward=_row_prize_text(row), wallet=row["wallet"]
         )
         return text, _owner_claim_keyboard(row["token"], include_pay=True)
     if status == "paid":
         text = cfg.OWNER_PAID_TEMPLATE.format(
-            winner=winner_display, emoji=info["emoji"], name=info["name"], reward=row["reward"], wallet=row["wallet"]
+            winner=winner_display, emoji=info["emoji"], name=info["name"], reward=_row_prize_text(row), wallet=row["wallet"]
         )
         return text, InlineKeyboardMarkup([])
     # cancelled (or any other terminal status)
@@ -1227,7 +1326,7 @@ def _owner_status_render(row):
     # after manually sending funds before releasing the claim).
     wallet_line = f"Wallet: {row['wallet']}\n" if row["wallet"] else ""
     text = cfg.OWNER_CANCELLED_TEMPLATE.format(
-        winner=winner_display, emoji=info["emoji"], name=info["name"], reward=row["reward"], wallet_line=wallet_line
+        winner=winner_display, emoji=info["emoji"], name=info["name"], reward=_row_prize_text(row), wallet_line=wallet_line
     )
     return text, InlineKeyboardMarkup([])
 
@@ -1277,7 +1376,7 @@ async def on_owner_cancel(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # funds before releasing the claim.
     wallet_line = f"Wallet: {row['wallet']}\n" if row["wallet"] else ""
     cancelled_text = cfg.OWNER_CANCELLED_TEMPLATE.format(
-        winner=winner_display, emoji=info["emoji"], name=info["name"], reward=row["reward"], wallet_line=wallet_line
+        winner=winner_display, emoji=info["emoji"], name=info["name"], reward=_row_prize_text(row), wallet_line=wallet_line
     )
     await _edit_current(query, cancelled_text, InlineKeyboardMarkup([]))
 
@@ -1337,6 +1436,14 @@ async def on_owner_remind(update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if row is not None:
             text, keyboard = _owner_status_render(row)
             await _edit_current(query, text, keyboard)
+        return
+
+    if _row_card_rarity(row):
+        # Card treasure: "remind" = try to hand over the code again.
+        if await _deliver_card_code(context, row):
+            await query.answer("Card code sent.")
+        else:
+            await query.answer("Couldn't reach them privately (DM blocked, or they never started a chat with me).", show_alert=True)
         return
 
     try:
@@ -1403,7 +1510,7 @@ async def on_owner_panel_button(update, context: ContextTypes.DEFAULT_TYPE) -> N
             f"Active Event: {s['current_status']}\n"
             f"Last Winner: {s['last_winner']}\n"
             f"Total Events: {s['events_generated']}\n"
-            f"Total Distributed: {s['total_rewards_distributed']} IWRU"
+            f"Total Distributed: {_distributed_text(s['total_rewards_distributed'])}"
         )
         await _edit_current(query, text, _owner_panel_keyboard(show_cancel_current=can_cancel_current))
 
@@ -1422,7 +1529,7 @@ async def on_owner_panel_button(update, context: ContextTypes.DEFAULT_TYPE) -> N
                 f"Active Event: {s['current_status']}\n"
                 f"Last Winner: {s['last_winner']}\n"
                 f"Total Events: {s['events_generated']}\n"
-                f"Total Distributed: {s['total_rewards_distributed']} IWRU"
+                f"Total Distributed: {_distributed_text(s['total_rewards_distributed'])}"
             )
             await _edit_current(query, text, _owner_panel_keyboard(show_cancel_current=False))
             return
@@ -1506,7 +1613,7 @@ def _render_hall_of_fame() -> str:
         "Top Hunters:\n" + hunters_lines + "\n\n"
         "Golden Crown Winners:\n" + crowns_lines + "\n\n"
         "Most Purple Fish Found:\n" + fish_lines + "\n\n"
-        f"Total Distributed: {total} IWRU"
+        f"Total Distributed: {_distributed_text(total)}"
     )
 
 
@@ -1517,7 +1624,7 @@ def _render_stats() -> str:
         f"Events Generated: {s['events_generated']}\n"
         f"Events Claimed: {s['events_claimed']}\n"
         f"Current Status: {s['current_status']}\n"
-        f"Total Rewards: {s['total_rewards_distributed']} IWRU\n"
+        f"Total Rewards: {_distributed_text(s['total_rewards_distributed'])}\n"
         f"Last Winner: {s['last_winner']}\n"
         f"Most Common Treasure: {s['most_common_treasure']}"
     )
@@ -1568,7 +1675,7 @@ async def on_menu_button(update, context: ContextTypes.DEFAULT_TYPE) -> None:
         elif suffix == "stats":
             content = _render_stats()
         else:
-            content = cfg.HOW_TO_PLAY_TEXT
+            content = cfg.HOW_TO_PLAY_CARD_TEXT if cfg.CARD_PRIZES else cfg.HOW_TO_PLAY_TEXT
 
         chat_id = getattr(query.message, "chat_id", None)
         message_id = getattr(query.message, "message_id", None)
@@ -1629,6 +1736,12 @@ async def on_menu_button(update, context: ContextTypes.DEFAULT_TYPE) -> None:
             f"Rewards Pending: {summary['pending']} IWRU\n"
             f"Treasures Found: {summary['treasures_found']}"
         )
+        if cfg.CARD_PRIZES:
+            # IWRU lines only for someone who actually won IWRU before the switch.
+            text = "🎒 My Rewards\n\n" + f"PARADOX Cards Won: {summary['cards']}\n"
+            if summary["won"]:
+                text += f"IWRU Won: {summary['won']} (paid {summary['paid']})\n"
+            text += f"Treasures Found: {summary['treasures_found']}"
         # Telegram's callback-alert text is capped well under this, but the
         # numbers here are unbounded in principle -- truncate defensively.
         if len(text) > 190:
