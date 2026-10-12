@@ -209,7 +209,7 @@ def load_known_users() -> dict:
 # ══════════════════════════════════════════════════════════════════════════
 def create_event(
     event_key: str, token: str, reward: int, chat_id: int, message_id: int, display_text: str, has_image: bool,
-    sticker_message_id: int = None, prize: str = None,
+    sticker_message_id: int = None, prize: str = None, prize_code: str = None,
 ) -> int:
     """One atomic INSERT covering everything known at creation time (event
     already posted to Telegram by the caller, so chat_id/message_id/
@@ -228,9 +228,9 @@ def create_event(
     text message when there's no sticker -- see events.py's
     _keyboard_message/_send_event_message."""
     cur = _conn.execute(
-        "INSERT INTO events (event_key, token, reward, chat_id, message_id, display_text, has_image, sticker_message_id, prize, status, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'unclaimed', ?)",
-        (event_key, token, reward, chat_id, message_id, display_text, int(has_image), sticker_message_id, prize, _now()),
+        "INSERT INTO events (event_key, token, reward, chat_id, message_id, display_text, has_image, sticker_message_id, prize, prize_code, status, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unclaimed', ?)",
+        (event_key, token, reward, chat_id, message_id, display_text, int(has_image), sticker_message_id, prize, prize_code, _now()),
     )
     _conn.commit()
     return cur.lastrowid

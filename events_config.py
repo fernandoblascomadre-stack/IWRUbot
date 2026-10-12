@@ -112,6 +112,8 @@ CARD_PRIZES = bool(CATCH_PRIZE_SECRET)
 
 # The Shop opens with the code already typed in (?code=...).
 PARADOX_REDEEM_URL = os.environ.get("PARADOX_REDEEM_URL", "https://iwillrugu.com/paradox/#/shop")
+# Which card a code gives (GET ?prizePayload=..., same pick as the redeem) -- the post shows that card.
+PARADOX_PRIZE_CARD_API = os.environ.get("PARADOX_PRIZE_CARD_API", "https://iwillrugu.com/.netlify/functions/paradox-collection")
 
 RARITY_LABELS = {"common": "Common", "rare": "Rare", "epic": "Epic", "legendary": "Legendary"}
 
@@ -203,6 +205,7 @@ ASSETS_DIR = pathlib.Path(__file__).parent / "assets" / "events"
 #  EVENT BUTTONS (fixed, shared across all event types)
 # ══════════════════════════════════════════════════════════════════════════
 CATCH_BUTTON_TEXT = "🐾 CATCH TREASURE"
+CATCH_CARD_BUTTON_TEXT = "🃏 CATCH CARD"  # card mode (CARD_PRIZES), Luke 2026-10-12
 INSPECT_BUTTON_TEXT = "👀 INSPECT"
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -254,6 +257,19 @@ EVENTS = {
         "stars": "⭐⭐⭐⭐⭐",
         "rarity_label": "Legendary",
         "sticker_filename": "golden_crown.webp",
+        "catch_text": "First human to catch it wins.",
+    },
+    # Card mode (CARD_PRIZES, Luke 2026-10-12): EVERY event is this one -- one Common PARADOX card, picked when the
+    # event is posted and shown as the post's artwork (events.py _prize_card). weight 0: never drawn in IWRU mode.
+    "card": {
+        "emoji": "🃏",
+        "name": "PARADOX Card",
+        "weight": 0,
+        "reward": 0,
+        "card_rarity": "common",
+        "stars": "⭐☆☆☆☆",
+        "rarity_label": "Common",
+        "sticker_filename": None,
         "catch_text": "First human to catch it wins.",
     },
 }
@@ -582,7 +598,7 @@ GROUP_PAID_ANNOUNCEMENT_TEMPLATE = "🎉 {winner} has received {reward}."
 # Built from EVENTS itself (not hardcoded) so the reward numbers shown here
 # can never drift out of sync with the real payouts if EVENTS is ever retuned.
 _HOW_TO_PLAY_TREASURE_LINES = "\n".join(
-    f"{info['emoji']} {info['name']} — {info['reward']} IWRU" for info in EVENTS.values()
+    f"{info['emoji']} {info['name']} — {info['reward']} IWRU" for info in EVENTS.values() if info["reward"]
 )
 
 HOW_TO_PLAY_TEXT = (
@@ -598,17 +614,15 @@ HOW_TO_PLAY_TEXT = (
 )
 
 # ── Card-prize versions (used instead of the above when CARD_PRIZES) ──────
-_HOW_TO_PLAY_CARD_LINES = "\n".join(
-    f"{info['emoji']} {info['name']} — {card_prize_text(info['card_rarity'])}" for info in EVENTS.values()
-)
+_HOW_TO_PLAY_CARD_LINES = f"{EVENTS['card']['emoji']} {card_prize_text('common')}, shown in the post"
 
 HOW_TO_PLAY_CARD_TEXT = (
     "🐈‍⬛ How to Play\n\n"
     "Welcome to my little game, human.\n\n"
-    "🐾 Once a day I may discover a treasure.\n\n"
+    "🐾 Once a day a PARADOX card shows up here.\n\n"
     f"{_HOW_TO_PLAY_CARD_LINES}\n\n"
-    "If you are the first to press Catch, the treasure is yours.\n\n"
-    "I'll send you a secret code in private. Redeem it in IWRU PARADOX and a random card of that rarity joins your collection.\n\n"
+    "If you are the first to press Catch Card, it's yours.\n\n"
+    "I'll send you a secret code in private. Redeem it in IWRU PARADOX and that exact card joins your collection.\n\n"
     "Think you're faster than me?\n\n"
     "Let's find out. 😼"
 )
@@ -616,7 +630,7 @@ HOW_TO_PLAY_CARD_TEXT = (
 # {code} = IWRU-XXXXX-..., {link} = the Shop with the code already filled in.
 CARD_CODE_MSG = (
     "Congratulations! 🎉\n\n"
-    "Your {emoji} {name} is worth {prize}\n\n"
+    "You caught {prize}\n\n"
     "Your code:\n{code}\n\n"
     "👉 Redeem it here: {link}\n\n"
     "Log in to IWRU PARADOX with your account first: the card goes to the account that redeems the code. "

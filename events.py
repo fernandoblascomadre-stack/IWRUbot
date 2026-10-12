@@ -1,5 +1,9 @@
+import asyncio
+import io
+import json
 import random
 import time
+import urllib.request
 import uuid
 from datetime import datetime, timedelta
 
@@ -49,10 +53,95 @@ def _row_card_rarity(row):
 
 def _row_prize_text(row) -> str:
     """What this treasure pays, as shown everywhere: '250 IWRU' or
-    '1 Rare PARADOX card 🃏'. Decided by the ROW, not the current config, so
-    an event posted before a switch keeps the prize it was announced with."""
+    '1 Rare PARADOX card 🃏' (with the card's name once it is known, card mode).
+    Decided by the ROW, not the current config, so an event posted before a
+    switch keeps the prize it was announced with."""
     rarity = _row_card_rarity(row)
-    return cfg.card_prize_text(rarity) if rarity else f"{row['reward']} IWRU"
+    if not rarity:
+        return f"{row['reward']} IWRU"
+    card = _PRIZE_CARDS.get(_code_payload(_row_code(row)))
+    return f"{card['name']}, a {cfg.RARITY_LABELS.get(rarity, rarity.title())} PARADOX card 🃏" if card else cfg.card_prize_text(rarity)
+
+
+# ── Card mode: the card a code gives, and its artwork as the post's sticker ──
+# The server picks the card from the code's payload (same function as the
+# redeem), so the bot asks it rather than keeping its own copy of the card
+# pools. Cached per payload: a bump/repost of the same event shows the same
+# card without asking again.
+_PRIZE_CARDS = {}
+_CARD_STICKERS = {}
+
+
+def _row_code(row):
+    return row["prize_code"] if "prize_code" in row.keys() else None
+
+
+def _code_payload(code):
+    """'IWRU-1K7M2-P9QXA-...' -> '1K7M2P9QXA' (the first 10 chars after IWRU-)."""
+    if not code:
+        return None
+    s = code.upper().replace("-", "")
+    s = s[4:] if s.startswith("IWRU") else s
+    return s[:10] if len(s) == 20 else None
+
+
+def _fetch_prize_card(payload: str):
+    url = f"{cfg.PARADOX_PRIZE_CARD_API}?prizePayload={payload}"
+    req = urllib.request.Request(url, headers={"User-Agent": "IWRUbot/1.0"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        d = json.loads(r.read().decode())
+    if not d.get("ok") or not d.get("defId") or not d.get("image"):
+        raise RuntimeError(f"prize card lookup: {d}")
+    return {"defId": d["defId"], "name": d.get("name") or d["defId"], "image": d["image"]}
+
+
+def _sticker_bytes(image_url: str) -> bytes:
+    """The card art as a Telegram sticker: WebP, longest side 512 px."""
+    req = urllib.request.Request(image_url, headers={"User-Agent": "IWRUbot/1.0"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        data = r.read()
+    from PIL import Image
+    img = Image.open(io.BytesIO(data))
+    img.load()
+    img = img.convert("RGBA")
+    img.thumbnail((512, 512), Image.LANCZOS)
+    if max(img.size) < 512:  # a sticker needs one side at exactly 512
+        k = 512 / max(img.size)
+        img = img.resize((max(1, round(img.width * k)), max(1, round(img.height * k))), Image.LANCZOS)
+    out = io.BytesIO()
+    img.save(out, "WEBP", quality=90)
+    return out.getvalue()
+
+
+async def _prize_card(code):
+    """{defId, name, image} of the card `code` gives, None if the server can't say (the event still runs: the
+    code is valid, the post just shows no card)."""
+    payload = _code_payload(code)
+    if not payload:
+        return None
+    if payload not in _PRIZE_CARDS:
+        try:
+            _PRIZE_CARDS[payload] = await asyncio.to_thread(_fetch_prize_card, payload)
+        except Exception as e:
+            print(f"[events] prize card lookup failed ({payload}): {e}", flush=True)
+            return None
+    return _PRIZE_CARDS[payload]
+
+
+async def _card_sticker(card):
+    if not card:
+        return None
+    if card["defId"] not in _CARD_STICKERS:
+        try:
+            _CARD_STICKERS[card["defId"]] = await asyncio.to_thread(_sticker_bytes, card["image"])
+        except Exception as e:
+            print(f"[events] card sticker failed ({card['defId']}): {e}", flush=True)
+            return None
+    return _CARD_STICKERS[card["defId"]]
+
+
+def _is_card_event(row) -> bool:
+    return row["event_key"] == "card" and bool(_row_code(row))
 
 
 def _distributed_text(iwru_total: int) -> str:
@@ -76,6 +165,7 @@ async def _deliver_card_code(context: ContextTypes.DEFAULT_TYPE, row) -> bool:
         row = db.get_event_by_token(row["token"])
         if row is None or row["status"] != "claimed" or not row["prize_code"]:
             return False
+    await _prize_card(row["prize_code"])  # warms the name used by _row_prize_text
     info = _event_info(row["event_key"])
     text = cfg.CARD_CODE_MSG.format(
         emoji=info["emoji"], name=info["name"], prize=_row_prize_text(row),
@@ -224,7 +314,7 @@ def _event_keyboard(token: str) -> InlineKeyboardMarkup:
     # keeping their existing pairings.
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton(cfg.CATCH_BUTTON_TEXT, callback_data=f"catch:{token}")],
+            [InlineKeyboardButton(cfg.CATCH_CARD_BUTTON_TEXT if cfg.CARD_PRIZES else cfg.CATCH_BUTTON_TEXT, callback_data=f"catch:{token}")],
             [
                 InlineKeyboardButton(cfg.INSPECT_BUTTON_TEXT, callback_data=f"inspect:{token}"),
                 InlineKeyboardButton("🏆 Hall of Fame", callback_data="menu:hof"),
@@ -301,8 +391,17 @@ def _pick_event_id() -> str:
     return random.choices(keys, weights=weights, k=1)[0]
 
 
-def _build_unclaimed_text(event_key: str) -> str:
+def _build_unclaimed_text(event_key: str, card=None) -> str:
     info = cfg.EVENTS[event_key]
+    if event_key == "card":
+        title = f"{info['emoji']} {card['name']}" if card else f"{info['emoji']} {info['name']}"
+        return (
+            f"{title}\n"
+            f"{info['stars']}\n"
+            f"{cfg.RARITY_LABELS[info['card_rarity']]} PARADOX card\n\n"
+            f"Reward:\n{'This card' if card else cfg.card_prize_text(info['card_rarity'])} 🃏\n\n"
+            f"{info['catch_text']}"
+        )
     if cfg.CARD_PRIZES:
         rarity_label = cfg.RARITY_LABELS[info["card_rarity"]]
         reward = cfg.card_prize_text(info["card_rarity"])
@@ -452,7 +551,7 @@ async def _expire_stale_events(context: ContextTypes.DEFAULT_TYPE) -> None:
             print(f"[events] failed to expire stale unclaimed event (event {row['id']}): {e}", flush=True)
 
 
-async def _send_event_message(context: ContextTypes.DEFAULT_TYPE, event_id: str, text: str, keyboard: InlineKeyboardMarkup):
+async def _send_event_message(context: ContextTypes.DEFAULT_TYPE, event_id: str, text: str, keyboard: InlineKeyboardMarkup, sticker_bytes: bytes = None):
     """Sends one event announcement to the group: the artwork first, as a
     STICKER (not a photo) if the event's sticker file exists on disk, then
     the actual tracked message -- always plain text, carrying the caption
@@ -479,9 +578,15 @@ async def _send_event_message(context: ContextTypes.DEFAULT_TYPE, event_id: str,
     an existing unclaimed one), so both stay in sync automatically if this
     logic ever changes."""
     info = cfg.EVENTS[event_id]
-    sticker_path = cfg.ASSETS_DIR / info["sticker_filename"]
+    sticker_path = cfg.ASSETS_DIR / info["sticker_filename"] if info.get("sticker_filename") else None
     sticker_message_id = None
-    if sticker_path.is_file():
+    if sticker_bytes:  # card mode: the prize card's own art (see _card_sticker)
+        try:
+            sticker_msg = await context.bot.send_sticker(chat_id=cfg.EVENTS_CHAT_ID, sticker=sticker_bytes, reply_markup=keyboard)
+            sticker_message_id = sticker_msg.message_id
+        except Exception as e:
+            print(f"[events] failed to send the card sticker: {e}", flush=True)
+    elif sticker_path is not None and sticker_path.is_file():
         try:
             with open(sticker_path, "rb") as f:
                 sticker_msg = await context.bot.send_sticker(chat_id=cfg.EVENTS_CHAT_ID, sticker=f, reply_markup=keyboard)
@@ -601,14 +706,24 @@ async def _post_new_event(context: ContextTypes.DEFAULT_TYPE, event_id=None) -> 
     except Exception as e:
         print(f"[events] _expire_stale_events failed: {e}", flush=True)
 
-    if event_id is None:
-        event_id = _pick_event_id()
+    code, sticker = None, None
+    if cfg.CARD_PRIZES:
+        # Card mode: always one Common card, decided NOW (the code is created
+        # with the event, not at the catch) so the post can show that card.
+        event_id = "card"
+        code = prize_code.new_code(cfg.CATCH_PRIZE_SECRET, cfg.EVENTS["card"]["card_rarity"])
+        card = await _prize_card(code)
+        sticker = await _card_sticker(card)
+        text = _build_unclaimed_text(event_id, card)
+    else:
+        if event_id is None or event_id == "card":
+            event_id = _pick_event_id()
+        text = _build_unclaimed_text(event_id)
     info = cfg.EVENTS[event_id]
     token = uuid.uuid4().hex[:10]
-    text = _build_unclaimed_text(event_id)
     keyboard = _event_keyboard(token)
 
-    msg, sticker_message_id = await _send_event_message(context, event_id, text, keyboard)
+    msg, sticker_message_id = await _send_event_message(context, event_id, text, keyboard, sticker)
 
     try:
         # One atomic INSERT (chat_id/message_id/display_text all included) --
@@ -619,7 +734,7 @@ async def _post_new_event(context: ContextTypes.DEFAULT_TYPE, event_id=None) -> 
         db.create_event(
             event_id, token, 0 if cfg.CARD_PRIZES else info["reward"], msg.chat_id, msg.message_id, text,
             has_image=sticker_message_id is not None, sticker_message_id=sticker_message_id,
-            prize=f"card:{info['card_rarity']}" if cfg.CARD_PRIZES else None,
+            prize=f"card:{info['card_rarity']}" if cfg.CARD_PRIZES else None, prize_code=code,
         )
         # A brand-new event starts its own fresh bump countdown -- without
         # this, a count left over from a PREVIOUS event (claimed/expired
@@ -733,9 +848,16 @@ async def _bump_event(context: ContextTypes.DEFAULT_TYPE, row) -> None:
     """Automatic bump: only ever fires for a still-UNCLAIMED event (chat
     activity threshold, see on_group_activity), so the CAS is always against
     'unclaimed' specifically."""
-    text = _build_unclaimed_text(row["event_key"])
+    text = await _unclaimed_text_for(row)
     keyboard = _event_keyboard(row["token"])
     await _reposition_event_messages(context, row, text, keyboard, expected_status="unclaimed")
+
+
+async def _unclaimed_text_for(row) -> str:
+    """The 'still catchable' text of an existing event (bump / reposition)."""
+    if _is_card_event(row):
+        return _build_unclaimed_text("card", await _prize_card(_row_code(row)))
+    return _build_unclaimed_text(row["event_key"])
 
 
 async def _reposition_event_messages(
@@ -752,7 +874,8 @@ async def _reposition_event_messages(
     popup about them appears fresh at the bottom, which reads as
     disconnected/illogical. Repositioning on interaction keeps everything
     about this event visually together."""
-    msg, sticker_message_id = await _send_event_message(context, row["event_key"], text, keyboard)
+    sticker = await _card_sticker(await _prize_card(_row_code(row))) if _is_card_event(row) else None
+    msg, sticker_message_id = await _send_event_message(context, row["event_key"], text, keyboard, sticker)
 
     # Atomic compare-and-set against expected_status: if this event's status
     # changed in the tiny window between the caller deciding to reposition it
@@ -1702,7 +1825,7 @@ async def on_menu_button(update, context: ContextTypes.DEFAULT_TYPE) -> None:
             # appears fresh at the bottom -- disconnected and confusing.
             # Keeps everything about this event visually together.
             reposition_text = (
-                _build_unclaimed_text(row["event_key"]) if row["status"] == "unclaimed" else row["display_text"]
+                await _unclaimed_text_for(row) if row["status"] == "unclaimed" else row["display_text"]
             )
             try:
                 if await _reposition_event_messages(
