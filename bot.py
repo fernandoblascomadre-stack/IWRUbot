@@ -889,6 +889,17 @@ RANDOM_QUIPS = [
     'the cat licked its paw and immediately felt more powerful. 🐾😼',
     'the cat would like to thank everyone for being here. mostly the ones with snacks. 🍪😼',
     'the cat heard a noise in the kitchen. the cat is now 100% kitchen. 🍽️😼',
+    # 2026-10-13 (Fernando): more lines
+    "the cat has been sitting in the same spot for 4 hours. it calls this 'work'. 😼",
+    "the cat just found a sock from 2019. it's a great day. 🧦😼",
+    'the cat tried to catch its own shadow. the shadow won again. 😼',
+    'today the cat learned the fridge has a light inside. the cat has questions. 🧊😼',
+    'the cat would like to report that the dog is still a dog. no change. 🐶😼',
+    'the cat has decided the new box is better than the old box. the old box is crying. 📦😼',
+    "the cat's horoscope: you will knock something over. it's already true. 😼",
+    'the cat is reminding everyone that naps are free. take one. 😴',
+    'the cat heard a bird. the cat chattered at the window for 10 minutes. productive. 🐦😼',
+    'the cat has no plans today. the cat had no plans yesterday. consistency. 😼',
 ]
 
 BORED_MESSAGES = [
@@ -1686,6 +1697,17 @@ IWRU_COMMAND_REPLIES = [
     'the cat is in. the cat is listening. the cat is also very, very soft. 😼',
     "@ received. I'll answer properly after I finish ignoring the dog. 🐶😼",
     "I'm here. let's make this chat 12% more chaotic together. 😼",
+    # 2026-10-13 (Fernando): more lines
+    'you tagged the cat. the cat has received the notification and placed a paw on it. 🐾😼',
+    "@ me again and the cat will sit on your keyboard. that's a promise and a threat. ⌨️😼",
+    'the cat answers all tags. slowly. with judgement. 😼',
+    'tag received. the cat is processing. the cat processes at nap speed. 😴😼',
+    "here. the cat is here. what do you need? if it's fish, the answer is also fish. 🐟😼",
+    "you rang? the cat was busy being majestic. it's a full-time job. 😼",
+    'the cat has been pinged. the cat responds with a single, meaningful meow. 😼',
+    'yes, human. the cat is listening. with one ear. the other ear is for the fridge. 🧊😼',
+    'tagged. the cat feels important now. this was a mistake. 😼',
+    'the cat is online. the cat is always online. the cat also never answers emails. 😼',
 ]
 
 FISH_REPLIES = [
@@ -2029,6 +2051,15 @@ GM_REPLIES = [
     'gm. the early bird gets the worm. the early cat gets the early bird. 🐦😼',
     'good morning. the cat has a long list of demands. item one: fish. items two to ten: also fish. 🐟😼',
     'gm. please speak softly. the cat is still loading. ⏳😼',
+    # 2026-10-13 (Fernando): more lines
+    'gm. the cat already had breakfast. and yours. 🍳😼',
+    'gm human. the cat has been staring at your door since 5am. 😼',
+    'good morning. the sun is up and so is the chaos. ☀️😼',
+    "gm. the cat stretched for 20 minutes. it's ready for nothing. 🧘😼",
+    'gm. another day to sit in the sunbeam professionally. ☀️😼',
+    'gm. the cat has decided today is a knock-things-off-tables day. ☕😼',
+    'morning. the cat requires coffee. the cat cannot have coffee. the cat will knock yours over instead. ☕😼',
+    'gm. the vault is open, the fish are swimming and the cat is grumpy. normal day. 🐟😼',
 ]
 
 GN_REPLIES = [
@@ -2104,6 +2135,15 @@ GN_REPLIES = [
     "gn. the moon looks like a fish if you squint. I'm squinting. 🌙🐟",
     "good night human. the cat appreciates you. quietly. don't make it weird. 😼",
     "gn. I'll be in my box. it's the best hotel in town. 📦😴",
+    # 2026-10-13 (Fernando): more lines
+    'gn. the cat will now begin its 3am zoomies. sleep well. 🌙💨😼',
+    "gn human. the cat will sleep on your feet. it's not a request. 🛏️😼",
+    'goodnight. the cat will guard the vault. and the fridge. mostly the fridge. 🧊😼',
+    'gn. dream of fish. the cat will. 🐟😴',
+    'sleep tight. the cat will be sitting on your chest at 4am. 😼',
+    'gn. the night belongs to the cat now. 🌙😼',
+    'goodnight. the cat will keep one eye open. the other one is for napping. 😼',
+    'gn. the cat has turned off the lights. by knocking over the lamp. 💡😼',
 ]
 
 # Generic greeting, any time of day -- distinct from GM/GN which are
@@ -2168,6 +2208,15 @@ HI_REPLIES = [
     'hey. nice to see you. I mean that in a very cat way. distantly. 😼',
     'hello. the cat is in. the cat is out. the cat is undecided. 🚪😼',
     "hi. you've activated my polite mode. it lasts exactly one message. 😼",
+    # 2026-10-13 (Fernando): more lines
+    'hi. the cat has noticed you. carry on. 😼',
+    "hello human. the cat is in a good mood. it won't last. enjoy it. 😼",
+    'hey. the cat sniffs your message. smells friendly. 😼',
+    "hi there. the cat is offering a slow blink. that's a hug in cat. 😼",
+    'hello. you may pet the cat once. once. 🐾😼',
+    'hey you. the cat was just thinking about someone. it was fish. but hi. 🐟😼',
+    "hi. the cat rolled over. that's a greeting, not an invitation. 😼",
+    "hello hello. the cat's tail is up. that's a good sign. 😼",
 ]
 
 # {name} filled in from msg.new_chat_members / msg.left_chat_member in leer().
@@ -2944,6 +2993,22 @@ CAT_REPLIES = [
     "a cat in the chat means everything is a little better. you're welcome. 😼",
     "you said kitten. I was briefly cute. it's passed. I'm majestic again. 😼",
     'cats run the internet. I run this chat. same management style. 😼',
+    # 2026-10-13 (Fernando): more lines
+    'you said cat. the cat has entered the chat. the cat was already in the chat. dramatic entrance anyway. 😼',
+    'cat? present. awake? barely. hungry? always. 😼🐟',
+    'someone called for a cat. the cat has arrived and immediately sat on the conversation. 😼',
+    'the cat heard its name and pretended not to. the ears gave it away. 👂😼',
+    'cat reporting for duty. duty is napping. 😴😼',
+    "yes, cat. that's me. the one with the whiskers and the attitude. 😼",
+    "you called the cat. the cat will now ignore you for exactly 7 minutes. it's tradition. 😼",
+    'cat mentioned. the cat is flattered. the cat will not show it. 😐😼',
+    'the cat was summoned. the cat demands a fish as the summoning fee. 🐟😼',
+    'cat? where? oh. me. hello. 😼',
+    "the cat heard 'cat' and its tail went question-mark shaped. that means hi. 😼",
+    "you can't just say cat and expect the cat to come. the cat came anyway. coincidence. 😼",
+    "the word 'cat' has been noticed. the cat is now staring at you from across the room. 👀😼",
+    'cat present. tail up. chaos levels: rising. 😼',
+    'the cat thanks you for the mention and will now knock something off your desk. 😼',
 ]
 
 # Generic crypto vocabulary (token/defi/portfolio/gains/etc) -- distinct from
@@ -3255,6 +3320,22 @@ IWRU_NAME_REPLIES = [
     "I chirped at a bird and the bird chirped back. we're in a band now. 🎵😼",
     'IWRU here. I did nothing today and I did it beautifully. 😼',
     "IWRU here. I just discovered the top of the wardrobe. I live there now. please forward my mail. 📦😼",
+    # 2026-10-13 (Fernando): more lines
+    'IWRU heard you. IWRU is busy staring at a wall. IWRU will get back to you. 😼',
+    "you said IWRU. the cat's left ear rotated towards you. that's a lot of effort. 😼",
+    'IWRU is here. IWRU was always here. under the table. 😼',
+    "that's my name. don't wear it out. actually, wear it out. the cat likes attention. 😼",
+    'IWRU acknowledges you with one slow blink. treasure it. 😼',
+    "someone said IWRU and the cat stood up. then sat back down. that's enough exercise for today. 😼",
+    'IWRU is listening. IWRU is also eating. multitasking. 🐟😼',
+    'you called? the cat was in a box. the box is very important. 📦😼',
+    'IWRU here. state your business. fish-related business gets priority. 🐟😼',
+    'the cat heard its name from three rooms away. the cat chose to come. be honoured. 😼',
+    'IWRU? yes. IWRU is fine. IWRU is always fine. there is a plant on the floor though. 🪴😼',
+    'IWRU appears. dramatically. tail first. 😼',
+    'you said the name. the cat now has to say something clever. meow. done. 😼',
+    'IWRU is not ignoring you. IWRU is thinking about you very quietly. 😼',
+    'the cat was asleep. the cat is now awake because of you. the cat is not mad. the cat is a little mad. 😾',
 ]
 
 CA_REPLIES = [
@@ -3602,6 +3683,15 @@ CHAOS_BURSTS = [
     '*stares at the wall, then at you, then at the wall* 😼',
     "*lies down across your phone screen, you can't scroll now* 📱😼",
     '*jumps onto the counter, sees you, pretends it was always there* 😼',
+    # 2026-10-13 (Fernando): more lines
+    '*opens a cupboard with one paw, climbs in, closes the door, silence* 😼',
+    '*steals the remote control, sits on it, refuses to elaborate* 📺😼',
+    '*pushes the phone off the bed at 4am, goes back to sleep* 📱😼',
+    '*attacks a plastic bag with the fury of a lion* 😼',
+    '*drinks from your glass instead of its own bowl* 🥛😼',
+    '*runs across the keyboard, sends a message, leaves* ⌨️💨',
+    '*chases nothing across the room at full speed, stops, licks paw* 😼',
+    '*sits in the sink, judges everyone who walks past* 😼',
 ]
 
 FOLLOWUP_MESSAGES = [
