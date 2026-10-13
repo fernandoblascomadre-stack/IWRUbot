@@ -580,6 +580,23 @@ def most_of(event_key: str, limit: int = 3):
     return [(_display(r["winner_username"], r["winner_name"]), r["c"]) for r in rows]
 
 
+def top_card_winners(limit: int = 10):
+    """Hall of Fame (2026-10-13, Fernando: "debe salir quien y cuantas cartas ha ganado con este nuevo evento"):
+    who won PARADOX cards in the Catch Event and how many, counting only codes actually delivered (status 'paid',
+    prize 'card:<rarity>', same rule as cards_distributed). Same deterministic latest-row-per-winner display as
+    top_hunters."""
+    rows = _conn.execute(
+        "SELECT e.winner_username, e.winner_name, t.c FROM events e "
+        "JOIN ("
+        "  SELECT winner_id, COUNT(*) c, MAX(id) latest_id FROM events "
+        "  WHERE winner_id IS NOT NULL AND status = 'paid' AND prize LIKE 'card:%' GROUP BY winner_id"
+        ") t ON t.latest_id = e.id "
+        "ORDER BY t.c DESC, e.winner_id ASC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    return [(_display(r["winner_username"], r["winner_name"]), r["c"]) for r in rows]
+
+
 def crown_winners(limit: int = 10):
     rows = _conn.execute(
         "SELECT winner_username, winner_name FROM events "

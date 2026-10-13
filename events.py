@@ -21,6 +21,7 @@ from telegram.ext import (
 import events_config as cfg
 import db
 import prize_code
+import catch_card_lines
 
 # ══════════════════════════════════════════════════════════════════════════
 #  OWNER CHECK — trivial, no discovery/resolution needed
@@ -1177,8 +1178,14 @@ async def on_catch(update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # careful CAS-guarded edit. A failure here is just a missed joke, not
     # worth taking the real claim/reward flow down with it.
     try:
-        pool = cfg.CATCH_CONGRATS.get(row["event_key"], cfg.CATCH_CONGRATS["mouse"])
-        congrats_text = random.choice(pool).replace("{name}", user.first_name or "human")
+        if _is_card_event(row):
+            # 2026-10-13 (Fernando): a card catch gets a line about THAT card (catch_card_lines.py), not the old
+            # mouse/fish/box/crown jokes.
+            card = await _prize_card(_row_code(row))
+            congrats_text = catch_card_lines.catch_line(card["defId"] if card else None, card["name"] if card else None, user.first_name)
+        else:
+            pool = cfg.CATCH_CONGRATS.get(row["event_key"], cfg.CATCH_CONGRATS["mouse"])
+            congrats_text = random.choice(pool).replace("{name}", user.first_name or "human")
         congrats_msg = await context.bot.send_message(chat_id=fresh_check["chat_id"], text=congrats_text)
         note_catch_congrats(fresh_check["chat_id"], congrats_msg.message_id)
     except TelegramError as e:
@@ -1722,6 +1729,11 @@ def _render_hall_of_fame() -> str:
     hunters_lines = "\n".join(f"{i + 1}. {name} — {count}" for i, (name, count) in enumerate(hunters))
     hunters_lines = hunters_lines or "No hunters yet."
 
+    # 2026-10-13 (Fernando): who won PARADOX cards in the Catch Event, and how many.
+    cards = db.top_card_winners(10)
+    cards_lines = "\n".join(f"{i + 1}. {name} — {count} card{'s' if count != 1 else ''}" for i, (name, count) in enumerate(cards))
+    cards_lines = cards_lines or "No PARADOX cards won yet."
+
     crowns = db.crown_winners(10)
     crowns_lines = "\n".join(f"👑 {name}" for name in crowns) or "No Golden Crown winners yet."
 
@@ -1734,6 +1746,7 @@ def _render_hall_of_fame() -> str:
     return (
         "🏆 Hall of Fame\n\n"
         "Top Hunters:\n" + hunters_lines + "\n\n"
+        "🃏 PARADOX Card Winners:\n" + cards_lines + "\n\n"
         "Golden Crown Winners:\n" + crowns_lines + "\n\n"
         "Most Purple Fish Found:\n" + fish_lines + "\n\n"
         f"Total Distributed: {_distributed_text(total)}"
