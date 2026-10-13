@@ -294,6 +294,22 @@ INSPECT_POPUPS = [
     "You feel like you're being watched. You are.",
     "It's warmer than it should be.",
     "😼 Curiosity is a virtue. Mostly.",
+    # 2026-10-13 (Fernando): more lines
+    'Something moved. Probably.',
+    'The cat sniffed it first. Inconclusive.',
+    "It's warm. Suspiciously warm.",
+    'You hear a tiny squeak.',
+    "There's fur on it. Cat fur.",
+    'It wobbled. Things that wobble are fun.',
+    'The vault hums quietly.',
+    'Smells like adventure. And tuna.',
+    'It looks back at you.',
+    'Careful. The cat is watching.',
+    'Definitely not a cucumber. Probably.',
+    'Your paws are tingling.',
+    'A whisker twitched somewhere.',
+    "It's either a prize or a sock.",
+    'Hmm. Interesting. Very interesting.',
 ]
 
 # Rare pool (~1% of presses, see INSPECT_RARE_CHANCE). Pure easter egg --
@@ -316,6 +332,19 @@ LATE_POPUPS = [
     "😼 Not today.",
     "🐟 Gone. Just like that.",
     "The vault says no.",
+    # 2026-10-13 (Fernando): more lines
+    '😼 Too slow. The cat saw everything.',
+    '🐾 Someone else got there first.',
+    "🐟 Gone. Like a fish in a cat's bowl.",
+    '😹 The cat is laughing. Gently.',
+    '💨 Missed it by a whisker.',
+    '😼 Next time, stretch first.',
+    "🐭 It's already been caught.",
+    '😴 You were napping. The cat understands.',
+    '🧶 Gone. Try chasing the next one.',
+    '😼 Faster paws win. Keep practising.',
+    '🐾 The prize has left the vault.',
+    '😿 So close. The cat feels it too.',
 ]
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -348,6 +377,19 @@ EVENT_TEASER_MESSAGES = [
     "😼 Stay close. I think today's the day.",
     "🧶 I keep looking at the vault. It's looking back.",
     "👑 Something shiny might turn up. Might.",
+    # 2026-10-13 (Fernando): more lines
+    "😼 The cat's ears just turned toward the vault. Something's coming.",
+    '🐾 Tiny paw prints near the Fish Vault. Interesting.',
+    "👀 The cat hasn't blinked in ten minutes. Something is up.",
+    '🐟 The vault smells different today. Stay close.',
+    '😼 The cat is crouched, tail twitching. Soon.',
+    '🔔 A small bell rang somewhere in the vault.',
+    '🌀 The air feels chaotic. The cat likes it.',
+    '🐭 Did anyone else hear that squeak?',
+    '😼 Stretch your paws. Just a suggestion.',
+    "📦 There's a box in the vault that wasn't there before.",
+    '👂 The cat is listening very carefully right now.',
+    "😼 Don't wander off. Just saying.",
 ]
 
 # Randomized each time the daily event is (re)scheduled, so the lead time
@@ -368,6 +410,19 @@ IWRU_MENU_FLAVOR_LINES = [
     "😼 Stay a while. The vault likes company.",
     "🐾 Something's out there. I can feel it.",
     "😼 Ask me anything. I'll probably ignore you.",
+    # 2026-10-13 (Fernando): more lines
+    '📦 If it fits, I sits.',
+    '😼 Every warm spot is mine.',
+    "🐾 I walk on keyboards. It's my job.",
+    '🧊 Is that the fridge opening?',
+    '🌙 3am zoomies are a lifestyle.',
+    "🥒 We don't talk about the cucumber.",
+    '☀️ Found a sunbeam. Do not disturb.',
+    '😴 Nap #4 of the day. Going well.',
+    '🐶 The dog is not invited.',
+    '👀 I saw that.',
+    '🪴 That plant looked at me first.',
+    '🧦 Your sock is mine now.',
 ]
 
 # ══════════════════════════════════════════════════════════════════════════
