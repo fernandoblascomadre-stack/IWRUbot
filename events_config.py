@@ -77,10 +77,11 @@ BUYBOT_EXPLORER = "https://monadscan.com"
 # process cwd, same as ASSETS_DIR below. A missing file is not fatal: the
 # alert falls back to text-only rather than being dropped.
 BUYBOT_IMAGE = pathlib.Path(__file__).parent / "assets" / "buybot" / "buy.jpg"
-# Where the buttons point. The chart is nad.fun for as long as $IWRU sits on
-# the bonding curve: there is no DEX pair yet, so there is no Dexscreener or
-# GeckoTerminal chart to link either.
-BUYBOT_CHART_URL = os.environ.get("BUYBOT_CHART_URL") or f"https://nad.fun/tokens/{BUYBOT_TOKEN}"
+# Where the buttons point. $IWRU graduated from the nad.fun bonding curve on
+# 2026-10-14 into the IWRU/WMON pair below, so every chart link the bot sends
+# (buy alerts, Monad reminders, chart replies) is this Dexscreener page.
+BUYBOT_PAIR = "0x0caaF82370766e76E150A5610c16A306E254b8A7"
+BUYBOT_CHART_URL = os.environ.get("BUYBOT_CHART_URL") or f"https://dexscreener.com/monad/{BUYBOT_PAIR.lower()}"
 BUYBOT_SITE_URL = os.environ.get("BUYBOT_SITE_URL") or "https://iwillrugu.com/"
 # BUYBOT_CHAT_ID is defined below, next to EVENTS_CHAT_ID, since it defaults
 # to it.
