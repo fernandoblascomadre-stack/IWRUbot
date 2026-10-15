@@ -3,6 +3,7 @@ import io
 import json
 import random
 import time
+import urllib.error
 import urllib.request
 import uuid
 from datetime import datetime, timedelta
@@ -166,6 +167,12 @@ async def _deliver_card_code(context: ContextTypes.DEFAULT_TYPE, row) -> bool:
         row = db.get_event_by_token(row["token"])
         if row is None or row["status"] != "claimed" or not row["prize_code"]:
             return False
+    if not prize_code.verifies(cfg.CATCH_PRIZE_SECRET, row["prize_code"]):
+        # Posted before the secret fix (see prize_secret_job): registered on the website first.
+        try:
+            await asyncio.to_thread(_register_legacy_codes)
+        except Exception as e:
+            print(f"[prize] {e}", flush=True)
     await _prize_card(row["prize_code"])  # warms the name used by _row_prize_text
     info = _event_info(row["event_key"])
     text = cfg.CARD_CODE_MSG.format(
@@ -1915,6 +1922,85 @@ async def on_menu_button(update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # ══════════════════════════════════════════════════════════════════════════
 #  REGISTRATION
 # ══════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════
+#  PRIZE SECRET CHECK + CODES SENT BEFORE THE 2026-10-15 FIX
+# ══════════════════════════════════════════════════════════════════════════
+# From 2026-10-12 to 2026-10-15 the bot signed codes with the MASKED value
+# Netlify shows for a secret variable, so the website rejected every one
+# ("That code is not valid"). Now, at every start and every 6 h:
+#  1. the server is asked whether a never-redeemable check code signed here
+#     verifies (GET ?prizeCheck=); if not, the Owner gets a DM -- a secret
+#     mismatch can no longer go unnoticed;
+#  2. every code really sent to a winner that the current secret doesn't sign
+#     is registered on the server (signed request), so it stays redeemable
+#     until its winner redeems it.
+def _http_json(url: str, body: dict = None):
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(url, data=data, headers={"User-Agent": "IWRUbot/1.0", "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return r.status, json.loads(r.read().decode() or "{}")
+    except urllib.error.HTTPError as e:
+        try:
+            return e.code, json.loads(e.read().decode() or "{}")
+        except Exception:
+            return e.code, {}
+
+
+def _prize_secret_check() -> bool:
+    status, d = _http_json(f"{cfg.PARADOX_PRIZE_CARD_API}?prizeCheck={prize_code.check_code(cfg.CATCH_PRIZE_SECRET)}")
+    return status == 200 and d.get("valid") is True
+
+
+def _register_legacy_codes() -> tuple:
+    """(sent, server reply) -- sent 0 when there is nothing to register."""
+    legacy = [c for c in db.caught_card_codes() if not prize_code.verifies(cfg.CATCH_PRIZE_SECRET, c)]
+    if not legacy:
+        return 0, None
+    total = 0
+    for i in range(0, len(legacy), 200):
+        chunk = legacy[i:i + 200]
+        ts = str(int(time.time() * 1000))
+        body = {"action": "registerLegacyPrizes", "codes": chunk, "ts": ts,
+                "sig": prize_code.registration_signature(cfg.CATCH_PRIZE_SECRET, ts, chunk)}
+        status, d = _http_json(cfg.PARADOX_PRIZE_CARD_API, body)
+        if status != 200 or not d.get("ok"):
+            raise RuntimeError(f"register legacy codes: HTTP {status} {d}")
+        total += d.get("registered", 0)
+    return len(legacy), total
+
+
+async def prize_secret_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not cfg.CARD_PRIZES:
+        return
+    try:
+        ok = await asyncio.to_thread(_prize_secret_check)
+    except Exception as e:
+        print(f"[prize] secret check failed to run: {e}", flush=True)
+        return
+    if not ok:
+        print("[prize] CATCH_PRIZE_SECRET does NOT match the website: prize codes can't be redeemed", flush=True)
+        if db.get_config("prize_secret_alert") != "sent":
+            try:
+                await context.bot.send_message(
+                    chat_id=cfg.BOT_OWNER_ID,
+                    text="⚠️ Catch Event: CATCH_PRIZE_SECRET on the bot (Render) is not the same as on the website (Netlify). "
+                         "The card codes the bot sends will be rejected. Set the same value on both.",
+                )
+                db.set_config("prize_secret_alert", "sent")
+            except TelegramError as e:
+                print(f"[prize] could not warn the Owner: {e}", flush=True)
+        return
+    db.set_config("prize_secret_alert", "")
+    print("[prize] secret check OK: the website verifies the bot's codes", flush=True)
+    try:
+        sent, registered = await asyncio.to_thread(_register_legacy_codes)
+        if sent:
+            print(f"[prize] {sent} earlier codes registered on the website ({registered} confirmed)", flush=True)
+    except Exception as e:
+        print(f"[prize] {e}", flush=True)
+
+
 def register(app: Application) -> None:
     db.init_db()
 
@@ -1934,3 +2020,4 @@ def register(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(on_owner_panel_button, pattern=r"^owner:"))
 
     _schedule_daily_event(app.job_queue)
+    app.job_queue.run_repeating(prize_secret_job, interval=6 * 3600, first=20)

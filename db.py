@@ -385,6 +385,15 @@ def set_prize_code(event_id: int, code: str) -> bool:
     return cur.rowcount == 1
 
 
+def caught_card_codes() -> list:
+    """Every card code that went to a winner (someone caught the treasure),
+    whatever happened after; never the code of a treasure nobody caught."""
+    rows = _conn.execute(
+        "SELECT prize_code FROM events WHERE prize LIKE 'card:%' AND prize_code IS NOT NULL AND winner_id IS NOT NULL ORDER BY id"
+    ).fetchall()
+    return [r["prize_code"] for r in rows]
+
+
 def cards_distributed() -> int:
     """Card codes actually delivered to a winner (status 'paid')."""
     row = _conn.execute(

@@ -35,6 +35,36 @@ def new_code(secret: str, rarity: str) -> str:
     return format_code(secret, payload)
 
 
+def _normalize(code: str):
+    s = "".join(ch for ch in (code or "").upper() if ch.isalnum())
+    if len(s) == 24 and s.startswith("IWRU"):
+        s = s[4:]
+    return s if len(s) == 20 and all(ch in ALPHABET for ch in s) else None
+
+
+def verifies(secret: str, code: str) -> bool:
+    """True when `code` is signed with `secret` (the server's verifyPrizeCode)."""
+    s = _normalize(code)
+    return bool(s and secret) and hmac.compare_digest(signature(secret, s[:10]), s[10:])
+
+
+# 2026-10-15: until then the bot signed with the MASKED value Netlify shows for a
+# secret variable, so no code verified on the website. Two tools so it can't
+# happen silently again and the codes already sent stay valid (server side:
+# _catch-prize-code.mjs CHECK_DIGIT / verifyRegistration):
+CHECK_DIGIT = "0"  # a payload starting with 0 is never redeemable: only for the secret check
+_REG_PREFIX = "iwru-catch-prize:register:v1:"
+
+
+def check_code(secret: str) -> str:
+    """A never-redeemable code the server answers 'valid' for only if it has the same secret."""
+    return format_code(secret, CHECK_DIGIT + "".join(secrets.choice(ALPHABET) for _ in range(9)))
+
+
+def registration_signature(secret: str, ts: str, codes: list) -> str:
+    return hmac.new(secret.encode(), (_REG_PREFIX + ts + ":" + ",".join(codes)).encode(), hashlib.sha256).hexdigest()
+
+
 if __name__ == "__main__":
     # Parity check with the server test: python prize_code.py <secret> <payload>
     print(format_code(sys.argv[1], sys.argv[2]))
