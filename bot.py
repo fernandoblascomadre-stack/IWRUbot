@@ -28,6 +28,7 @@ import events
 import db
 import buybot
 import paradox_cards
+import cat_posts
 import events_config as cfg
 
 # chats pre-registered via env var (KNOWN_CHAT_IDS="-1003859192674,-100...") so
@@ -3783,15 +3784,6 @@ NFT_REMINDERS = [
     "every NFT sold = one more fish for the cat. do the right thing. 😼\n\n🎨 https://opensea.io/collection/i-will-rug-u",
 ]
 
-DIVIDENDS_REMINDERS = [
-    f"the cat did the math. you have dividends sitting on nad.fun collecting dust instead of fish. embarrassing. 😼\n\n🟣 go claim them → {NAD_LINK}",
-    f"reminder: your nad.fun profile has dividends waiting. the cat checked. the cat judges. 🐟\n\n🟣 {NAD_LINK}",
-    f"*stares at your unclaimed dividends* this is not the first time I've had to say something. 😼\n\n🟣 collect on nad.fun → {NAD_LINK}",
-    f"somewhere on nad.fun, in your profile, dividends are just... waiting. like the cat waits for dinner. go get them. 🐟\n\n🟣 {NAD_LINK}",
-    f"the cat does not lecture. the cat simply notes that your dividends remain uncollected. 😼\n\n🟣 nad.fun profile → {NAD_LINK}",
-    f"free money is sitting in your nad.fun profile and you're here reading cat facts instead. priorities. 🐟\n\n🟣 {NAD_LINK}",
-]
-
 DAILY_CATCH_IMAGE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "treasure.jpg")
 
 # Same image every time -- only the caption rotates (per the user, 2026-08-23:
@@ -5722,6 +5714,38 @@ async def nft_reminder_job(context: ContextTypes.DEFAULT_TYPE):
         # -20% frequency: reschedule every 13.75-16.25 hours (was 11-13h)
         context.application.job_queue.run_once(nft_reminder_job, random.uniform(49500, 58500))
 
+# Twice a day, >= 10h apart, each kind: (events.db key prefix, line pool, link line). The last post time lives in
+# events.db (persistent disk), so a restart or redeploy never makes one post early. Rules in cat_posts.py.
+TWICE_DAILY_POSTS = {
+    "dexscreener": ("dex_post", cat_posts.DEXSCREENER_LINES, f"📊 {cat_posts.DEXSCREENER_LINK}"),
+    "dividends": ("dividends_post", cat_posts.DIVIDENDS_LINES, f"🐟 claim here → {cat_posts.FEES_LINK}"),
+}
+
+def _schedule_twice_daily_post(job_queue, kind):
+    key = TWICE_DAILY_POSTS[kind][0]
+    delay = cat_posts.next_post_delay(db.get_config(f"{key}_last"), db.get_config(f"{key}_day_count"))
+    print(f"[twice_daily_post_job] {kind}: next post in {delay / 3600:.1f}h", flush=True)
+    job_queue.run_once(twice_daily_post_job, delay, data=kind, name=f"twice_daily_{kind}")
+
+async def twice_daily_post_job(context: ContextTypes.DEFAULT_TYPE):
+    kind = context.job.data
+    key, lines, link = TWICE_DAILY_POSTS[kind]
+    try:
+        text = f"{pick_phrase(lines)}\n\n{link}"
+        sent = False
+        for chat_id in list(_known_chats.keys()):
+            try:
+                await context.bot.send_message(chat_id=chat_id, text=text)
+                sent = True
+            except Exception as e:
+                print(f"[twice_daily_post_job] {kind} chat {chat_id}: {e}", flush=True)
+        if sent:
+            now = datetime.now(timezone.utc)
+            db.set_config(f"{key}_last", now.isoformat())
+            db.set_config(f"{key}_day_count", cat_posts.bump_day_count(db.get_config(f"{key}_day_count"), now))
+    finally:
+        _schedule_twice_daily_post(context.application.job_queue, kind)
+
 # once/day, random moment inside this UTC window
 MERCH_ANNOUNCEMENT_WINDOW_UTC = (12, 22)
 
@@ -5756,37 +5780,12 @@ async def merch_announcement_job(context: ContextTypes.DEFAULT_TYPE):
         context.application.job_queue.run_once(merch_announcement_job, delay)
 
 # once/day, random moment inside this UTC window
-DIVIDENDS_REMINDER_WINDOW_UTC = (12, 22)
-
-async def dividends_reminder_job(context: ContextTypes.DEFAULT_TYPE):
-    """Posts one DIVIDENDS_REMINDERS line once per calendar day (UTC) to every
-    known chat, at a random moment inside DIVIDENDS_REMINDER_WINDOW_UTC.
-    Same calendar-day dedupe as merch_announcement_job (restart-safe across
-    Render redeploys) rather than the every-N-hours drift the other reminder
-    jobs use, since "once a day" needs a real guarantee here too."""
-    try:
-        today = datetime.utcnow().date().isoformat()
-        if db.get_config("last_dividends_reminder_date") != today:
-            # set BEFORE posting -- a redeploy landing mid-send must not
-            # recompute and post a second reminder the same day.
-            db.set_config("last_dividends_reminder_date", today)
-            text = pick_phrase(DIVIDENDS_REMINDERS)
-            for chat_id in list(_known_chats.keys()):
-                try:
-                    await context.bot.send_message(chat_id=chat_id, text=text)
-                except Exception as e:
-                    print(f"[dividends_reminder_job] chat {chat_id}: {e}", flush=True)
-    finally:
-        delay = _seconds_until_window(*DIVIDENDS_REMINDER_WINDOW_UTC, force_next_day=True)
-        context.application.job_queue.run_once(dividends_reminder_job, delay)
-
-# once/day, random moment inside this UTC window
 DAILY_CATCH_ANNOUNCEMENT_WINDOW_UTC = (12, 22)
 
 async def daily_catch_announcement_job(context: ContextTypes.DEFAULT_TYPE):
     """Posts one DAILY_CATCH_ANNOUNCEMENTS variant, with the treasure.jpg photo,
     once per calendar day (UTC) to every known chat -- same restart-safe
-    calendar-day dedupe as merch_announcement_job/dividends_reminder_job.
+    calendar-day dedupe as merch_announcement_job.
 
     The image never changes, only the caption rotates (per the user). Telegram
     lets a photo already sent once be resent to other chats/days by its
@@ -5824,7 +5823,7 @@ PENKMARKET_ANNOUNCEMENT_WINDOW_UTC = (12, 22)
 async def penkmarket_announcement_job(context: ContextTypes.DEFAULT_TYPE):
     """Posts one PENKMARKET_ANNOUNCEMENTS variant once per calendar day (UTC) to
     every known chat, at a random moment inside PENKMARKET_ANNOUNCEMENT_WINDOW_UTC.
-    Same calendar-day dedupe as merch_announcement_job/dividends_reminder_job
+    Same calendar-day dedupe as merch_announcement_job
     (restart-safe across Render redeploys)."""
     try:
         today = datetime.utcnow().date().isoformat()
@@ -6397,8 +6396,9 @@ def build_app():
     a.job_queue.run_once(monad_reminder_job, random.uniform(7200, 18000))     # first reminder: 2-5h
     a.job_queue.run_once(game_reminder_job, random.uniform(14400, 25200))     # first reminder: 4-7h
     a.job_queue.run_once(nft_reminder_job, random.uniform(21600, 32400))      # first reminder: 6-9h
+    for kind in TWICE_DAILY_POSTS:                                             # 2/day each, >= 10h apart, survives restarts
+        _schedule_twice_daily_post(a.job_queue, kind)
     a.job_queue.run_once(merch_announcement_job, _seconds_until_window(*MERCH_ANNOUNCEMENT_WINDOW_UTC))
-    a.job_queue.run_once(dividends_reminder_job, _seconds_until_window(*DIVIDENDS_REMINDER_WINDOW_UTC))
     a.job_queue.run_once(daily_catch_announcement_job, _seconds_until_window(*DAILY_CATCH_ANNOUNCEMENT_WINDOW_UTC))
     a.job_queue.run_once(penkmarket_announcement_job, _seconds_until_window(*PENKMARKET_ANNOUNCEMENT_WINDOW_UTC))
     a.job_queue.run_once(professor_lesson_job, _seconds_until_madrid_minute_window(*PROFESSOR_LESSON_WINDOW_MADRID))
