@@ -3774,14 +3774,19 @@ GAME_REMINDERS = [
     "the cat built a game. the least you can do is play it. 🐟\n\n🎮 https://iwillrugu.com/",
 ]
 
+# 2026-10-17 (Fernando): the NFTs are the IWRU: PARADOX cards themselves. A card a player mints becomes an NFT
+# (IWRUCards, Monad) that can be sold on our NFT marketplace or listed on OpenSea -- same contract, so every one of
+# them shows up in the single "IWRU: PARADOX" collection there. (Replaces the old i-will-rug-u collection link.)
+PARADOX_OPENSEA = "https://opensea.io/collection/0x4fbf4f63bea89309ecdbbec749bb94bb39de2822"
+PARADOX_NFT_MARKET = "https://iwillrugu.com/paradox/#/market"
 NFT_REMINDERS = [
-    "the cat has NFTs. on OpenSea. to buy fish. inflation is real. 😼\n\n🎨 https://opensea.io/collection/i-will-rug-u",
-    "fish prices are rising. the cat needs your support. 🐟\n\n🎨 NFT collection → https://opensea.io/collection/i-will-rug-u",
-    "did you know the cat has a verified NFT collection? to fund the fish fund. 😼\n\n🎨 https://opensea.io/collection/i-will-rug-u",
-    "the cat is proud. the cat has art. the cat also needs fish money. 🐟\n\n🎨 https://opensea.io/collection/i-will-rug-u",
-    "inflation is hitting the fish market hard. consider buying a cat NFT. 😼\n\n🎨 https://opensea.io/collection/i-will-rug-u",
-    "*proudly displays NFT collection* the cat is cultured. and hungry. 🐟\n\n🎨 https://opensea.io/collection/i-will-rug-u",
-    "every NFT sold = one more fish for the cat. do the right thing. 😼\n\n🎨 https://opensea.io/collection/i-will-rug-u",
+    f"mint a card in IWRU: PARADOX and it becomes a real NFT. sell it on our marketplace or list it on OpenSea. your card, your call. 😼\n\n🃏 OpenSea → {PARADOX_OPENSEA}\n🛒 Marketplace → {PARADOX_NFT_MARKET}",
+    f"every PARADOX card you mint is an NFT on Monad. our contract plays nice with OpenSea, so you can list it there too. the cat approves. 🐟\n\n🃏 {PARADOX_OPENSEA}",
+    f"all minted PARADOX cards live in ONE collection on OpenSea: IWRU: PARADOX. same contract, same home. the cat likes tidy shelves. 😼\n\n🃏 {PARADOX_OPENSEA}",
+    f"two places to sell a minted card: the IWRU PARADOX marketplace, or OpenSea. both work. the cat checked. twice. 🐟\n\n🛒 {PARADOX_NFT_MARKET}\n🃏 {PARADOX_OPENSEA}",
+    f"your minted PARADOX cards are real NFTs. trade them on our marketplace or list them on OpenSea, they all land in the IWRU: PARADOX collection. 😼\n\n🃏 {PARADOX_OPENSEA}",
+    f"*knocks a card off the table* that card was an NFT. it is fine. it is on OpenSea now, in the IWRU: PARADOX collection. 🐟\n\n🃏 {PARADOX_OPENSEA}",
+    f"bought a PARADOX card on OpenSea? link that wallet to your IWRU account and it's playable in your decks. the card follows the NFT. 😼\n\n🃏 {PARADOX_OPENSEA}\n🎮 https://iwillrugu.com/paradox/",
 ]
 
 DAILY_CATCH_IMAGE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "treasure.jpg")
