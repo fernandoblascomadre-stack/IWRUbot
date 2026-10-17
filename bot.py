@@ -3777,7 +3777,7 @@ GAME_REMINDERS = [
 # 2026-10-17 (Fernando): the NFTs are the IWRU: PARADOX cards themselves. A card a player mints becomes an NFT
 # (IWRUCards, Monad) that can be sold on our NFT marketplace or listed on OpenSea -- same contract, so every one of
 # them shows up in the single "IWRU: PARADOX" collection there. (Replaces the old i-will-rug-u collection link.)
-PARADOX_OPENSEA = "https://opensea.io/collection/0x4fbf4f63bea89309ecdbbec749bb94bb39de2822"
+PARADOX_OPENSEA = "https://opensea.io/collection/iwru-paradox"
 PARADOX_NFT_MARKET = "https://iwillrugu.com/paradox/#/market"
 NFT_REMINDERS = [
     f"mint a card in IWRU: PARADOX and it becomes a real NFT. sell it on our marketplace or list it on OpenSea. your card, your call. 😼\n\n🃏 OpenSea → {PARADOX_OPENSEA}\n🛒 Marketplace → {PARADOX_NFT_MARKET}",
