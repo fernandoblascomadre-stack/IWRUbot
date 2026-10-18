@@ -27,6 +27,7 @@ TOKEN = os.environ["TOKEN"]
 import events
 import db
 import buybot
+import gas_reserve_alert
 import paradox_cards
 import cat_posts
 import events_config as cfg
@@ -6409,6 +6410,7 @@ def build_app():
     a.job_queue.run_once(professor_lesson_job, _seconds_until_madrid_minute_window(*PROFESSOR_LESSON_WINDOW_MADRID))
     a.job_queue.run_once(restart_greeting_job, random.uniform(20, 45))
     buybot.register(a)  # $IWRU buy alerts; self-gated on BUYBOT_ENABLED
+    gas_reserve_alert.register(a)  # Owner DM when the emergency gas reserve drops below 5% of capacity
     if TWITTER_ENABLED:
         for slot_start, slot_end in TWEET_SLOTS:
             a.job_queue.run_once(tweet_slot_job, _seconds_until_window(slot_start, slot_end), data=(slot_start, slot_end))
