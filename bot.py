@@ -91,6 +91,16 @@ _last_random: dict[int, float] = {}
 RANDOM_COOLDOWN = 305   # +15% (was 360) -- spontaneous quips a bit more often
 RANDOM_CHANCE   = 0.11  # +15% (was 0.096) (x2 between 2-5am)
 
+# 2026-10-18 (Fernando): "bajar las interacciones del bot en TG un 10% en general en todo, para ser un gato habla
+# demasiado". Every spontaneous chance (keyword replies, follow-ups, reactions, welcome-backs, bored posts, random
+# quips) is multiplied by CHATTINESS and every recurring chat post waits 1/CHATTINESS longer. Commands, filters
+# (ca/website/...), raids, joins, @mentions, Catch events, buy alerts and the fixed daily posts are untouched.
+CHATTINESS = 0.9
+
+
+def _speaks(p: float) -> bool:
+    return random.random() < p * CHATTINESS
+
 # ── User tracking ──────────────────────────────────────────────────────────
 _known_chats: dict[int, float]  = {}
 _known_users: dict[int, dict]   = {}
@@ -4105,11 +4115,12 @@ MERCH_ANNOUNCEMENT = (
     "I finally found a way to turn fish into hoodies. 📈🐟\n\n"
     "Turns out humans will actually *pay* to advertise the cat that keeps trying to rug them. What a beautiful species.\n\n"
     "Grab your official IWRU merch before I spend all the profits on tuna and suspicious on-chain experiments.\n\n"
-    "🛍️ Collection available now:\n"
-    "[Unchained Lab Launchpad](https://www.unchainedlab.net/launchpad/iwru-universe-0n6e)"
+    "I tried every hoodie personally. Some of them have fur on them now. That's a feature. 😼\n\n"
+    "🛍️ The IWRU shop is open:\n"
+    "[IWRU shop](https://iwillrugu.com/shop/)"
 )
 
-MERCH_LAUNCHPAD_URL = "https://www.unchainedlab.net/launchpad/iwru-universe-0n6e"
+MERCH_SHOP_URL = "https://iwillrugu.com/shop/"
 MERCH_TWEET_TAGLINE = "Chaos, now within reach. That's IWRU. 🐈‍⬛"
 
 # Hashtag pool for merch-drop tweets. #IWRU is the brand tag and is always
@@ -4120,7 +4131,7 @@ MERCH_TWEET_HASHTAG_POOL = [
     "#Monad", "#MonadEcosystem", "#MonadMedia", "#Web3", "#CryptoMerch",
     "#CryptoApparel", "#CryptoClothing", "#Streetwear", "#StreetwearBrand",
     "#Merch", "#AIart", "#AIArtwork", "#GenerativeArt", "#CatCoin",
-    "#MemeCoin", "#CryptoCat", "#unchainedlab", "#CryptoTwitter",
+    "#MemeCoin", "#CryptoCat", "#IWRUshop", "#CryptoTwitter",
     "#Hypebeast", "#OnchainFashion",
 ]
 
@@ -4157,6 +4168,34 @@ MERCH_TWEET_OPENERS = [
     "Somebody let the cat near a print shop. Now there's a whole collection. No refunds, no regrets.",
     "The most feared cat on Monad also has the best hoodies on Monad. Uncomfortable, but true.",
 ]
+
+# Second line of each merch-drop tweet (2026-10-18, Fernando: more funny cat text in the merch post). Rotates on its
+# own pick_phrase bag, independent of the opener.
+MERCH_TWEET_CAT_LINES = [
+    "The cat tested every hoodie personally. Some now have fur on them. That's a feature.",
+    "Every purchase funds one (1) fish. The cat checks the receipts.",
+    "The cat modelled the whole collection. Then it fell asleep on the caps.",
+    "Warning: IWRU merch may cause sudden confidence and the urge to knock things off tables.",
+    "The cat wanted its face on everything. The cat got its face on everything.",
+    "Soft enough to nap on. The cat has confirmed this. Repeatedly.",
+    "The cat negotiated the prices itself. The suppliers still won't talk about it.",
+    "Machine washable. Cat hair not included. Cat hair arrives anyway.",
+    "The cat says the hoodie looks better on the cat. The cat is probably right.",
+    "Limited stock. Unlimited attitude.",
+]
+
+
+def _merch_tweet_text(opener: str, cat_line: str) -> str:
+    """Merch tweet body that always keeps the opener and the cat line inside X's 280 limit: with the tagline and 4
+    hashtags if it fits, else the tagline and 2 hashtags, else 2 hashtags without the tagline (always fits)."""
+    tags = _pick_merch_hashtags().split()
+    for tagline, n in ((MERCH_TWEET_TAGLINE, 4), (MERCH_TWEET_TAGLINE, 2), (None, 2)):
+        parts = [opener, cat_line] + ([tagline] if tagline else []) + [MERCH_SHOP_URL, " ".join(tags[:n + 1])]
+        text = "\n\n".join(parts)
+        if paradox_cards.tweet_len(text) <= 280:
+            break
+    return text
+
 
 TWEET_PHRASES = [
     # 🐟 Fish
@@ -5483,7 +5522,7 @@ async def merch_tweet_job(context: ContextTypes.DEFAULT_TYPE):
                     print("[twitter] merch_tweet_job: merch/ folder is empty, skipping", flush=True)
                 else:
                     opener = pick_phrase(MERCH_TWEET_OPENERS)
-                    text = f"{opener}\n\n{MERCH_TWEET_TAGLINE}\n\n{MERCH_LAUNCHPAD_URL}\n\n{_pick_merch_hashtags()}"
+                    text = _merch_tweet_text(opener, pick_phrase(MERCH_TWEET_CAT_LINES))
                     image_path = os.path.join(MERCH_IMAGES_DIR, image_name)
                     try:
                         await asyncio.get_event_loop().run_in_executor(None, _post_merch_tweet, text, image_path)
@@ -5541,7 +5580,7 @@ async def bored_cat_job(context: ContextTypes.DEFAULT_TYPE):
         bias = MOOD_BIAS[mood]
         # speaks up on its own with some probability, regardless of whether the chat is active
         for chat_id in list(_known_chats.keys()):
-            if random.random() < min(0.352 * bias["speak_mult"], 0.9):  # 50% base, -12% then -20% relative
+            if _speaks(min(0.352 * bias["speak_mult"], 0.9)):  # 50% base, -12% then -20% relative, then x CHATTINESS
                 try:
                     eligible = [
                         (uid, udata) for uid, udata in _known_users.items()
@@ -5615,9 +5654,9 @@ async def bored_cat_job(context: ContextTypes.DEFAULT_TYPE):
     finally:
         # reschedule with a random interval (more frequent at night)
         if 2 <= hour_now() <= 5:
-            delay = random.uniform(1800, 3600)   # 30-60 min at night
+            delay = random.uniform(1800, 3600) / CHATTINESS   # 30-60 min at night (+11%)
         else:
-            delay = random.uniform(2700, 6300)   # 45-105 min during the day
+            delay = random.uniform(2700, 6300) / CHATTINESS   # 45-105 min during the day (+11%)
         context.application.job_queue.run_once(bored_cat_job, delay)
 
 async def social_reminder_job(context: ContextTypes.DEFAULT_TYPE):
@@ -5633,7 +5672,7 @@ async def social_reminder_job(context: ContextTypes.DEFAULT_TYPE):
                 print(f"[social_reminder_job] chat {chat_id}: {e}", flush=True)
     finally:
         # -20% frequency: reschedule every 8.75-11.25 hours (was 7-9h)
-        context.application.job_queue.run_once(social_reminder_job, random.uniform(31500, 40500))
+        context.application.job_queue.run_once(social_reminder_job, random.uniform(31500, 40500) / CHATTINESS)
 
 async def monad_reminder_job(context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -5651,7 +5690,7 @@ async def monad_reminder_job(context: ContextTypes.DEFAULT_TYPE):
                 print(f"[monad_reminder_job] chat {chat_id}: {e}", flush=True)
     finally:
         # -20% frequency: reschedule every 13.75-16.25 hours (was 11-13h)
-        context.application.job_queue.run_once(monad_reminder_job, random.uniform(49500, 58500))
+        context.application.job_queue.run_once(monad_reminder_job, random.uniform(49500, 58500) / CHATTINESS)
 
 async def game_reminder_job(context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -5663,7 +5702,7 @@ async def game_reminder_job(context: ContextTypes.DEFAULT_TYPE):
                 print(f"[game_reminder_job] chat {chat_id}: {e}", flush=True)
     finally:
         # -20% frequency: reschedule every 13.75-16.25 hours (was 11-13h)
-        context.application.job_queue.run_once(game_reminder_job, random.uniform(49500, 58500))
+        context.application.job_queue.run_once(game_reminder_job, random.uniform(49500, 58500) / CHATTINESS)
 
 async def nft_reminder_job(context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -5675,7 +5714,7 @@ async def nft_reminder_job(context: ContextTypes.DEFAULT_TYPE):
                 print(f"[nft_reminder_job] chat {chat_id}: {e}", flush=True)
     finally:
         # -20% frequency: reschedule every 13.75-16.25 hours (was 11-13h)
-        context.application.job_queue.run_once(nft_reminder_job, random.uniform(49500, 58500))
+        context.application.job_queue.run_once(nft_reminder_job, random.uniform(49500, 58500) / CHATTINESS)
 
 # Twice a day, >= 10h apart, each kind: (events.db key prefix, line pool, link line). The last post time lives in
 # events.db (persistent disk), so a restart or redeploy never makes one post early. Rules in cat_posts.py.
@@ -5864,7 +5903,7 @@ async def _maybe_react(context: ContextTypes.DEFAULT_TYPE, msg) -> None:
     half the time drawn from the current mood's favorites, otherwise the
     general pool. Best-effort: a chat with reactions disabled, or a message
     too old to react to, must never take the rest of the handler down with it."""
-    if random.random() >= REACTION_CHANCE:
+    if not _speaks(REACTION_CHANCE):
         return
     pool = MOOD_REACTIONS[current_mood()] if random.random() < 0.5 else CAT_REACTIONS
     try:
@@ -5880,7 +5919,7 @@ async def _maybe_indifferent_react(context: ContextTypes.DEFAULT_TYPE, msg) -> N
     """Same best-effort native reaction as _maybe_react, but a smaller,
     deliberately unimpressed emoji pool -- called from a keyword block below
     when the trigger matched but the text-reply roll missed."""
-    if random.random() >= INDIFFERENT_REACTION_CHANCE:
+    if not _speaks(INDIFFERENT_REACTION_CHANCE):
         return
     try:
         await context.bot.set_message_reaction(
@@ -5912,9 +5951,9 @@ async def _maybe_catch_engagement(context: ContextTypes.DEFAULT_TYPE, chat_id: i
     -- nothing at all, so this doesn't fire mechanically on every single
     reply/reaction like a script would."""
     roll = random.random()
-    if roll < 0.45:
+    if roll < 0.45 * CHATTINESS:
         text = pick_phrase(CATCH_FOLLOWUP_QUIPS)
-    elif roll < 0.75:
+    elif roll < 0.75 * CHATTINESS:
         text = pick_phrase(SLEEPY_EMOJI_QUIPS if random.random() < 0.5 else INDIFFERENT_EMOJI_QUIPS)
     else:
         return
@@ -6015,7 +6054,7 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if (
             prev_seen and prev_seen.get("chat_id") == chat_id
             and now - prev_seen.get("last_seen", now) >= WELCOME_BACK_MIN_GAP_SECONDS
-            and random.random() < WELCOME_BACK_CHANCE
+            and _speaks(WELCOME_BACK_CHANCE)
         ):
             # Fire-and-forget: this must never delay the keyword-trigger
             # cascade further down in this same handler for the couple of
@@ -6038,7 +6077,7 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ── Member left ───────────────────────────────────────────────────────
     if msg.left_chat_member and not msg.left_chat_member.is_bot:
-        if random.random() < 0.6:
+        if _speaks(0.6):
             await asyncio.sleep(random.uniform(1.0, 3.0))
             await msg.reply_text(pick_phrase(LEAVE_REPLIES).replace("{name}", msg.left_chat_member.first_name or "human"))
         return
@@ -6052,19 +6091,19 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ── Sticker ────────────────────────────────────────────────────────────
     if msg.sticker:
-        if 8 <= h <= 10 and random.random() < 0.44:  # -20% (was 0.55)
+        if 8 <= h <= 10 and _speaks(0.44):  # -20% (was 0.55)
             await asyncio.sleep(random.uniform(0.5, 2.0))
             await msg.reply_text(pick_phrase(GM_REPLIES))
-        elif 22 <= h <= 23 and random.random() < 0.44:  # -20% (was 0.55)
+        elif 22 <= h <= 23 and _speaks(0.44):  # -20% (was 0.55)
             await asyncio.sleep(random.uniform(0.5, 2.0))
             await msg.reply_text(pick_phrase(GN_REPLIES))
-        elif random.random() < 0.16:  # -20% (was 0.20)
+        elif _speaks(0.16):  # -20% (was 0.20)
             await asyncio.sleep(random.uniform(0.5, 1.5))
             await msg.reply_text(pick_phrase(STICKER_REACTIONS))
         return
 
     # ── Photo ──────────────────────────────────────────────────────────────
-    if msg.photo and random.random() < 0.12:  # -20% (was 0.15)
+    if msg.photo and _speaks(0.12):  # -20% (was 0.15)
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(pick_phrase(PHOTO_REACTIONS))
         return
@@ -6113,7 +6152,7 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if _msg_counter[chat_id] >= _next_trigger[chat_id]:
         _msg_counter[chat_id] = 0
         _next_trigger[chat_id] = random.randint(10, 18)
-        if random.random() < 0.60:  # +15% (was 0.52)
+        if _speaks(0.60):  # +15% (was 0.52)
             await asyncio.sleep(random.uniform(1.0, 3.5))
             await msg.reply_text(pick_phrase(CHAOS_BURSTS))
             return
@@ -6124,78 +6163,78 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # token, not the cat, so price talk never triggers it. English only, like every reply.
     _addr = _iwru_address_kind(tl)
     if _addr and not _contains_word(tl, IWRU_TRIGGERS) and tl_stripped not in ("iwru", "@iwru"):
-        if random.random() < (0.50 if _addr == "direct" else 0.12):
+        if _speaks((0.50 if _addr == "direct" else 0.12)):
             await asyncio.sleep(random.uniform(1.0, 3.0))
             await msg.reply_text(pick_phrase(IWRU_NAME_REPLIES))
             return
     if _contains_word(tl, IWRU_TRIGGERS) or tl_stripped in ("iwru", "@iwru"):
-        if random.random() < 0.60:  # +15% (was 0.52)
+        if _speaks(0.60):  # +15% (was 0.52)
             await asyncio.sleep(random.uniform(1.0, 3.0))
             await msg.reply_text(pick_phrase(IWRU_NAME_REPLIES))
-            if random.random() < 0.11:  # +15% (was 0.096)
+            if _speaks(0.11):  # +15% (was 0.096)
                 await asyncio.sleep(random.uniform(4, 7))
                 await msg.reply_text(pick_phrase(FOLLOWUP_MESSAGES))
             return
 
     # ── GM ─────────────────────────────────────────────────────────────────
-    if _starts_with_word(tl, GM_TRIGGERS) and random.random() < 0.55:  # +15% (was 0.48)
+    if _starts_with_word(tl, GM_TRIGGERS) and _speaks(0.55):  # +15% (was 0.48)
         await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(pick_phrase(GM_REPLIES))
         return
 
     # ── GN ─────────────────────────────────────────────────────────────────
-    if _starts_with_word(tl, GN_TRIGGERS) and random.random() < 0.55:  # +15% (was 0.48)
+    if _starts_with_word(tl, GN_TRIGGERS) and _speaks(0.55):  # +15% (was 0.48)
         await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(pick_phrase(GN_REPLIES))
         return
 
     # ── Hi / Hello (generic greeting, any time of day) ──────────────────────
-    if _starts_with_word(tl, HI_TRIGGERS) and random.random() < 0.45:
+    if _starts_with_word(tl, HI_TRIGGERS) and _speaks(0.45):
         await asyncio.sleep(random.uniform(0.5, 2.0))
         await msg.reply_text(pick_phrase(HI_REPLIES))
         return
 
     # ── Moon / pump ────────────────────────────────────────────────────────
-    if _contains_word(tl, MOON_TRIGGERS) and random.random() < 0.41:  # +15% (was 0.36)
+    if _contains_word(tl, MOON_TRIGGERS) and _speaks(0.41):  # +15% (was 0.36)
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(pick_phrase(MOON_REPLIES))
-        if random.random() < 0.11:  # +15% (was 0.096)
+        if _speaks(0.11):  # +15% (was 0.096)
             await asyncio.sleep(random.uniform(4, 7))
             await msg.reply_text(pick_phrase(FOLLOWUP_MESSAGES))
         return
 
     # ── Dip / dump ─────────────────────────────────────────────────────────
-    if _contains_word(tl, DIP_TRIGGERS) and random.random() < 0.41:  # +15% (was 0.36)
+    if _contains_word(tl, DIP_TRIGGERS) and _speaks(0.41):  # +15% (was 0.36)
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(pick_phrase(DIP_REPLIES))
-        if random.random() < 0.11:  # +15% (was 0.096)
+        if _speaks(0.11):  # +15% (was 0.096)
             await asyncio.sleep(random.uniform(4, 7))
             await msg.reply_text(pick_phrase(FOLLOWUP_MESSAGES))
         return
 
     # ── Wen ────────────────────────────────────────────────────────────────
-    if _contains_word(tl, WEN_TRIGGERS) and random.random() < 0.60:  # +15% (was 0.52)
+    if _contains_word(tl, WEN_TRIGGERS) and _speaks(0.60):  # +15% (was 0.52)
         await asyncio.sleep(random.uniform(1.0, 2.5))
         await msg.reply_text(pick_phrase(WEN_REPLIES))
         return
 
     # ── Chart / price ──────────────────────────────────────────────────────
     if _contains_word(tl, CHART_TRIGGERS):
-        if random.random() < 0.37:  # +15% (was 0.32)
+        if _speaks(0.37):  # +15% (was 0.32)
             await asyncio.sleep(random.uniform(1.0, 3.0))
             await msg.reply_text(pick_phrase(CHART_REPLIES))
             return
         await _maybe_indifferent_react(context, msg)
 
     # ── Monad ──────────────────────────────────────────────────────────────
-    if _contains_word(tl, MONAD_TRIGGERS) and random.random() < 0.46:  # +15% (was 0.40)
+    if _contains_word(tl, MONAD_TRIGGERS) and _speaks(0.46):  # +15% (was 0.40)
         await asyncio.sleep(random.uniform(1.0, 2.5))
         await msg.reply_text(pick_phrase(MONAD_REPLIES))
         return
 
     # ── Cat ────────────────────────────────────────────────────────────────
     if _contains_word(tl, CAT_TRIGGERS):
-        if random.random() < 0.42:
+        if _speaks(0.42):
             await asyncio.sleep(random.uniform(0.5, 2.0))
             await msg.reply_text(pick_phrase(CAT_REPLIES))
             return
@@ -6203,7 +6242,7 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ── Crypto (generic vocabulary, distinct from moon/dip/wen/monad) ──────
     if _contains_word(tl, CRYPTO_TRIGGERS):
-        if random.random() < 0.32:
+        if _speaks(0.32):
             await asyncio.sleep(random.uniform(1.0, 3.0))
             await msg.reply_text(pick_phrase(CRYPTO_REPLIES))
             return
@@ -6211,10 +6250,10 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ── Fish ───────────────────────────────────────────────────────────────
     if "fish" in tl:
-        if random.random() < 0.60:  # +15% (was 0.52)
+        if _speaks(0.60):  # +15% (was 0.52)
             await asyncio.sleep(random.uniform(0.5, 2.0))
             await msg.reply_text(pick_phrase(FISH_REPLIES))
-            if random.random() < 0.11:  # +15% (was 0.096)
+            if _speaks(0.11):  # +15% (was 0.096)
                 await asyncio.sleep(random.uniform(4, 7))
                 await msg.reply_text(pick_phrase(FOLLOWUP_MESSAGES))
             return
@@ -6222,7 +6261,7 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ── Fish/seafood emoji (no "fish" word needed) ──────────────────────────
     if _contains_word(tl, FISH_EMOJI_TRIGGERS):
-        if random.random() < 0.60:  # +15% (was 0.52)
+        if _speaks(0.60):  # +15% (was 0.52)
             await asyncio.sleep(random.uniform(0.5, 2.0))
             await msg.reply_text(pick_phrase(FISH_EMOJI_REPLIES))
             return
@@ -6246,7 +6285,7 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     night_boost = 2.0 if 2 <= h <= 5 else 1.0
     mood_speak_mult = MOOD_BIAS[current_mood()]["speak_mult"]
     last = _last_random.get(chat_id, 0)
-    if now - last > RANDOM_COOLDOWN and random.random() < RANDOM_CHANCE * night_boost * mood_speak_mult:
+    if now - last > RANDOM_COOLDOWN and _speaks(RANDOM_CHANCE * night_boost * mood_speak_mult):
         _last_random[chat_id] = now
         await asyncio.sleep(random.uniform(1.0, 3.0))
         await msg.reply_text(pick_phrase(RANDOM_QUIPS))
@@ -6309,7 +6348,7 @@ def build_app():
             a.job_queue.run_once(tweet_slot_job, _seconds_until_window(slot_start, slot_end), data=(slot_start, slot_end))
         print(f"[twitter] {len(TWEET_SLOTS)} tweet jobs scheduled (UTC slots: {TWEET_SLOTS})", flush=True)
         a.job_queue.run_once(merch_tweet_job, _seconds_until_madrid_window(*MERCH_TWEET_WINDOW_MADRID))
-        paradox_cards.register(a)  # IWRU PARADOX card + first reply, 00:00 and 13:00 Madrid
+        paradox_cards.register(a)  # daily IWRU PARADOX post + first reply, 17:30-19:00 Madrid
     else:
         print("[twitter] disabled — set TWITTER_API_KEY/SECRET/ACCESS_TOKEN/ACCESS_TOKEN_SECRET to enable", flush=True)
     return a

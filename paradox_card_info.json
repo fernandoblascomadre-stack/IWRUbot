@@ -1,0 +1,1256 @@
+{
+"A-001": {
+"name": "IWRU, Herald of the Drowned Empire",
+"faction": "Abyss",
+"rarity": "legendary",
+"type": "commander"
+},
+"A-002": {
+"name": "Grave Keeper Initiate",
+"faction": "Abyss",
+"rarity": "common",
+"type": "creature"
+},
+"A-003": {
+"name": "Shadow Beast Whelp",
+"faction": "Abyss",
+"rarity": "common",
+"type": "creature"
+},
+"A-004": {
+"name": "Eclipse Priest Acolyte",
+"faction": "Abyss",
+"rarity": "common",
+"type": "creature"
+},
+"A-005": {
+"name": "Rift Serpent Hatchling",
+"faction": "Abyss",
+"rarity": "common",
+"type": "creature"
+},
+"A-006": {
+"name": "Void Walker Acolyte",
+"faction": "Abyss",
+"rarity": "common",
+"type": "creature"
+},
+"A-007": {
+"name": "Eclipse Priest",
+"faction": "Abyss",
+"rarity": "common",
+"type": "creature"
+},
+"A-008": {
+"name": "Grave Keeper",
+"faction": "Abyss",
+"rarity": "common",
+"type": "creature"
+},
+"A-009": {
+"name": "Shadow Beast",
+"faction": "Abyss",
+"rarity": "common",
+"type": "creature"
+},
+"A-010": {
+"name": "Rift Serpent",
+"faction": "Abyss",
+"rarity": "common",
+"type": "creature"
+},
+"A-011": {
+"name": "Void Walker",
+"faction": "Abyss",
+"rarity": "common",
+"type": "creature"
+},
+"A-012": {
+"name": "Night Oracle",
+"faction": "Abyss",
+"rarity": "common",
+"type": "creature"
+},
+"A-013": {
+"name": "Drowned Noble",
+"faction": "Abyss",
+"rarity": "common",
+"type": "creature"
+},
+"A-014": {
+"name": "Void Walker Corruptor",
+"faction": "Abyss",
+"rarity": "common",
+"type": "creature"
+},
+"A-015": {
+"name": "Night Oracle Elder",
+"faction": "Abyss",
+"rarity": "rare",
+"type": "creature"
+},
+"A-016": {
+"name": "Void Walker Overlord",
+"faction": "Abyss",
+"rarity": "rare",
+"type": "creature"
+},
+"A-017": {
+"name": "Eclipse High Priest",
+"faction": "Abyss",
+"rarity": "rare",
+"type": "creature"
+},
+"A-018": {
+"name": "Grave Keeper Warden",
+"faction": "Abyss",
+"rarity": "rare",
+"type": "creature"
+},
+"A-019": {
+"name": "Rift Serpent Coil",
+"faction": "Abyss",
+"rarity": "rare",
+"type": "creature"
+},
+"A-020": {
+"name": "Night Oracle Prophet",
+"faction": "Abyss",
+"rarity": "rare",
+"type": "creature"
+},
+"A-021": {
+"name": "Void Sovereign",
+"faction": "Abyss",
+"rarity": "rare",
+"type": "creature"
+},
+"A-022": {
+"name": "Eclipse Matriarch",
+"faction": "Abyss",
+"rarity": "rare",
+"type": "creature"
+},
+"A-023": {
+"name": "Grave Keeper High Warden",
+"faction": "Abyss",
+"rarity": "rare",
+"type": "creature"
+},
+"A-024": {
+"name": "Rift Serpent Matriarch",
+"faction": "Abyss",
+"rarity": "rare",
+"type": "creature"
+},
+"A-025": {
+"name": "Drowned Regent",
+"faction": "Abyss",
+"rarity": "rare",
+"type": "creature"
+},
+"A-026": {
+"name": "Wither",
+"faction": "Abyss",
+"rarity": "common",
+"type": "spell"
+},
+"A-027": {
+"name": "Grave Pact",
+"faction": "Abyss",
+"rarity": "common",
+"type": "spell"
+},
+"A-028": {
+"name": "Toll of the Drowned",
+"faction": "Abyss",
+"rarity": "common",
+"type": "spell"
+},
+"A-029": {
+"name": "Void Rend",
+"faction": "Abyss",
+"rarity": "rare",
+"type": "spell"
+},
+"A-030": {
+"name": "Empire's Ransom",
+"faction": "Abyss",
+"rarity": "rare",
+"type": "spell"
+},
+"A-031": {
+"name": "Eclipse",
+"faction": "Abyss",
+"rarity": "rare",
+"type": "spell"
+},
+"A-032": {
+"name": "Return from the Deep",
+"faction": "Abyss",
+"rarity": "rare",
+"type": "spell"
+},
+"A-033": {
+"name": "Grim Reprisal",
+"faction": "Abyss",
+"rarity": "common",
+"type": "reaction"
+},
+"A-034": {
+"name": "Void Interference",
+"faction": "Abyss",
+"rarity": "common",
+"type": "reaction"
+},
+"A-035": {
+"name": "Echo of Loss",
+"faction": "Abyss",
+"rarity": "common",
+"type": "reaction"
+},
+"A-036": {
+"name": "Undying Pact",
+"faction": "Abyss",
+"rarity": "rare",
+"type": "reaction"
+},
+"A-037": {
+"name": "Sealed Tomb",
+"faction": "Abyss",
+"rarity": "common",
+"type": "trap"
+},
+"A-038": {
+"name": "Famine's Toll",
+"faction": "Abyss",
+"rarity": "common",
+"type": "trap"
+},
+"A-039": {
+"name": "Grave Ambush",
+"faction": "Abyss",
+"rarity": "common",
+"type": "trap"
+},
+"A-040": {
+"name": "Void-Forged Blade",
+"faction": "Abyss",
+"rarity": "common",
+"type": "equipment"
+},
+"A-041": {
+"name": "Cursed Shroud",
+"faction": "Abyss",
+"rarity": "common",
+"type": "equipment"
+},
+"A-042": {
+"name": "Relic of the Drowned Crown",
+"faction": "Abyss",
+"rarity": "rare",
+"type": "equipment"
+},
+"A-043": {
+"name": "Ashen Necropolis",
+"faction": "Abyss",
+"rarity": "common",
+"type": "location"
+},
+"A-044": {
+"name": "Black Cathedral",
+"faction": "Abyss",
+"rarity": "common",
+"type": "location"
+},
+"A-045": {
+"name": "A Forgotten King",
+"faction": "Abyss",
+"rarity": "epic",
+"type": "creature"
+},
+"A-046": {
+"name": "The Empire's Return",
+"faction": "Abyss",
+"rarity": "epic",
+"type": "spell"
+},
+"A-047": {
+"name": "Vessandra, the Last Prophet of the Eclipse",
+"faction": "Abyss",
+"rarity": "legendary",
+"type": "creature"
+},
+"A-048": {
+"name": "Malvorin, the Last Sovereign of the Drowned Empire",
+"faction": "Abyss",
+"rarity": "legendary",
+"type": "creature"
+},
+"A-049": {
+"name": "IWRU, the Hollow Choir",
+"faction": "Abyss",
+"rarity": "epic",
+"type": "commander"
+},
+"A-050": {
+"name": "IWRU, the Unread Page",
+"faction": "Abyss",
+"rarity": "epic",
+"type": "commander"
+},
+"M-001": {
+"name": "IWRU, Architect of the Foundries",
+"faction": "Machine",
+"rarity": "legendary",
+"type": "commander"
+},
+"M-002": {
+"name": "Automaton Unit",
+"faction": "Machine",
+"rarity": "common",
+"type": "creature"
+},
+"M-003": {
+"name": "Clockwork Sentinel",
+"faction": "Machine",
+"rarity": "common",
+"type": "creature"
+},
+"M-004": {
+"name": "Arc Reactor Drone",
+"faction": "Machine",
+"rarity": "common",
+"type": "creature"
+},
+"M-005": {
+"name": "Survey Drone",
+"faction": "Machine",
+"rarity": "common",
+"type": "creature"
+},
+"M-006": {
+"name": "Automaton Line Worker",
+"faction": "Machine",
+"rarity": "common",
+"type": "creature"
+},
+"M-007": {
+"name": "Engineer Apprentice",
+"faction": "Machine",
+"rarity": "common",
+"type": "creature"
+},
+"M-008": {
+"name": "Clockwork Repair Drone",
+"faction": "Machine",
+"rarity": "common",
+"type": "creature"
+},
+"M-009": {
+"name": "Sentinel Watcher",
+"faction": "Machine",
+"rarity": "common",
+"type": "creature"
+},
+"M-010": {
+"name": "Steel Colossus Frame",
+"faction": "Machine",
+"rarity": "common",
+"type": "creature"
+},
+"M-011": {
+"name": "Sentinel Disruptor",
+"faction": "Machine",
+"rarity": "common",
+"type": "creature"
+},
+"M-012": {
+"name": "Engineer Technician",
+"faction": "Machine",
+"rarity": "common",
+"type": "creature"
+},
+"M-013": {
+"name": "Arc Reactor Core",
+"faction": "Machine",
+"rarity": "common",
+"type": "creature"
+},
+"M-014": {
+"name": "Automaton Disabler",
+"faction": "Machine",
+"rarity": "common",
+"type": "creature"
+},
+"M-015": {
+"name": "Steel Colossus Enforcer",
+"faction": "Machine",
+"rarity": "rare",
+"type": "creature"
+},
+"M-016": {
+"name": "Automaton Overseer",
+"faction": "Machine",
+"rarity": "rare",
+"type": "creature"
+},
+"M-017": {
+"name": "Engineer Foreman",
+"faction": "Machine",
+"rarity": "rare",
+"type": "creature"
+},
+"M-018": {
+"name": "Clockwork Overseer",
+"faction": "Machine",
+"rarity": "rare",
+"type": "creature"
+},
+"M-019": {
+"name": "Sentinel Array",
+"faction": "Machine",
+"rarity": "rare",
+"type": "creature"
+},
+"M-020": {
+"name": "Arc Reactor Nexus",
+"faction": "Machine",
+"rarity": "rare",
+"type": "creature"
+},
+"M-021": {
+"name": "Automaton Prime",
+"faction": "Machine",
+"rarity": "rare",
+"type": "creature"
+},
+"M-022": {
+"name": "Master Engineer",
+"faction": "Machine",
+"rarity": "rare",
+"type": "creature"
+},
+"M-023": {
+"name": "Clockwork Bastion",
+"faction": "Machine",
+"rarity": "rare",
+"type": "creature"
+},
+"M-024": {
+"name": "Sentinel Prime",
+"faction": "Machine",
+"rarity": "rare",
+"type": "creature"
+},
+"M-025": {
+"name": "Steel Colossus Vanguard",
+"faction": "Machine",
+"rarity": "rare",
+"type": "creature"
+},
+"M-026": {
+"name": "Efficient Calibration",
+"faction": "Machine",
+"rarity": "common",
+"type": "spell"
+},
+"M-027": {
+"name": "Systematic Repair",
+"faction": "Machine",
+"rarity": "common",
+"type": "spell"
+},
+"M-028": {
+"name": "Resource Reallocation",
+"faction": "Machine",
+"rarity": "common",
+"type": "spell"
+},
+"M-029": {
+"name": "Disable Protocol",
+"faction": "Machine",
+"rarity": "rare",
+"type": "spell"
+},
+"M-030": {
+"name": "Overclock",
+"faction": "Machine",
+"rarity": "rare",
+"type": "spell"
+},
+"M-031": {
+"name": "Full Requisition",
+"faction": "Machine",
+"rarity": "rare",
+"type": "spell"
+},
+"M-032": {
+"name": "System Reboot",
+"faction": "Machine",
+"rarity": "rare",
+"type": "spell"
+},
+"M-033": {
+"name": "Emergency Backup",
+"faction": "Machine",
+"rarity": "common",
+"type": "reaction"
+},
+"M-034": {
+"name": "Priority Override",
+"faction": "Machine",
+"rarity": "common",
+"type": "reaction"
+},
+"M-035": {
+"name": "Automated Response",
+"faction": "Machine",
+"rarity": "common",
+"type": "reaction"
+},
+"M-036": {
+"name": "Failsafe Array",
+"faction": "Machine",
+"rarity": "common",
+"type": "reaction"
+},
+"M-037": {
+"name": "Prepared Defense",
+"faction": "Machine",
+"rarity": "common",
+"type": "trap"
+},
+"M-038": {
+"name": "Efficiency Audit",
+"faction": "Machine",
+"rarity": "common",
+"type": "trap"
+},
+"M-039": {
+"name": "Containment Field",
+"faction": "Machine",
+"rarity": "common",
+"type": "trap"
+},
+"M-040": {
+"name": "Precision Blade",
+"faction": "Machine",
+"rarity": "common",
+"type": "equipment"
+},
+"M-041": {
+"name": "Reinforced Plating",
+"faction": "Machine",
+"rarity": "common",
+"type": "equipment"
+},
+"M-042": {
+"name": "Overcharge Core",
+"faction": "Machine",
+"rarity": "rare",
+"type": "equipment"
+},
+"M-043": {
+"name": "Iron Metropolis",
+"faction": "Machine",
+"rarity": "common",
+"type": "location"
+},
+"M-044": {
+"name": "Assembly District",
+"faction": "Machine",
+"rarity": "common",
+"type": "location"
+},
+"M-045": {
+"name": "The Grand Assembler",
+"faction": "Machine",
+"rarity": "epic",
+"type": "creature"
+},
+"M-046": {
+"name": "Total Automation",
+"faction": "Machine",
+"rarity": "epic",
+"type": "spell"
+},
+"M-047": {
+"name": "Kess, First Sentinel of the Archive Network",
+"faction": "Machine",
+"rarity": "legendary",
+"type": "creature"
+},
+"M-048": {
+"name": "Titan, the First Colossus",
+"faction": "Machine",
+"rarity": "legendary",
+"type": "creature"
+},
+"M-049": {
+"name": "IWRU, the First Reactor",
+"faction": "Machine",
+"rarity": "epic",
+"type": "commander"
+},
+"M-050": {
+"name": "IWRU, the Standing Frame",
+"faction": "Machine",
+"rarity": "epic",
+"type": "commander"
+},
+"N-001": {
+"name": "Crossroads Barter",
+"faction": "Neutral",
+"rarity": "common",
+"type": "spell"
+},
+"N-002": {
+"name": "Wandering Scavenger",
+"faction": "Neutral",
+"rarity": "common",
+"type": "creature"
+},
+"N-003": {
+"name": "Sundering Blow",
+"faction": "Neutral",
+"rarity": "common",
+"type": "spell"
+},
+"N-004": {
+"name": "Traveler's Pack",
+"faction": "Neutral",
+"rarity": "common",
+"type": "equipment"
+},
+"N-005": {
+"name": "Forgotten Crossroads",
+"faction": "Neutral",
+"rarity": "common",
+"type": "location"
+},
+"N-006": {
+"name": "Dismantle",
+"faction": "Neutral",
+"rarity": "common",
+"type": "spell"
+},
+"N-007": {
+"name": "Paradox Fragment",
+"faction": "Neutral",
+"rarity": "epic",
+"type": "creature"
+},
+"N-008": {
+"name": "The Paradox Prism",
+"faction": "Neutral",
+"rarity": "legendary",
+"type": "equipment"
+},
+"N-009": {
+"name": "New Identity",
+"faction": "Neutral",
+"rarity": "rare",
+"type": "spell"
+},
+"O-001": {
+"name": "IWRU, Warden of the Tides",
+"faction": "Ocean",
+"rarity": "legendary",
+"type": "commander"
+},
+"O-002": {
+"name": "Reef Scout",
+"faction": "Ocean",
+"rarity": "common",
+"type": "creature"
+},
+"O-003": {
+"name": "Reef Guardian",
+"faction": "Ocean",
+"rarity": "common",
+"type": "creature"
+},
+"O-004": {
+"name": "Coral Acolyte",
+"faction": "Ocean",
+"rarity": "common",
+"type": "creature"
+},
+"O-005": {
+"name": "Sea Spirit Wisp",
+"faction": "Ocean",
+"rarity": "common",
+"type": "creature"
+},
+"O-006": {
+"name": "Tide Hunter",
+"faction": "Ocean",
+"rarity": "common",
+"type": "creature"
+},
+"O-007": {
+"name": "Pearl Knight",
+"faction": "Ocean",
+"rarity": "common",
+"type": "creature"
+},
+"O-008": {
+"name": "Coral Sage",
+"faction": "Ocean",
+"rarity": "common",
+"type": "creature"
+},
+"O-009": {
+"name": "Ancient Turtle",
+"faction": "Ocean",
+"rarity": "common",
+"type": "creature"
+},
+"O-010": {
+"name": "Tide Hunter Strider",
+"faction": "Ocean",
+"rarity": "common",
+"type": "creature"
+},
+"O-011": {
+"name": "Jelly Sage",
+"faction": "Ocean",
+"rarity": "common",
+"type": "creature"
+},
+"O-012": {
+"name": "Reef Captain",
+"faction": "Ocean",
+"rarity": "common",
+"type": "creature"
+},
+"O-013": {
+"name": "Current Strider",
+"faction": "Ocean",
+"rarity": "common",
+"type": "creature"
+},
+"O-014": {
+"name": "Reef Sentinel",
+"faction": "Ocean",
+"rarity": "common",
+"type": "creature"
+},
+"O-015": {
+"name": "Leviathan's Herald",
+"faction": "Ocean",
+"rarity": "common",
+"type": "creature"
+},
+"O-016": {
+"name": "High Tide Oracle",
+"faction": "Ocean",
+"rarity": "rare",
+"type": "creature"
+},
+"O-017": {
+"name": "Tidecaller",
+"faction": "Ocean",
+"rarity": "rare",
+"type": "creature"
+},
+"O-018": {
+"name": "Reef Warden",
+"faction": "Ocean",
+"rarity": "rare",
+"type": "creature"
+},
+"O-019": {
+"name": "Elder Jelly",
+"faction": "Ocean",
+"rarity": "common",
+"type": "creature"
+},
+"O-020": {
+"name": "Juvenile Leviathan",
+"faction": "Ocean",
+"rarity": "rare",
+"type": "creature"
+},
+"O-021": {
+"name": "Elder Turtle",
+"faction": "Ocean",
+"rarity": "rare",
+"type": "creature"
+},
+"O-022": {
+"name": "Tideborn Avatar",
+"faction": "Ocean",
+"rarity": "rare",
+"type": "creature"
+},
+"O-023": {
+"name": "Elder Leviathan",
+"faction": "Ocean",
+"rarity": "rare",
+"type": "creature"
+},
+"O-024": {
+"name": "Deep Current Matriarch",
+"faction": "Ocean",
+"rarity": "rare",
+"type": "creature"
+},
+"O-025": {
+"name": "Grand Oracle",
+"faction": "Ocean",
+"rarity": "rare",
+"type": "creature"
+},
+"O-026": {
+"name": "Tide's Grasp",
+"faction": "Ocean",
+"rarity": "common",
+"type": "spell"
+},
+"O-027": {
+"name": "Coral Ward",
+"faction": "Ocean",
+"rarity": "common",
+"type": "spell"
+},
+"O-028": {
+"name": "Ebb and Flow",
+"faction": "Ocean",
+"rarity": "common",
+"type": "spell"
+},
+"O-029": {
+"name": "Riptide",
+"faction": "Ocean",
+"rarity": "rare",
+"type": "spell"
+},
+"O-030": {
+"name": "Tidecraft Ritual",
+"faction": "Ocean",
+"rarity": "rare",
+"type": "spell"
+},
+"O-031": {
+"name": "Calming Wave",
+"faction": "Ocean",
+"rarity": "rare",
+"type": "spell"
+},
+"O-032": {
+"name": "Leviathan's Call",
+"faction": "Ocean",
+"rarity": "rare",
+"type": "spell"
+},
+"O-033": {
+"name": "Tidal Rescue",
+"faction": "Ocean",
+"rarity": "common",
+"type": "reaction"
+},
+"O-034": {
+"name": "Counter Current",
+"faction": "Ocean",
+"rarity": "common",
+"type": "reaction"
+},
+"O-035": {
+"name": "Guarded Response",
+"faction": "Ocean",
+"rarity": "common",
+"type": "reaction"
+},
+"O-036": {
+"name": "Backwash",
+"faction": "Ocean",
+"rarity": "common",
+"type": "reaction"
+},
+"O-037": {
+"name": "Undertow Snare",
+"faction": "Ocean",
+"rarity": "common",
+"type": "trap"
+},
+"O-038": {
+"name": "Pressure Trap",
+"faction": "Ocean",
+"rarity": "rare",
+"type": "trap"
+},
+"O-039": {
+"name": "Coral Deadfall",
+"faction": "Ocean",
+"rarity": "common",
+"type": "trap"
+},
+"O-040": {
+"name": "Coral Trident",
+"faction": "Ocean",
+"rarity": "common",
+"type": "equipment"
+},
+"O-041": {
+"name": "Pearl Aegis",
+"faction": "Ocean",
+"rarity": "common",
+"type": "equipment"
+},
+"O-042": {
+"name": "Tidecaller's Sigil",
+"faction": "Ocean",
+"rarity": "rare",
+"type": "equipment"
+},
+"O-043": {
+"name": "Crown of Tides",
+"faction": "Ocean",
+"rarity": "common",
+"type": "location"
+},
+"O-044": {
+"name": "Coral Archive",
+"faction": "Ocean",
+"rarity": "common",
+"type": "location"
+},
+"O-045": {
+"name": "High Mystic Solenne",
+"faction": "Ocean",
+"rarity": "epic",
+"type": "creature"
+},
+"O-046": {
+"name": "Tidal Convergence",
+"faction": "Ocean",
+"rarity": "epic",
+"type": "spell"
+},
+"O-047": {
+"name": "Threnody, Reef Lord of the Sunken Court",
+"faction": "Ocean",
+"rarity": "legendary",
+"type": "creature"
+},
+"O-048": {
+"name": "Corvenne, Voice of the Drowned Court",
+"faction": "Ocean",
+"rarity": "legendary",
+"type": "creature"
+},
+"O-049": {
+"name": "IWRU, the Ninth Wave",
+"faction": "Ocean",
+"rarity": "epic",
+"type": "commander"
+},
+"O-050": {
+"name": "IWRU, the Endless Current",
+"faction": "Ocean",
+"rarity": "epic",
+"type": "commander"
+},
+"W-001": {
+"name": "IWRU, Alpha of the Root Tribes",
+"faction": "Wildlands",
+"rarity": "legendary",
+"type": "commander"
+},
+"W-002": {
+"name": "Forest Stalker",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "creature"
+},
+"W-003": {
+"name": "Spirit Wolf Pup",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "creature"
+},
+"W-004": {
+"name": "Thorn Shaman Initiate",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "creature"
+},
+"W-005": {
+"name": "Stonehorn Calf",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "creature"
+},
+"W-006": {
+"name": "Forest Stalker Ambusher",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "creature"
+},
+"W-007": {
+"name": "Tusked Charger",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "creature"
+},
+"W-008": {
+"name": "Spirit Wolf Hunter",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "creature"
+},
+"W-009": {
+"name": "Bramble Skirmisher",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "creature"
+},
+"W-010": {
+"name": "Stonehorn Bull",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "creature"
+},
+"W-011": {
+"name": "Treant Sapling",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "creature"
+},
+"W-012": {
+"name": "Bloom Keeper",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "creature"
+},
+"W-013": {
+"name": "Sky Raptor Scout",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "creature"
+},
+"W-014": {
+"name": "Thorn Shaman Elder",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "creature"
+},
+"W-015": {
+"name": "Great Beast Yearling",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "creature"
+},
+"W-016": {
+"name": "Alpha's Kin",
+"faction": "Wildlands",
+"rarity": "rare",
+"type": "creature"
+},
+"W-017": {
+"name": "Great Beast Matriarch",
+"faction": "Wildlands",
+"rarity": "rare",
+"type": "creature"
+},
+"W-018": {
+"name": "Treant Elder",
+"faction": "Wildlands",
+"rarity": "rare",
+"type": "creature"
+},
+"W-019": {
+"name": "Sky Raptor Alpha",
+"faction": "Wildlands",
+"rarity": "rare",
+"type": "creature"
+},
+"W-020": {
+"name": "Thorn Shaman Warcaller",
+"faction": "Wildlands",
+"rarity": "rare",
+"type": "creature"
+},
+"W-021": {
+"name": "Forest Stalker Chief",
+"faction": "Wildlands",
+"rarity": "rare",
+"type": "creature"
+},
+"W-022": {
+"name": "Spirit Wolf Packlord",
+"faction": "Wildlands",
+"rarity": "rare",
+"type": "creature"
+},
+"W-023": {
+"name": "Great Beast Behemoth",
+"faction": "Wildlands",
+"rarity": "rare",
+"type": "creature"
+},
+"W-024": {
+"name": "Treant Ancient",
+"faction": "Wildlands",
+"rarity": "rare",
+"type": "creature"
+},
+"W-025": {
+"name": "Sky Raptor Matriarch",
+"faction": "Wildlands",
+"rarity": "rare",
+"type": "creature"
+},
+"W-026": {
+"name": "Feral Surge",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "spell"
+},
+"W-027": {
+"name": "Savage Charge",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "spell"
+},
+"W-028": {
+"name": "Root Tribes' Call",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "spell"
+},
+"W-029": {
+"name": "Trample the Line",
+"faction": "Wildlands",
+"rarity": "rare",
+"type": "spell"
+},
+"W-030": {
+"name": "Overgrowth",
+"faction": "Wildlands",
+"rarity": "rare",
+"type": "spell"
+},
+"W-031": {
+"name": "Stampede Horn",
+"faction": "Wildlands",
+"rarity": "rare",
+"type": "spell"
+},
+"W-032": {
+"name": "The Hunt Never Ends",
+"faction": "Wildlands",
+"rarity": "rare",
+"type": "spell"
+},
+"W-033": {
+"name": "Thicket Guard",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "reaction"
+},
+"W-034": {
+"name": "Pack Instinct",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "reaction"
+},
+"W-035": {
+"name": "Opportunist's Strike",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "reaction"
+},
+"W-036": {
+"name": "Last Stand",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "reaction"
+},
+"W-037": {
+"name": "Hidden Den",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "trap"
+},
+"W-038": {
+"name": "Overextended",
+"faction": "Wildlands",
+"rarity": "rare",
+"type": "trap"
+},
+"W-039": {
+"name": "Ambush Roots",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "trap"
+},
+"W-040": {
+"name": "Bone Claws",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "equipment"
+},
+"W-041": {
+"name": "Bark Hide",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "equipment"
+},
+"W-042": {
+"name": "Alpha's Mark",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "equipment"
+},
+"W-043": {
+"name": "Root Valley",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "location"
+},
+"W-044": {
+"name": "Emerald Forest",
+"faction": "Wildlands",
+"rarity": "common",
+"type": "location"
+},
+"W-045": {
+"name": "Elder Bloomkeeper",
+"faction": "Wildlands",
+"rarity": "epic",
+"type": "creature"
+},
+"W-046": {
+"name": "Call of the Wild",
+"faction": "Wildlands",
+"rarity": "epic",
+"type": "spell"
+},
+"W-047": {
+"name": "Torv, Rider of the First Herd",
+"faction": "Wildlands",
+"rarity": "legendary",
+"type": "creature"
+},
+"W-048": {
+"name": "Fenrik, IWRU's First Bond",
+"faction": "Wildlands",
+"rarity": "legendary",
+"type": "creature"
+},
+"W-049": {
+"name": "IWRU, Heart of the Emerald Circle",
+"faction": "Wildlands",
+"rarity": "epic",
+"type": "commander"
+},
+"W-050": {
+"name": "IWRU, the Unseen Hunter",
+"faction": "Wildlands",
+"rarity": "epic",
+"type": "commander"
+}
+}
