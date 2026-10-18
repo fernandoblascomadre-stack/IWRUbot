@@ -3755,8 +3755,6 @@ FOLLOWUP_MESSAGES = [
 NAD_LINK = "https://nad.fun/tokens/0xaCCD61772BCd3717546f141382b68b6D2EF17777"
 NAD_CA   = "0xaCCD61772BCd3717546f141382b68b6D2EF17777"
 
-PENKMARKET_LINK = "https://pepubank.net/penkmarket"
-
 MONAD_REMINDERS = [
     f"$IWRU is live on Monad. don't say the cat didn't warn you. 😼\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
     f"in case you forgot — the cat is tokenized 🐟\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
@@ -3788,14 +3786,6 @@ NFT_REMINDERS = [
     f"your minted PARADOX cards are real NFTs. trade them on our marketplace or list them on OpenSea, they all land in the IWRU: PARADOX collection. 😼\n\n🃏 {PARADOX_OPENSEA}",
     f"*knocks a card off the table* that card was an NFT. it is fine. it is on OpenSea now, in the IWRU: PARADOX collection. 🐟\n\n🃏 {PARADOX_OPENSEA}",
     f"bought a PARADOX card on OpenSea? link that wallet to your IWRU account and it's playable in your decks. the card follows the NFT. 😼\n\n🃏 {PARADOX_OPENSEA}\n🎮 https://iwillrugu.com/paradox/",
-]
-
-PENKMARKET_ANNOUNCEMENTS = [
-    f"Buying Monad tokens used to feel like solving a side quest.\n\nThanks to PenkMarket, you can now buy Monad tokens like IWRU directly with ETH.\n\nETH in. Chaos out.\n\nThe black cat is pleased. 🐈‍⬛\n\n🛒 {PENKMARKET_LINK}",
-    f"Buying Monad tokens used to require faith, patience, and three open tabs.\n\nNow, thanks to PenkMarket, IWRU is one ETH swap away. No side quest required.\n\nETH in. IWRU out.\n\nThe black cat approves. 🐈‍⬛\n\n🛒 {PENKMARKET_LINK}",
-    f"There was a time when buying Monad tokens felt like an ordeal.\n\nThat time is over. PenkMarket lets you buy IWRU directly with ETH now.\n\nETH in. Chaos out.\n\nThe cat is, dare I say, pleased. 🐈‍⬛\n\n🛒 {PENKMARKET_LINK}",
-    f"Side quest cancelled. Buying Monad tokens like IWRU now takes one step: ETH in, via PenkMarket.\n\nNo bridges. No detours. Just chaos, delivered fast.\n\nThe black cat is pleased. 🐈‍⬛\n\n🛒 {PENKMARKET_LINK}",
-    f"PSA from the cat: buying Monad tokens no longer feels like a side quest.\n\nPenkMarket takes your ETH and hands you IWRU directly. That's it. That's the quest.\n\nETH in. Chaos out. 🐈‍⬛\n\n🛒 {PENKMARKET_LINK}",
 ]
 
 PROFESSOR_LESSON_IMAGE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "IWRU Profesor.png")
@@ -5752,30 +5742,6 @@ async def merch_announcement_job(context: ContextTypes.DEFAULT_TYPE):
         delay = _seconds_until_window(*MERCH_ANNOUNCEMENT_WINDOW_UTC, force_next_day=True)
         context.application.job_queue.run_once(merch_announcement_job, delay)
 
-# once/day, random moment inside this UTC window
-PENKMARKET_ANNOUNCEMENT_WINDOW_UTC = (12, 22)
-
-async def penkmarket_announcement_job(context: ContextTypes.DEFAULT_TYPE):
-    """Posts one PENKMARKET_ANNOUNCEMENTS variant once per calendar day (UTC) to
-    every known chat, at a random moment inside PENKMARKET_ANNOUNCEMENT_WINDOW_UTC.
-    Same calendar-day dedupe as merch_announcement_job
-    (restart-safe across Render redeploys)."""
-    try:
-        today = datetime.utcnow().date().isoformat()
-        if db.get_config("last_penkmarket_announcement_date") != today:
-            # set BEFORE posting -- a redeploy landing mid-send must not
-            # recompute and post a second announcement the same day.
-            db.set_config("last_penkmarket_announcement_date", today)
-            text = pick_phrase(PENKMARKET_ANNOUNCEMENTS)
-            for chat_id in list(_known_chats.keys()):
-                try:
-                    await context.bot.send_message(chat_id=chat_id, text=text)
-                except Exception as e:
-                    print(f"[penkmarket_announcement_job] chat {chat_id}: {e}", flush=True)
-    finally:
-        delay = _seconds_until_window(*PENKMARKET_ANNOUNCEMENT_WINDOW_UTC, force_next_day=True)
-        context.application.job_queue.run_once(penkmarket_announcement_job, delay)
-
 # once/day, random moment in this ~8:00-8:15pm Europe/Madrid window (the
 # user, 2026-08-29: "sobre las 8 de la noche en hora española").
 PROFESSOR_LESSON_WINDOW_MADRID = (20, 0, 20, 15)
@@ -6334,7 +6300,6 @@ def build_app():
     for kind in TWICE_DAILY_POSTS:                                             # 2/day each, >= 10h apart, survives restarts
         _schedule_twice_daily_post(a.job_queue, kind)
     a.job_queue.run_once(merch_announcement_job, _seconds_until_window(*MERCH_ANNOUNCEMENT_WINDOW_UTC))
-    a.job_queue.run_once(penkmarket_announcement_job, _seconds_until_window(*PENKMARKET_ANNOUNCEMENT_WINDOW_UTC))
     a.job_queue.run_once(professor_lesson_job, _seconds_until_madrid_minute_window(*PROFESSOR_LESSON_WINDOW_MADRID))
     a.job_queue.run_once(restart_greeting_job, random.uniform(20, 45))
     buybot.register(a)  # $IWRU buy alerts; self-gated on BUYBOT_ENABLED
