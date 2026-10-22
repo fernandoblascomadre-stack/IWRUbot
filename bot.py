@@ -5719,9 +5719,11 @@ async def nft_reminder_job(context: ContextTypes.DEFAULT_TYPE):
 # Twice a day, >= 10h apart, each kind: (events.db key prefix, line pool, link line). The last post time lives in
 # events.db (persistent disk), so a restart or redeploy never makes one post early. Rules in cat_posts.py.
 TWICE_DAILY_POSTS = {
-    "dexscreener": ("dex_post", cat_posts.DEXSCREENER_LINES, f"📊 {cat_posts.DEXSCREENER_LINK}"),
+    "dexscreener": ("dex_post", cat_posts.DEXSCREENER_LINES, f"📊 {cat_posts.DEXSCREENER_LINK}\n🗳️ vote IWRU → {cat_posts.GEMPUMP_LINK}"),
     "dividends": ("dividends_post", cat_posts.DIVIDENDS_LINES, f"🐟 claim here → {cat_posts.FEES_LINK}"),
 }
+# 2026-10-22 (Fernando): the Dexscreener post also says IWRU is on Gempump and asks for votes (the cat shares fish)
+TWICE_DAILY_EXTRA = {"dexscreener": cat_posts.GEMPUMP_VOTE_LINES}
 
 def _schedule_twice_daily_post(job_queue, kind):
     key = TWICE_DAILY_POSTS[kind][0]
@@ -5733,7 +5735,8 @@ async def twice_daily_post_job(context: ContextTypes.DEFAULT_TYPE):
     kind = context.job.data
     key, lines, link = TWICE_DAILY_POSTS[kind]
     try:
-        text = f"{pick_phrase(lines)}\n\n{link}"
+        extra = TWICE_DAILY_EXTRA.get(kind)
+        text = f"{pick_phrase(lines)}\n\n{pick_phrase(extra)}\n\n{link}" if extra else f"{pick_phrase(lines)}\n\n{link}"
         sent = False
         for chat_id in list(_known_chats.keys()):
             try:

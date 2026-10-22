@@ -5,6 +5,8 @@ day, at least 10 hours between the two posts, always in English. Same phrase pol
 the joke is the cat's own greed and chaos, never a price promise or "buy now".
 
 - DEXSCREENER_LINES: $IWRU is on Dexscreener ("look at the chart, I swear I saw fish in the graph"); + DEXSCREENER_LINK.
+  Each one also carries a GEMPUMP_VOTE_LINES line + GEMPUMP_LINK (2026-10-22, Fernando): IWRU is on Gempump too, vote for
+  it and the cat shares fish with the humans.
 - DIVIDENDS_LINES: holders of 10K $IWRU can claim their dividends ("their fish") before the cat eats them; + FEES_LINK
   (iwillrugu.com/fees, which has the claim button; minBal = 10000 there). Replaces the old once-a-day nad.fun reminder.
 - next_post_delay(): seconds until the next post, from the last post time persisted in events.db, so a Render restart
@@ -15,6 +17,7 @@ from datetime import datetime, timedelta, timezone
 
 DEXSCREENER_LINK = "https://dexscreener.com/monad/0x0caaf82370766e76e150a5610c16a306e254b8a7"
 FEES_LINK = "https://iwillrugu.com/fees/"
+GEMPUMP_LINK = "https://www.gempump.io/en/token/iwillrugu"
 
 MIN_GAP_S = 10 * 3600   # never two posts closer than 10h
 MAX_GAP_S = 13 * 3600   # 10-13h after the last one -> about two a day
@@ -53,6 +56,21 @@ DEXSCREENER_LINES = [
     "today's forecast from the cat: 80% chance of me looking at the Dexscreener chart and 20% chance of a nap on it. 🌤️📊",
     "the fish are in the chart. I've seen them. they're on Dexscreener. nobody believes me. 🐟📊🙀",
     "a human in this chat asked 'where chart'. the cat answers: Dexscreener. the cat also wants a treat for answering. 📊🐟",
+]
+
+GEMPUMP_VOTE_LINES = [
+    "we're on Gempump too. go vote for IWRU and I'll share my fish with the humans. the small ones. ok, the medium ones. 🗳️🐟",
+    "IWRU is on Gempump. every vote = one fish I personally hand to a human. I have never shared fish before. this is huge. 🗳️😼",
+    "vote for IWRU on Gempump and I'll throw a fish party. you bring the votes, I bring the fish, nobody touches my tuna. 🎉🐟",
+    "Gempump has a vote button for IWRU. I can't press it, my paws are too fluffy. you press it. I'll pay you in sardines. 🗳️🐾",
+    "humans who vote for IWRU on Gempump get fish. humans who don't get stared at. for a long time. 👀🐟",
+    "I promised the humans fish if IWRU wins votes on Gempump. I don't have fish. I will find fish. vote anyway. 🗳️😼🐟",
+    "go to Gempump, vote IWRU, come back, collect one (1) imaginary fish from the cat. very generous cat. 🐟✨",
+    "every Gempump vote for IWRU makes the fish bowl bigger. the cat is now legally obligated to share it. 🐠🗳️",
+    "vote IWRU on Gempump. I'll knock a fish off the table for each of you. that's how cats say thank you. 🐟😼",
+    "Gempump voting is open. I already voted for IWRU 47 times with my paw on the keyboard. your turn, humans. fish after. 🗳️⌨️🐟",
+    "if IWRU climbs on Gempump I'm sharing the fish stash. yes, the secret one under the couch. vote. 🛋️🐟",
+    "dear humans: one vote for IWRU on Gempump = one fish from me. this offer is valid until I get hungry. 🗳️🐟😼",
 ]
 
 DIVIDENDS_LINES = [
