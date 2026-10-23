@@ -50,14 +50,16 @@ DM_TURN = (
     "⚠️ IMPORTANT: you need an account at {home}\n\n"
     "your turn lasts {minutes} minutes. 🐾"
 )
-DM_WAIT = "🚀 someone is launching a rocket right now. you're #{pos} in line: I'll message you the moment it's your turn. 🐾"
+DM_WAIT = ("🚀 someone is launching a rocket right now. you're #{pos} in line: I'll message you the moment it's your turn.\n\n"
+           "⚠️ DON'T vote on Dexscreener yet: a rocket only counts for you during YOUR turn. 🐾")
 DM_CHECKING = "🔍 checking the rocket counter… (up to {minutes} minutes)"
 DM_PAID = "🎉 your rocket is in! here's your code for 150 Essence:\n\n{code}\n\nredeem it here (logged in to your account): {link}"
 DM_ALREADY = "you already launched your rocket 🚀 (one per person, forever). your code:\n\n{code}\n\nredeem it here: {link}"
 DM_NOT_MEMBER = "join the IWRU group first, then tap 🚀 VOTE there again: {group} 🐾"
 DM_NO_DATA = "I can't read the rocket counter right now. 😿 try again in a few minutes."
 DM_FROZEN = "rocket rewards are paused for a moment while the cat checks something. try again later. 🐾"
-DM_NOT_YET = "I can't see your rocket yet 👀 did you tap 🚀 on the page? tap «✅ I voted» again while your turn lasts."
+DM_NOT_YET = ("I can't see your rocket yet 👀 did you tap 🚀 on the IWRU page? if you just did, tap «✅ I voted» once more. "
+              "if your turn ran out, tap 🚀 VOTE in the group again.")
 DM_NO_TURN = ("your turn ran out ⏰ tap 🚀 VOTE in the group to get a new one. "
               "(only new rockets pay: if you voted outside your turn, the cat can't tell it was you.)")
 OWNER_FROZEN = "⚠️ rocket votes: the 🚀 count jumped from {old} to {new} between two reads. payouts are frozen. /rocketsunfreeze to resume."
@@ -204,17 +206,27 @@ async def deliver(bot, uid, name, code):
 
 
 async def call_next(bot):
-    """The turn is free: give it to the first one in the queue and DM them."""
+    """The turn is free: give it to the first one in the queue and DM them. Someone the bot can't reach (blocked it,
+    deleted the chat) loses the turn at once and the next one is called."""
     L = ledger()
-    nxt = L.next_in_queue(time.time())
-    if nxt is None:
-        return
-    count = await read_count()
-    res = L.start(nxt[0], nxt[1], time.time(), count)
-    try:
-        await _answer_start(bot, nxt[0], res)
-    except TelegramError as e:
-        print(f"[rocket] could not call {nxt[0]}: {e}", flush=True)
+    for _ in range(20):
+        nxt = L.next_in_queue(time.time())
+        if nxt is None:
+            return
+        count = await read_count()
+        res = L.start(nxt[0], nxt[1], time.time(), count)
+        if res[0] != "turn":
+            if res[0] in ("no_data", "frozen"):
+                return  # stays first in line; the next poll tries again
+            L.c.execute("DELETE FROM rv_queue WHERE tg_id=?", (nxt[0],))  # already paid: nothing to wait for
+            L.c.commit()
+        try:
+            await _answer_start(bot, nxt[0], res)
+            if res[0] == "turn":
+                return
+        except TelegramError as e:
+            L.release(nxt[0])
+            print(f"[rocket] could not call {nxt[0]}, turn released: {e}", flush=True)
 
 
 async def poll_job(context):

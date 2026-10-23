@@ -50,9 +50,12 @@ class FakeBot:
     username = "IWRUcatBot"
 
     def __init__(self):
-        self.sent, self.deleted, self.members, self.n = [], [], {}, 100
+        self.sent, self.deleted, self.members, self.n, self.blocked = [], [], {}, 100, set()
 
     async def send_message(self, chat_id, text, reply_markup=None, **kw):
+        if chat_id in self.blocked:
+            from telegram.error import Forbidden
+            raise Forbidden("bot was blocked by the user")
         self.n += 1
         self.sent.append({"chat": chat_id, "text": text, "kb": reply_markup, "id": self.n})
         return Msg(self.n)
@@ -259,6 +262,18 @@ async def main():
     counter["n"] = 31
     await run_jobs(clock.t + 15)
     check("and a new real rocket pays again", "IWRU-5" in last_to(4)["text"], last_to(4)["text"])
+    print("someone in line blocked the bot")
+    eve, fay, gus = user(5, "eve"), user(6, "fay"), user(7, "gus")
+    bot.members.update({5: "member", 6: "member", 7: "member"})
+    clock.t += rv.MAX_TURN_S + 1
+    await start(eve)
+    await start(fay)
+    await start(gus)
+    bot.blocked.add(6)                                      # fay blocks the bot while waiting
+    rb.ledger().release(5)                                  # eve's turn ends
+    await rb.poll_job(ctx())
+    check("fay can't be reached: her turn is released at once and gus is called",
+          rb.ledger().holder(clock.t) == (7, "@gus") and "your turn" in last_to(7)["text"], rb.ledger().holder(clock.t))
     text = await ranking_text()
     check("/rockets: exactly the 3 people paid", text.count("· +150 Essence") == 3 and "total: 3 rockets · 450 Essence" in text, text)
 

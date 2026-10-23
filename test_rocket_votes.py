@@ -295,3 +295,59 @@ def test_essence_and_card_codes_never_mix():
     assert all(prize_code.verifies(s, c) for c in cards + essence)
     assert not any(prize_code.verifies("other-secret", c) for c in essence[:50])
     assert len(set(essence)) == len(essence)
+
+
+# ── review 2026-10-23 (second pass): attacks on the turn and the queue ──────────────────────────────────────────────
+def test_tapping_i_voted_again_and_again_never_holds_the_turn_forever():
+    L = ledger()
+    L.observe(T0, 5)
+    L.start(1, "ana", T0, 5)
+    t = T0
+    for _ in range(50):                                     # taps "I voted" every 90 s
+        t += 90
+        L.extend_for_claim(1, t)
+    assert L.holder(T0 + rv.MAX_TURN_S - 1) is None or L.holder(T0 + rv.MAX_TURN_S) is None
+    assert L.holder(T0 + rv.MAX_TURN_S + 1) is None
+    assert L.start(2, "bob", T0 + rv.MAX_TURN_S + 2, 5)[0] == "turn"
+
+
+def test_a_place_in_line_expires_unless_the_person_is_still_there():
+    L = ledger()
+    L.observe(T0, 5)
+    L.start(1, "ana", T0, 5)
+    assert L.start(2, "bob", T0 + 1, 5) == ("wait", 1)
+    assert L.start(3, "cid", T0 + 2, 5) == ("wait", 2)
+    assert L.start(3, "cid", T0 + 20 * 60, 5) == ("wait", 2)        # cid says "still here", keeps place 2
+    t = T0 + rv.QUEUE_TTL_S + 60                                     # bob is gone
+    assert L.next_in_queue(t) == (3, "cid")
+    assert L.queue_position(2) is None
+
+
+def test_release_frees_the_turn_for_the_next():
+    L = ledger()
+    L.observe(T0, 5)
+    L.start(1, "ana", T0, 5)
+    L.start(2, "bob", T0 + 1, 5)
+    L.release(2)                                            # not the holder: nothing happens
+    assert L.holder(T0 + 2) == (1, "ana")
+    L.release(1)
+    assert L.holder(T0 + 3) is None and L.next_in_queue(T0 + 3) == (2, "bob")
+
+
+def test_the_texts_tell_people_to_wait_for_their_turn():
+    import rocket_bot as rb
+    assert "tap VOTE first" in rv.HOW_LINE and "open the page and tap" not in rv.HOW_LINE
+    assert "DON'T vote on Dexscreener yet" in rb.DM_WAIT
+
+
+def test_voting_while_waiting_in_line_pays_the_holder_never_twice():
+    """The known limit, pinned: a rocket that lands in someone else's turn is theirs; the impatient voter can't be paid
+    later for it (their vote is spent) -- which is why DM_WAIT says not to vote yet."""
+    L = ledger()
+    L.observe(T0, 5)
+    L.start(1, "ana", T0, 5)
+    L.start(2, "bob", T0 + 1, 5)
+    assert L.claim(1, T0 + 5, 6)[0] == "paid"              # bob voted early: ana's turn pays ana
+    assert L.start(2, "bob", T0 + 10, 6)[0] == "turn"
+    assert L.claim(2, T0 + 20, 6) == ("not_yet",)          # bob has no second vote to give
+    assert len(L.ranking()) == 1

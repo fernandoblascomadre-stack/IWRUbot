@@ -108,7 +108,7 @@ SHOUTOUT_LINES = [
 
 COUNT_LINE = "🚀 rockets on Dexscreener right now: {n}"
 COUNT_UP_LINE = "🚀 rockets on Dexscreener right now: {n} (+{d} since my last nap 🐾)"
-HOW_LINE = "👉 open the page and tap the 🚀 (one vote per person, forever)"
+HOW_LINE = "👉 tap VOTE first: the cat gives you your turn, then you vote and get 150 Essence (one vote per person, forever)"
 BUTTON_TEXT = "🚀 Vote on Dexscreener"
 
 
@@ -178,6 +178,8 @@ def next_post(last_slot_key, now=None):
 # ── rewards ledger (draft) ──────────────────────────────────────────────────────────────────────────────────────────
 LOCK_S = 4 * 60        # one voter's exclusive turn
 CLAIM_WAIT_S = 2 * 60  # how long the bot keeps re-reading after "I voted"
+MAX_TURN_S = LOCK_S + CLAIM_WAIT_S  # "I voted" can stretch a turn up to here, never further (no holding the turn forever)
+QUEUE_TTL_S = 30 * 60  # a place in line older than this is dropped (the person is gone; they can tap VOTE again)
 JUMP_FREEZE = 10       # more than this many new rockets between two reads -> freeze payouts
 ESSENCE_PER_VOTE = 150
 
@@ -193,7 +195,7 @@ class RocketLedger:
         self.c.executescript("""
             CREATE TABLE IF NOT EXISTS rv_state (k TEXT PRIMARY KEY, v TEXT);
             CREATE TABLE IF NOT EXISTS rv_votes (tg_id INTEGER PRIMARY KEY, name TEXT, ts REAL, level INTEGER, code TEXT);
-            CREATE TABLE IF NOT EXISTS rv_queue (tg_id INTEGER PRIMARY KEY, name TEXT, ts REAL);
+            CREATE TABLE IF NOT EXISTS rv_queue (tg_id INTEGER PRIMARY KEY, name TEXT, ts REAL, alive REAL, seq INTEGER);
         """)
         self.c.commit()
 
@@ -254,11 +256,26 @@ class RocketLedger:
 
     def queue_position(self, tg_id):
         """1-based place in line, or None if not waiting."""
-        rows = [r[0] for r in self.c.execute("SELECT tg_id FROM rv_queue ORDER BY ts, tg_id")]
+        rows = [r[0] for r in self.c.execute("SELECT tg_id FROM rv_queue ORDER BY seq")]
         return rows.index(tg_id) + 1 if tg_id in rows else None
 
+    def _prune_queue(self, now):
+        self.c.execute("DELETE FROM rv_queue WHERE alive < ?", (now - QUEUE_TTL_S,))
+
+    def release(self, tg_id):
+        """Ends tg_id's turn now (the bot could not reach them), so the next one in line is called."""
+        if self._get("lock_tg", int) == tg_id:
+            self._set("lock_tg", None)
+            self._set("lock_until", None)
+            self.c.commit()
+
     def _enqueue(self, tg_id, name, now):
-        self.c.execute("INSERT OR IGNORE INTO rv_queue(tg_id,name,ts) VALUES(?,?,?)", (tg_id, name, now))
+        self._prune_queue(now)
+        # tapping VOTE again keeps the place in line (ts) and only says "still here" (alive)
+        # seq = arrival order (two taps in the same second: the first one goes first -- found by the oracle test)
+        self.c.execute("INSERT INTO rv_queue(tg_id,name,ts,alive,seq) "
+                       "VALUES(?,?,?,?,(SELECT COALESCE(MAX(seq),0)+1 FROM rv_queue)) "
+                       "ON CONFLICT(tg_id) DO UPDATE SET alive=excluded.alive", (tg_id, name, now, now))
         self.c.commit()
         return self.queue_position(tg_id)
 
@@ -266,7 +283,9 @@ class RocketLedger:
         """The first one waiting, when the turn is free: (tg_id, name) for the bot to call, or None."""
         if self.holder(now) is not None:
             return None
-        row = self.c.execute("SELECT tg_id, name FROM rv_queue ORDER BY ts, tg_id LIMIT 1").fetchone()
+        self._prune_queue(now)
+        self.c.commit()
+        row = self.c.execute("SELECT tg_id, name FROM rv_queue ORDER BY seq LIMIT 1").fetchone()
         return (row[0], row[1]) if row else None
 
     def start(self, tg_id, name, now, count, is_member=True):
@@ -298,6 +317,7 @@ class RocketLedger:
             self._set("lock_tg", tg_id)
             self._set("lock_name", name)
             self._set("lock_until", now + LOCK_S)
+            self._set("lock_start", now)
             self.c.execute("DELETE FROM rv_queue WHERE tg_id=?", (tg_id,))
             self.c.commit()
         return ("turn", self._get("lock_until", float))
@@ -306,7 +326,8 @@ class RocketLedger:
         """"I voted" tapped near the end of the turn: the turn lasts the whole CLAIM_WAIT_S re-read."""
         h = self.holder(now)
         if h is not None and h[0] == tg_id:
-            self._set("lock_until", max(self._get("lock_until", float), now + CLAIM_WAIT_S))
+            cap = (self._get("lock_start", float) or now) + MAX_TURN_S
+            self._set("lock_until", min(cap, max(self._get("lock_until", float), now + CLAIM_WAIT_S)))
             self.c.commit()
 
     def claim(self, tg_id, now, count):
