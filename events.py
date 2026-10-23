@@ -22,6 +22,7 @@ from telegram.ext import (
 import events_config as cfg
 import db
 import prize_code
+import rocket_bot
 import catch_card_lines
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -1239,6 +1240,9 @@ async def cmd_start(update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # /start (and its deep-link payload) is only meaningful in a private
         # chat with the bot. Without this guard, typing /start in the group
         # would publicly leak whether the sender has a prize pending.
+        return
+    if context.args and context.args[0] == "rocket" and rocket_bot.ENABLED:
+        await rocket_bot.on_start(update, context)  # the group's 🚀 VOTE button (rocket_bot.py)
         return
     user = update.effective_user
     pending = db.get_pending_wallet_event(user.id)

@@ -16,6 +16,8 @@ import sys
 
 ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 RARITY_DIGIT = {"common": "1", "rare": "2", "epic": "3", "legendary": "4"}
+# 2026-10-23: Essence codes for a real Dexscreener rocket vote (rocket_votes.py); the server's PRIZE_ESSENCE twin.
+ESSENCE_DIGIT = "5"  # = 150 Essence
 _SIG_PREFIX = "iwru-catch-prize:v1:"
 
 
@@ -32,6 +34,12 @@ def format_code(secret: str, payload: str) -> str:
 def new_code(secret: str, rarity: str) -> str:
     """A fresh code for one card of `rarity` (common/rare/epic/legendary)."""
     payload = RARITY_DIGIT[rarity] + "".join(secrets.choice(ALPHABET) for _ in range(9))
+    return format_code(secret, payload)
+
+
+def new_essence_code(secret: str) -> str:
+    """A fresh one-time code for 150 Essence (server: _catch-prize-code.mjs PRIZE_ESSENCE)."""
+    payload = ESSENCE_DIGIT + "".join(secrets.choice(ALPHABET) for _ in range(9))
     return format_code(secret, payload)
 
 
