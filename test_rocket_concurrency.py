@@ -20,7 +20,7 @@ db.init_db()
 import rocket_bot as rb  # noqa: E402
 import rocket_votes as rv  # noqa: E402
 
-rv.LOCK_S, rv.CLAIM_WAIT_S = 2.0, 1.2
+rv.LOCK_S, rv.CLAIM_WAIT_S = 1.2, 0.9
 rv.MAX_TURN_S = rv.LOCK_S + rv.CLAIM_WAIT_S
 rb.CHECK_EVERY_S = 0.1
 STATE = {"count": 5, "fail_reads": 0.0}
@@ -82,9 +82,21 @@ async def tap_voted(i):
 
 
 async def poller(stop):
+    async def watch():
+        while not stop.is_set():
+            await rb.turn_watch_job(ctx())                     # the bot's own watch, every CHECK_EVERY_S
+            await asyncio.sleep(rb.CHECK_EVERY_S)
+    w = asyncio.get_running_loop().create_task(watch())
     while not stop.is_set():
         await rb.poll_job(ctx())
         await asyncio.sleep(0.15)
+    await w
+
+
+def no_duplicates(paid_ids):
+    """Each paid person got exactly one code DM and exactly one shout-out (watch + "I voted" can both see the rocket)."""
+    shouts = BOT.dms.get(int(os.environ["EVENTS_CHAT_ID"]), [])
+    return all(sum("150 Essence:" in m for m in BOT.dms.get(i, [])) == 1 for i in paid_ids) and len(shouts) == len(paid_ids)
 
 
 def fresh():
@@ -128,7 +140,7 @@ async def honest_run():
     await p
     rows = rb.ledger().c.execute("SELECT tg_id, level FROM rv_votes").fetchall()
     ids = [r[0] for r in rows]
-    ok = sorted(ids) == list(range(1, 31)) and len(set(r[1] for r in rows)) == 30 and STATE["count"] == 35
+    ok = sorted(ids) == list(range(1, 31)) and len(set(r[1] for r in rows)) == 30 and STATE["count"] == 35 and no_duplicates(ids)
     print(("  ok  " if ok else "FAIL  ") + f"honest run: {len(ids)}/30 paid once each, levels 6..35 distinct, counter {STATE['count']}")
     return ok
 
@@ -175,9 +187,9 @@ async def chaos_run(seed):
     levels = [r[1] for r in rows]
     had_turn = {i for i, msgs in BOT.dms.items() if any("your turn to launch" in m for m in msgs)}
     ok = (len(ids) == len(set(ids)) and levels == sorted(set(levels)) and len(rows) <= peak[0] - 5
-          and all(lv <= peak[0] for lv in levels) and set(ids) <= had_turn)
+          and all(lv <= peak[0] for lv in levels) and set(ids) <= had_turn and no_duplicates(ids))
     print(("  ok  " if ok else "FAIL  ") + f"chaos run seed {seed}: {len(rows)} paid, real new records {peak[0] - 5}, "
-          f"no double pay, strictly rising levels, only people who had a turn")
+          f"no double pay/DM/shout-out, rising levels, only people who had a turn")
     return ok
 
 

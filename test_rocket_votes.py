@@ -26,7 +26,7 @@ def test_one_vote_pays_one_code_once():
     st, code = L.claim(1, T0 + 20, 6)                       # the rocket landed
     assert st == "paid" and code.startswith("CODE-1-")
     assert L.start(1, "ana", T0 + 30, 6) == ("paid", code)  # same code again, never a second one
-    assert L.claim(1, T0 + 40, 7) == ("paid", code)
+    assert L.claim(1, T0 + 40, 7) == ("already", code)     # a second read never pays (or sends) again
     assert len(L.ranking()) == 1 and L.record() == 6
 
 

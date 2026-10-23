@@ -176,8 +176,11 @@ def next_post(last_slot_key, now=None):
 
 
 # ── rewards ledger (draft) ──────────────────────────────────────────────────────────────────────────────────────────
-LOCK_S = 4 * 60        # one voter's exclusive turn
-CLAIM_WAIT_S = 2 * 60  # how long the bot keeps re-reading after "I voted"
+# 2026-10-23 (Fernando: "igual hay que reducir la ventana del turno"): 2 min to vote (open the page, tap, come back:
+# 30-60 s), the bot spots the rocket by itself during the turn (rocket_bot.turn_watch_job) and ends it at once; "I voted"
+# only stretches the watch for a slow Dexscreener counter. Was 4 min + 2 min.
+LOCK_S = 2 * 60        # one voter's exclusive turn
+CLAIM_WAIT_S = 90      # how long the bot keeps re-reading after "I voted"
 MAX_TURN_S = LOCK_S + CLAIM_WAIT_S  # "I voted" can stretch a turn up to here, never further (no holding the turn forever)
 QUEUE_TTL_S = 30 * 60  # a place in line older than this is dropped (the person is gone; they can tap VOTE again)
 JUMP_FREEZE = 10       # more than this many new rockets between two reads -> freeze payouts
@@ -331,14 +334,15 @@ class RocketLedger:
             self.c.commit()
 
     def claim(self, tg_id, now, count):
-        """The voter tapped "I voted" (the bot re-reads every few seconds for CLAIM_WAIT_S). Returns:
-        ('paid', code)  a new record landed during their turn: one code, the turn ends
+        """A read during tg_id's turn (the bot's own watch, or "I voted"). Returns:
+        ('paid', code)     a new record landed during their turn: one code, the turn ends -- THIS call paid it
+        ('already', code)  they were paid before (by an earlier call): send nothing new
         ('not_yet',)    no new record yet (keep re-reading)
         ('no_turn',)    not their turn (expired, or never started)
         ('no_data',) / ('frozen',)"""
         code = self.paid_code(tg_id)
         if code:
-            return ("paid", code)
+            return ("already", code)
         h = self.holder(now)
         if h is None or h[0] != tg_id:
             return ("no_turn",)

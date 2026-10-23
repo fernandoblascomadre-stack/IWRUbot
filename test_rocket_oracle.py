@@ -83,7 +83,7 @@ class Oracle:
 
     def claim(self, tg, now, count):
         if tg in self.paid:
-            return ("paid", self.paid[tg])
+            return ("already", self.paid[tg])
         h = self._holder(now)
         if not h or h["tg"] != tg:
             return ("no_turn",)

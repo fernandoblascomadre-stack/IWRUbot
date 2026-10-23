@@ -44,8 +44,8 @@ MEMBER_STATUSES = {"member", "administrator", "creator", "owner"}
 DM_TURN = (
     "🚀 your turn to launch a rocket!\n\n"
     "1. tap «🚀 Open Dexscreener» and press the 🚀 on the IWRU page\n"
-    "2. come back here and tap «✅ I voted»\n\n"
-    "I'll check the rocket counter. if your rocket is there, you get a code for 150 Essence to redeem here: {redeem}\n"
+    "2. come back here: I'll spot your rocket by myself (if it takes long, tap «✅ I voted» and I'll keep looking)\n\n"
+    "when your rocket shows up on the counter, you get a code for 150 Essence to redeem here: {redeem}\n"
     "it's added to your account.\n\n"
     "⚠️ IMPORTANT: you need an account at {home}\n\n"
     "your turn lasts {minutes} minutes. 🐾"
@@ -172,10 +172,11 @@ async def claim_check_job(context):
         count = await read_count()
         res = ledger().claim(uid, time.time(), count)
         kind = res[0]
-        if kind == "paid":
+        if kind in ("paid", "already"):
             _checking.discard(uid)
-            await deliver(context.bot, uid, d["name"], res[1])
-            await call_next(context.bot)
+            if kind == "paid":  # "already": the turn watch paid it a moment ago and sent everything
+                await deliver(context.bot, uid, d["name"], res[1])
+                await call_next(context.bot)
             return
         if kind in ("not_yet", "no_data") and time.time() < d["deadline"]:
             context.application.job_queue.run_once(claim_check_job, CHECK_EVERY_S, data=d)
@@ -227,6 +228,24 @@ async def call_next(bot):
         except TelegramError as e:
             L.release(nxt[0])
             print(f"[rocket] could not call {nxt[0]}, turn released: {e}", flush=True)
+
+
+async def turn_watch_job(context):
+    """Every CHECK_EVERY_S while someone holds the turn: the rocket is spotted without waiting for "I voted", the code
+    goes out and the next one in line is called at once (a turn lasts as long as voting takes, not the whole window)."""
+    try:
+        L = ledger()
+        h = L.holder(time.time())
+        if h is None:
+            return
+        count = await read_count()
+        res = L.claim(h[0], time.time(), count)
+        if res[0] == "paid":
+            _checking.discard(h[0])
+            await deliver(context.bot, h[0], h[1], res[1])
+            await call_next(context.bot)
+    except Exception as e:
+        print(f"[rocket] turn watch: {e}", flush=True)
 
 
 async def poll_job(context):
@@ -313,5 +332,6 @@ def register(app):
     app.add_handler(CommandHandler("rockets", cmd_rockets))
     app.add_handler(CommandHandler("rocketsunfreeze", cmd_unfreeze))
     app.job_queue.run_repeating(poll_job, POLL_S, first=30)
+    app.job_queue.run_repeating(turn_watch_job, CHECK_EVERY_S, first=CHECK_EVERY_S)
     _schedule_post(app.job_queue)
     print(f"[rocket] on: 8 vote posts a day -> chat {cfg.EVENTS_CHAT_ID}, sticker {'yes' if os.path.isfile(STICKER) else 'NO (text only)'}", flush=True)

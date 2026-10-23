@@ -218,12 +218,33 @@ async def main():
           and "already launched" in last_to(1)["text"])
     check("/rockets shows the real voter", "@ana" in await ranking_text() and "total: 1 rockets · 150 Essence" in await ranking_text())
 
+    print("the bot spots the rocket by itself")
+    hal = user(8, "hal")
+    bot.members[8] = "member"
+    await start(hal)
+    check("hal's turn: the text says the bot spots the rocket by itself", "spot your rocket by myself" in last_to(8)["text"]
+          and "your turn lasts 2 minutes" in last_to(8)["text"], last_to(8)["text"])
+    shouts_before = sum("hal" in x["text"] for x in bot.sent if x["chat"] == GROUP)
+    await rb.turn_watch_job(ctx())
+    check("no rocket yet: the watch sends nothing", "IWRU-" not in last_to(8)["text"])
+    counter["n"] += 1                                       # hal votes and never taps "I voted"
+    await rb.turn_watch_job(ctx())
+    check("the watch pays without 'I voted' and ends the turn", "IWRU-5" in last_to(8)["text"]
+          and rb.ledger().holder(clock.t) is None, last_to(8)["text"])
+    codes_to_hal = sum("IWRU-5" in x["text"] for x in bot.sent if x["chat"] == 8)
+    await voted(hal)                                        # taps "I voted" afterwards anyway
+    await run_jobs(clock.t + 5)
+    await rb.turn_watch_job(ctx())
+    check("tapping 'I voted' after the watch paid: no second code, no second shout-out",
+          sum("IWRU-5" in x["text"] for x in bot.sent if x["chat"] == 8) == codes_to_hal
+          and sum("hal" in x["text"] for x in bot.sent if x["chat"] == GROUP) == shouts_before + 1)
+
     print("two at once")
     await start(bob)
     await start(cid)
     check("bob gets the turn, cid waits (#1)", "your turn" in last_to(2)["text"] and "#1 in line" in last_to(3)["text"],
           (last_to(2)["text"][:40], last_to(3)["text"]))
-    counter["n"] = 8  # bob votes
+    counter["n"] += 1  # bob votes
     await voted(cid)  # cid taps "I voted" on an old message: not his turn
     await run_jobs(clock.t + 1)
     check("cid can't take bob's rocket (he's told he's still in line)", "#1 in line" in last_to(3)["text"]
@@ -240,7 +261,7 @@ async def main():
     print("rules")
     await start(out)
     check("not in the group: no turn", "join the IWRU group first" in last_to(9)["text"])
-    counter["n"] = 30  # a bot farm or bad data
+    counter["n"] += 22  # a bot farm or bad data
     await rb.poll_job(ctx())
     check("a big jump freezes payouts and tells the Owner", "payouts are frozen" in last_to(42)["text"], last_to(42))
     dave = user(4, "dave")
@@ -259,7 +280,7 @@ async def main():
     await voted(dave)
     await run_jobs(clock.t + 15)
     check("after unfreezing, the jump itself paid nobody", "IWRU-" not in last_to(4)["text"])
-    counter["n"] = 31
+    counter["n"] += 1
     await run_jobs(clock.t + 15)
     check("and a new real rocket pays again", "IWRU-5" in last_to(4)["text"], last_to(4)["text"])
     print("someone in line blocked the bot")
@@ -275,7 +296,7 @@ async def main():
     check("fay can't be reached: her turn is released at once and gus is called",
           rb.ledger().holder(clock.t) == (7, "@gus") and "your turn" in last_to(7)["text"], rb.ledger().holder(clock.t))
     text = await ranking_text()
-    check("/rockets: exactly the 3 people paid", text.count("· +150 Essence") == 3 and "total: 3 rockets · 450 Essence" in text, text)
+    check("/rockets: exactly the 4 people paid", text.count("· +150 Essence") == 4 and "total: 4 rockets · 600 Essence" in text, text)
 
 
 asyncio.run(main())
