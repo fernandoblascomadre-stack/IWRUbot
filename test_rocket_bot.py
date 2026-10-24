@@ -207,16 +207,16 @@ async def main():
     await run_jobs(clock.t + 15)
     paid = last_to(1)["text"]
     code = paid.split("\n\n")[1] if "IWRU-" in paid else ""
-    check("the rocket lands: a code for 150 Essence + the redeem link", "150 Essence" in paid and code.startswith("IWRU-5")
+    check("the rocket lands: a code for 20 Essence + the redeem link", "20 Essence" in paid and code.startswith("IWRU-5")
           and f"{cfg.PARADOX_REDEEM_URL}?code={code}" in paid, paid)
     check("the code is genuine (server's signature) and of the Essence kind",
           prize_code.verifies(cfg.CATCH_PRIZE_SECRET, code) and prize_code._normalize(code)[0] == "5", code)
     shout = last_to(GROUP)["text"]
-    check("a public shout-out with the real rocket number", "ana" in shout and "#7" in shout and "+150 Essence" in shout, shout)
+    check("a public shout-out with the real rocket number", "ana" in shout and "#7" in shout and "+20 Essence" in shout, shout)
     await start(ana)
     check("tapping VOTE again resends the SAME code, never a second", code in last_to(1)["text"]
           and "already launched" in last_to(1)["text"])
-    check("/rockets shows the real voter", "@ana" in await ranking_text() and "total: 1 rockets · 150 Essence" in await ranking_text())
+    check("/rockets shows the real voter", "@ana" in await ranking_text() and "total: 1 rockets · 20 Essence" in await ranking_text())
 
     print("the bot spots the rocket by itself")
     hal = user(8, "hal")
@@ -296,7 +296,7 @@ async def main():
     check("fay can't be reached: her turn is released at once and gus is called",
           rb.ledger().holder(clock.t) == (7, "@gus") and "your turn" in last_to(7)["text"], rb.ledger().holder(clock.t))
     text = await ranking_text()
-    check("/rockets: exactly the 4 people paid", text.count("· +150 Essence") == 4 and "total: 4 rockets · 600 Essence" in text, text)
+    check("/rockets: exactly the 4 people paid", text.count("· +20 Essence") == 4 and "total: 4 rockets · 80 Essence" in text, text)
 
 
 asyncio.run(main())

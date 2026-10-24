@@ -10,7 +10,7 @@ Flow:
   tell the bot who tapped it). Each post deletes the previous one (both messages), so the chat never fills up.
 - Private chat: only group members; the bot gives the voter an exclusive turn (or a place in the queue) with two
   buttons, "Open Dexscreener" and "I voted". After "I voted" it re-reads the counter every CHECK_EVERY_S for up to
-  rocket_votes.CLAIM_WAIT_S: a new record -> a one-time code for 150 Essence (prize_code.new_essence_code), redeemed in
+  rocket_votes.CLAIM_WAIT_S: a new record -> a one-time code for 20 Essence (prize_code.new_essence_code), redeemed in
   PARADOX where the Catch card codes are, and a public shout-out in the group.
 - Every POLL_S: one read of the counter (rocket_votes.observe: votes outside the bot become the record, a big jump
   freezes payouts and DMs the Owner), and the next one in the queue is called when the turn is free.
@@ -45,7 +45,7 @@ DM_TURN = (
     "🚀 your turn to launch a rocket!\n\n"
     "1. tap «🚀 Open Dexscreener» and press the 🚀 on the IWRU page\n"
     "2. come back here: I'll spot your rocket by myself (if it takes long, tap «✅ I voted» and I'll keep looking)\n\n"
-    "when your rocket shows up on the counter, you get a code for 150 Essence to redeem here: {redeem}\n"
+    "when your rocket shows up on the counter, you get a code for 20 Essence to redeem here: {redeem}\n"
     "it's added to your account.\n\n"
     "⚠️ IMPORTANT: you need an account at {home}\n\n"
     "your turn lasts {minutes} minutes. 🐾"
@@ -53,7 +53,7 @@ DM_TURN = (
 DM_WAIT = ("🚀 someone is launching a rocket right now. you're #{pos} in line: I'll message you the moment it's your turn.\n\n"
            "⚠️ DON'T vote on Dexscreener yet: a rocket only counts for you during YOUR turn. 🐾")
 DM_CHECKING = "🔍 checking the rocket counter… (up to {minutes} minutes)"
-DM_PAID = "🎉 your rocket is in! here's your code for 150 Essence:\n\n{code}\n\nredeem it here (logged in to your account): {link}"
+DM_PAID = "🎉 your rocket is in! here's your code for 20 Essence:\n\n{code}\n\nredeem it here (logged in to your account): {link}"
 DM_ALREADY = "you already launched your rocket 🚀 (one per person, forever). your code:\n\n{code}\n\nredeem it here: {link}"
 DM_NOT_MEMBER = "join the IWRU group first, then tap 🚀 VOTE there again: {group} 🐾"
 DM_NO_DATA = "I can't read the rocket counter right now. 😿 try again in a few minutes."

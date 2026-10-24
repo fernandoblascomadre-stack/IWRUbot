@@ -250,7 +250,7 @@ def test_cat_lines_policy():
         assert not re.search(r"\bbuy\b|price|moon|100x|profit|guarantee|pump", line, re.I), line
     assert len(rv.SHOUTOUT_LINES) >= 5
     for line in rv.SHOUTOUT_LINES:
-        assert "{name}" in line and "{n}" in line and "+150 Essence" in line, line
+        assert "{name}" in line and "{n}" in line and "+20 Essence" in line, line
 
 
 def test_schedule_many_seeds_across_both_dst_changes():

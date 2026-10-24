@@ -96,7 +96,7 @@ async def poller(stop):
 def no_duplicates(paid_ids):
     """Each paid person got exactly one code DM and exactly one shout-out (watch + "I voted" can both see the rocket)."""
     shouts = BOT.dms.get(int(os.environ["EVENTS_CHAT_ID"]), [])
-    return all(sum("150 Essence:" in m for m in BOT.dms.get(i, [])) == 1 for i in paid_ids) and len(shouts) == len(paid_ids)
+    return all(sum("20 Essence:" in m for m in BOT.dms.get(i, [])) == 1 for i in paid_ids) and len(shouts) == len(paid_ids)
 
 
 def fresh():
@@ -114,7 +114,7 @@ async def honest_person(i, voted):
     await tap_vote(i)
     for _ in range(4000):
         msgs = BOT.dms.get(i, [])
-        if any("150 Essence:" in m for m in msgs):
+        if any("20 Essence:" in m for m in msgs):
             return
         h = rb.ledger().holder(__import__("time").time())
         if h and h[0] == i and i not in voted:

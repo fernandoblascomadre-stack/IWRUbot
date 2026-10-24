@@ -98,17 +98,17 @@ ROCKET_LINES = [
 ]
 
 SHOUTOUT_LINES = [
-    "{name} launched rocket #{n} 🚀 +150 Essence. the rest of you: thin ice. 🐾",
-    "🚀 #{n} by {name}! +150 Essence. the cat approves. slightly. 😼",
-    "{name} pressed the 🚀 (#{n}). +150 Essence. the cat purrs. briefly.",
-    "rocket #{n} 🚀 from {name}. +150 Essence. who's next? 👀",
-    "{name} did the thing. 🚀 #{n}, +150 Essence. hero of the day. 🐾",
-    "liftoff! 🚀 #{n} by {name}, +150 Essence. the cat salutes with one paw.",
+    "{name} launched rocket #{n} 🚀 +20 Essence. the rest of you: thin ice. 🐾",
+    "🚀 #{n} by {name}! +20 Essence. the cat approves. slightly. 😼",
+    "{name} pressed the 🚀 (#{n}). +20 Essence. the cat purrs. briefly.",
+    "rocket #{n} 🚀 from {name}. +20 Essence. who's next? 👀",
+    "{name} did the thing. 🚀 #{n}, +20 Essence. hero of the day. 🐾",
+    "liftoff! 🚀 #{n} by {name}, +20 Essence. the cat salutes with one paw.",
 ]
 
 COUNT_LINE = "🚀 rockets on Dexscreener right now: {n}"
 COUNT_UP_LINE = "🚀 rockets on Dexscreener right now: {n} (+{d} since my last nap 🐾)"
-HOW_LINE = "👉 tap VOTE first: the cat gives you your turn, then you vote and get 150 Essence (one vote per person, forever)"
+HOW_LINE = "👉 tap VOTE first: the cat gives you your turn, then you vote and get 20 Essence (one vote per person, forever)"
 BUTTON_TEXT = "🚀 Vote on Dexscreener"
 
 
@@ -184,7 +184,7 @@ CLAIM_WAIT_S = 90      # how long the bot keeps re-reading after "I voted"
 MAX_TURN_S = LOCK_S + CLAIM_WAIT_S  # "I voted" can stretch a turn up to here, never further (no holding the turn forever)
 QUEUE_TTL_S = 30 * 60  # a place in line older than this is dropped (the person is gone; they can tap VOTE again)
 JUMP_FREEZE = 10       # more than this many new rockets between two reads -> freeze payouts
-ESSENCE_PER_VOTE = 150
+ESSENCE_PER_VOTE = 20
 
 
 class RocketLedger:
