@@ -16,7 +16,7 @@ class Oracle:
         self.frozen = False
         self.turn = None        # dict(tg, name, until, start)
         self.line = []          # [tg, name, joined, alive] in order of joining
-        self.paid = {}          # tg -> code
+        self.paid = {}          # tg -> [(ts, madrid day, code)]: one paid vote per person per Madrid day
         self.n = 0
 
     def _holder(self, now):
@@ -55,9 +55,17 @@ class Oracle:
             self.line.append([tg, name, now, now])
         return [x[0] for x in self.line].index(tg) + 1
 
+    @staticmethod
+    def _day(ts):
+        from datetime import datetime
+        return datetime.fromtimestamp(ts, tz=rv.MADRID_TZ).date().isoformat()
+
+    def _today(self, tg, now):
+        return [c for ts, d, c in self.paid.get(tg, []) if d == self._day(now)]
+
     def start(self, tg, name, now, count, member=True):
-        if tg in self.paid:
-            return ("paid", self.paid[tg])
+        if self._today(tg, now):
+            return ("paid", self._today(tg, now)[0])
         if not member:
             return ("not_member",)
         if count is None:
@@ -82,8 +90,9 @@ class Oracle:
             h["until"] = min(h["start"] + rv.MAX_TURN_S, max(h["until"], now + rv.CLAIM_WAIT_S))
 
     def claim(self, tg, now, count):
-        if tg in self.paid:
-            return ("already", self.paid[tg])
+        recent = [c for ts, d, c in self.paid.get(tg, []) if d == self._day(now) or ts >= now - rv.MAX_TURN_S]
+        if recent:
+            return ("already", recent[-1])
         h = self._holder(now)
         if not h or h["tg"] != tg:
             return ("no_turn",)
@@ -94,10 +103,10 @@ class Oracle:
         if count <= self.record:
             return ("not_yet",)
         self.n += 1
-        self.paid[tg] = f"C{tg}-{self.n}"
+        self.paid.setdefault(tg, []).append((now, self._day(now), f"C{tg}-{self.n}"))
         self.record = count
         self.turn = None
-        return ("paid", self.paid[tg])
+        return ("paid", f"C{tg}-{self.n}")
 
     def release(self, tg):
         if self.turn and self.turn["tg"] == tg:
@@ -159,9 +168,10 @@ def run(seed, steps=3000):
         if (h_real[0] if h_real else None) != (h_o["tg"] if h_o else None) or real.record() != o.record \
                 or real.frozen() != o.frozen:
             return f"seed {seed} step {step}: state differs (holder {h_real} vs {h_o}, record {real.record()} vs {o.record})"
-    paid_real = {r[0] for r in real.c.execute("SELECT tg_id FROM rv_votes")}
-    if paid_real != set(o.paid):
-        return f"seed {seed}: paid sets differ {paid_real} vs {set(o.paid)}"
+    paid_real = {(r[0], r[1]) for r in real.c.execute("SELECT tg_id, day FROM rv_paid")}
+    paid_o = {(tg, d) for tg, rows in o.paid.items() for _, d, _ in rows}
+    if paid_real != paid_o:
+        return f"seed {seed}: paid sets differ {paid_real ^ paid_o}"
     return None
 
 

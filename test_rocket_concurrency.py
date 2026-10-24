@@ -103,7 +103,7 @@ def fresh():
     rb._ledger = None
     rb._checking.clear()
     BOT.dms.clear()
-    db._conn.executescript("DROP TABLE IF EXISTS rv_state; DROP TABLE IF EXISTS rv_votes; DROP TABLE IF EXISTS rv_queue;")
+    db._conn.executescript("DROP TABLE IF EXISTS rv_state; DROP TABLE IF EXISTS rv_paid; DROP TABLE IF EXISTS rv_queue;")
     STATE.update(count=5, fail_reads=0.0)
     rb.ledger().observe(0, 5)
 
@@ -138,7 +138,7 @@ async def honest_run():
     await asyncio.wait_for(asyncio.gather(*[honest_person(i, voted) for i in range(1, 31)]), timeout=400)
     stop.set()
     await p
-    rows = rb.ledger().c.execute("SELECT tg_id, level FROM rv_votes").fetchall()
+    rows = rb.ledger().c.execute("SELECT tg_id, level FROM rv_paid").fetchall()
     ids = [r[0] for r in rows]
     ok = sorted(ids) == list(range(1, 31)) and len(set(r[1] for r in rows)) == 30 and STATE["count"] == 35 and no_duplicates(ids)
     print(("  ok  " if ok else "FAIL  ") + f"honest run: {len(ids)}/30 paid once each, levels 6..35 distinct, counter {STATE['count']}")
@@ -182,7 +182,7 @@ async def chaos_run(seed):
     stop.set()
     await p
     await w
-    rows = rb.ledger().c.execute("SELECT tg_id, level FROM rv_votes ORDER BY ts").fetchall()
+    rows = rb.ledger().c.execute("SELECT tg_id, level FROM rv_paid ORDER BY ts").fetchall()
     ids = [r[0] for r in rows]
     levels = [r[1] for r in rows]
     had_turn = {i for i, msgs in BOT.dms.items() if any("your turn to launch" in m for m in msgs)}

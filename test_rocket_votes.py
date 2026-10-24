@@ -30,6 +30,54 @@ def test_one_vote_pays_one_code_once():
     assert len(L.ranking()) == 1 and L.record() == 6
 
 
+def test_one_paid_vote_per_person_per_day_madrid():
+    """Fernando 2026-10-24: a Dexscreener rocket is once per person PER DAY. Day = Madrid calendar day."""
+    L = ledger()
+    d1 = _madrid(2026, 11, 3, 10, 0)
+    L.observe(d1, 5)
+    assert L.start(1, "ana", d1, 5)[0] == "turn"
+    st, c1 = L.claim(1, d1 + 20, 6)
+    assert st == "paid"
+    late = _madrid(2026, 11, 3, 23, 59, 50)
+    assert L.start(1, "ana", late, 6) == ("paid", c1)                # same day, even at 23:59: today's code again
+    nxt = _madrid(2026, 11, 4, 0, 0, 10)
+    assert L.start(1, "ana", nxt, 6)[0] == "turn"                     # a new day: a new turn
+    st, c2 = L.claim(1, nxt + 20, 7)
+    assert st == "paid" and c2 != c1                                   # and a new code
+    assert L.start(1, "ana", nxt + 60, 7) == ("paid", c2)
+    assert [r[0] for r in L.month_stats(nxt + 60)] == ["ana"] and L.month_stats(nxt + 60)[0][1] == 2
+    import sqlite3 as _s
+    try:                                                               # the database itself refuses a 2nd row a day
+        L.c.execute("INSERT INTO rv_paid(tg_id,name,ts,day,level,code) VALUES(1,'ana',?,?,8,'X')", (nxt + 90, rv.day_key(nxt)))
+        assert False, "UNIQUE(tg_id, day) missing"
+    except _s.IntegrityError:
+        pass
+
+
+def test_paid_at_2359_then_a_claim_after_midnight_is_already_not_expired():
+    L = ledger()
+    t = _madrid(2026, 11, 3, 23, 59, 0)
+    L.observe(t, 5)
+    L.start(1, "ana", t, 5)
+    st, code = L.claim(1, t + 50, 6)                                   # the watch pays at 23:59:50
+    assert st == "paid"
+    assert L.claim(1, t + 65, 6) == ("already", code)                  # "I voted" re-read at 00:00:05: same code
+    assert L.claim(1, t + 50 + rv.MAX_TURN_S + 1, 6) == ("no_turn",)  # long after: a normal new day
+
+
+def test_old_once_forever_table_is_migrated_not_lost():
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE rv_votes (tg_id INTEGER PRIMARY KEY, name TEXT, ts REAL, level INTEGER, code TEXT)")
+    conn.execute("INSERT INTO rv_votes VALUES (1, 'ana', ?, 6, 'OLD-1')", (_madrid(2026, 11, 3, 10),))
+    conn.commit()
+    L = ledger(conn)
+    assert L.ranking() == [("ana", _madrid(2026, 11, 3, 10), rv.ESSENCE_PER_VOTE)]
+    assert L.start(1, "ana", _madrid(2026, 11, 3, 12), 6) == ("paid", "OLD-1")
+    assert not conn.execute("SELECT 1 FROM sqlite_master WHERE name='rv_votes'").fetchone()
+    ledger(conn)                                                       # a second start: nothing doubled
+    assert len(L.ranking()) == 1
+
+
 def test_two_people_at_once_never_take_each_others_rocket():
     L = ledger()
     L.observe(T0, 5)
@@ -199,11 +247,11 @@ def test_random_simulation_never_pays_more_than_real_new_records():
             else:
                 L.observe(now, read)
         paid = L.ranking()
-        names = [p[0] for p in paid]
-        assert len(names) == len(set(names))
+        per_day = [(p[0], rv.day_key(p[1])) for p in paid]
+        assert len(per_day) == len(set(per_day))               # nobody paid twice on the same day
         assert levels == sorted(set(levels))                   # each payout a strictly higher record
         assert len(paid) <= max([start_record] + levels) - start_record
-        rows = L.c.execute("SELECT level FROM rv_votes").fetchall()
+        rows = L.c.execute("SELECT level FROM rv_paid").fetchall()
         assert all(r[0] > start_record for r in rows)
 
 
@@ -222,7 +270,8 @@ def test_schedule_eight_a_day_spread_and_restart_safe():
         by_day.setdefault(x.astimezone(rv.MADRID_TZ).date(), []).append(x)
     assert all(len(v) == 8 for v in by_day.values()), {k: len(v) for k, v in by_day.items()}
     gaps = [(b - a).total_seconds() for a, b in zip(times, times[1:])]
-    assert min(gaps) >= 3600 and max(gaps) <= 5 * 3600 + 60
+    assert all(g == 3 * 3600 for g in gaps), gaps                     # Fernando: every 3 hours
+    assert [x.strftime("%H:%M") for x in times[:8]] == ["01:30", "04:30", "07:30", "10:30", "13:30", "16:30", "19:30", "22:30"]
     # restart in the middle of a slot that was already posted: never the same slot again
     delay, key = rv.next_post(last, t + timedelta(minutes=1))
     assert key > last
@@ -253,7 +302,8 @@ def test_monthly_statistics_restart_on_day_1_madrid():
     L = ledger()
     for i, (tg, when) in enumerate(((1, _madrid(2026, 10, 31, 23, 59)), (2, _madrid(2026, 11, 1, 0, 0, 30)),
                                     (3, _madrid(2026, 11, 15)))):
-        L.c.execute("INSERT INTO rv_votes(tg_id,name,ts,level,code) VALUES(?,?,?,?,?)", (tg, f"u{tg}", when, 10 + i, "C"))
+        L.c.execute("INSERT INTO rv_paid(tg_id,name,ts,day,level,code) VALUES(?,?,?,?,?,?)",
+                    (tg, f"u{tg}", when, rv.day_key(when), 10 + i, "C"))
     assert L.month_stats(_madrid(2026, 10, 31, 23, 59, 30)) == [("u1", 1)]
     assert L.month_stats(_madrid(2026, 11, 20)) == [("u2", 1), ("u3", 1)]   # u1 voted in October: not in November
     assert L.month_stats(_madrid(2026, 12, 1, 0, 1)) == []

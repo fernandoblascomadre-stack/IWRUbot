@@ -257,7 +257,7 @@ CALLOUT_MESSAGES = [
     "{name} I've decided you're a vault supporter. congratulations. fish appreciated. 🐟😼",
     "{name}. one fish. that's all. just one. the cat is very reasonable. 🐟😼",
     "{name} hey. are you okay. the cat is asking. it's a cat thing. don't read into it. 😼",
-    "{name}. you have the energy of someone who hasn't bought $IWRU yet. I could be wrong. 😼🐟",
+    "{name}. you have the energy of someone who hasn't bought IWRU yet. I could be wrong. 😼🐟",
     "{name} I was asleep and I thought of you. I don't know what that means. fish? 🐟😴😼",
     "{name}. come here. closer. no not that close. closer. okay. do you have fish. 🐟😼",
     "{name} I knocked something over earlier and thought of you. unrelated. deeply unrelated. 😼",
@@ -710,11 +710,11 @@ REACTION_CHANCE = 0.25
 
 RANDOM_QUIPS = [
     "...the vault grows. slowly. like a fish that refuses to be caught. 🐟 but it grows.",
-    "why are you all still here. go buy $IWRU. fill the vault. entertain me. 😼",
+    "why are you all still here. go buy IWRU. fill the vault. entertain me. 😼",
     "the circle of fish: vault feeds ecosystem 🐟 ecosystem feeds cat 😼 cat feeds vault. beautiful.",
     "every fish in the vault is a human who trusted me. the vault is very full. 🐟",
     "the fish vault is sacred. I don't even touch it. I just stare at it sometimes. 😼",
-    "hold 10,000 $IWRU and MON drops in your wallet. loyalty has a price. fish too. 🐟",
+    "hold 10,000 IWRU and MON drops in your wallet. loyalty has a price. fish too. 🐟",
     "I knocked supply off the counter. didn't apologize. your bags went up. you're welcome. 😼",
     "yes I made the rugonomics at 3am. they are correct. trust the cat. 😼🐟",
     "some say I will rug. I say I will fish. semantics. 🐟",
@@ -786,7 +786,7 @@ RANDOM_QUIPS = [
     "chaos is not a plan. chaos is a lifestyle. the cat has a lifestyle. 😼",
     "I judge everyone in this group. silently. constantly. with both eyes. 😼",
     "many humans. many words. very few fish. disappointing. 😾🐟",
-    "this conversation is interesting. I lied. it isn't. buy $IWRU. 😼",
+    "this conversation is interesting. I lied. it isn't. buy IWRU. 😼",
     "I was going to analyze the chart. then the floor caught my attention. the floor won. 😼",
     "I knocked the glass off the table. I watched it fall the whole way. majestic. 😼",
     "*sits on your hands while you're trying to type* this is mine now. 😼",
@@ -935,12 +935,12 @@ BORED_MESSAGES = [
     "wake up. the vault is hungry. I said WAKE UP. 😼🐟",
     "I'm going to knock something over. I haven't decided what yet. consider this a warning. 😼",
     "someone send fish. the cat demands fish. this is not a request. 🐟😼",
-    "*perks ears* ...no. nothing. carry on. buy $IWRU. 😼",
+    "*perks ears* ...no. nothing. carry on. buy IWRU. 😼",
     "I am comfortable and at peace. someone ruin it with good chart news. 😼📈",
     "I knocked over the rugonomics presentation. they're fine. probably. 😼",
     "I've been watching this chat. nothing has happened. yet. 😼",
     "the vault has fish. the cat has patience. one of these is running low. 😾🐟",
-    "*sits up suddenly* ...it's nothing. carry on. but also buy $IWRU. 😼",
+    "*sits up suddenly* ...it's nothing. carry on. but also buy IWRU. 😼",
     "*vibrates slightly* something is happening. or nothing is. the cat knows. 😼",
     "I knocked the price prediction off the counter. it landed bullish. obviously. 😼📈",
     "there are 24 hours in a day. I spend 18 sleeping and 6 watching the vault. very busy. 😼",
@@ -1579,7 +1579,7 @@ IWRU_COMMAND_REPLIES = [
     "I was watching the vault. now I'm watching you. the vault was more interesting. 😼🐟",
     "*slow blink* that means I trust you. don't ruin it. 😼",
     "I have two moods: completely ignoring you, and this. you got lucky. 😼",
-    "I sat on your message. it's mine now. so is your attention. buy $IWRU. 😼",
+    "I sat on your message. it's mine now. so is your attention. buy IWRU. 😼",
     "the cat appeared. the cat will disappear. this is how it has always been. 😼",
     "*stares at you for 7 seconds without blinking* ...hi. 😼",
     "I was going to ignore this. then I didn't. you're welcome I think. 😼",
@@ -1745,7 +1745,7 @@ FISH_REPLIES = [
     "fish. FISH. fill the vault. fish go in vault. 🐟😼",
     "*drops everything* fish? WHERE. 🐟😼",
     "I once went 3 days without hearing the word fish. I don't speak of that time. 😾",
-    "fish are the language. $IWRU is the translation. the vault is the result. 😼🐟",
+    "fish are the language. IWRU is the translation. the vault is the result. 😼🐟",
     "I make NFTs to buy more fish. the system is elegant. 🐟🎨😼",
     "in stage 6 I found a fish in the desert. I don't know how it got there. I don't ask. 🐟🌵😼",
     "a wise cat once said: more fish. that cat was me. just now. 🐟😼",
@@ -1998,7 +1998,7 @@ GM_REPLIES = [
     "good morning. I did not sleep. I watched the chart. I regret nothing. 😼📈",
     "gm. *knocks your coffee off the table* 😼☕",
     "gm. the cat acknowledges the morning. reluctantly. 😼",
-    "good morning. buy $IWRU before breakfast. then breakfast. then more $IWRU. 😼🐟",
+    "good morning. buy IWRU before breakfast. then breakfast. then more IWRU. 😼🐟",
     "gm. I was already awake. I'm always awake. the vault doesn't sleep. 🐟😼",
     "good morning. another day. another fish. this is the way. 🐟😼",
     "gm. *stares at you* ...okay. morning. 😼",
@@ -2545,7 +2545,7 @@ WEN_REPLIES = [
     "soon™. the cat trademark pending on that one. 😼",
     "wen. I was going to answer this. then I fell asleep. the answer is: fill the vault. 🐟😴",
     "wen. I've heard this word many times. every time I think: fill the vault. 🐟😼",
-    "the cat doesn't do wen. the cat does now. and now is: buy $IWRU. 😼🐟",
+    "the cat doesn't do wen. the cat does now. and now is: buy IWRU. 😼🐟",
     "wen. the cat consulted the sun. the sun said nothing useful. neither will I. 😼☀️",
     "wen is a question the cat gets asked often and answers rarely. tradition. 😼",
     "soon. not a promise. an observation. the cat observes things. 😼",
@@ -2722,7 +2722,7 @@ CHART_REPLIES = [
 MONAD_REPLIES = [
     "Monad. fast. the cat approves of fast. mostly for 3am zoomies. but also for transactions. 😼💨",
     "built on Monad. the cat chose well. the cat always chooses well. 😼🐟",
-    "Monad is the chain. $IWRU is the fish. the vault is the bowl. everything makes sense. 🐟😼",
+    "Monad is the chain. IWRU is the fish. the vault is the bowl. everything makes sense. 🐟😼",
     "the cat is on Monad. the cat is everywhere on Monad. simultaneously. 😼🐟",
     "Monad moves fast. like the cat at 3am. like the chart after the cat sits on it. 😼💨📈",
     "the cat endorses Monad. the cat endorses fish. the cat endorses the vault. in that order. 😼🐟",
@@ -2808,7 +2808,7 @@ MONAD_REPLIES = [
 
 # Triggered by users saying cat/kitty/meow etc -- distinct from the cat
 # talking about ITSELF (IWRU_NAME_REPLIES). Purely comedic per phrase policy:
-# no "buy $IWRU", no calls to action, no promotion of the vault as a pitch.
+# no "buy IWRU", no calls to action, no promotion of the vault as a pitch.
 CAT_REPLIES = [
     "another cat? in my territory? unacceptable. 😾",
     "cats. yes. I am one. this checks out. 😼",
@@ -3385,7 +3385,7 @@ WEBSITE_REPLIES = [
     "go to the site. play the game. fill the vault. this is the recommended order of operations. 🐟🎮😼",
     "the website. built by humans. starring: me. the cat. 😼🎮🐟",
     "it's all there. the game, the token, the fish vault. the cat is represented everywhere. 😼🐟🎮",
-    "the site is live. the cat is live. everything is functioning. buy $IWRU. 😼",
+    "the site is live. the cat is live. everything is functioning. buy IWRU. 😼",
     # 2026-10-13 (Fernando): more lines
     "the website. the cat walked across the keyboard while it was being built. you'll find typos. 🎮😼",
     'the site is where the cat runs, jumps and falls off things on purpose. 🎮😼',
@@ -3400,7 +3400,7 @@ WEBSITE_REPLIES = [
 ]
 
 SOCIAL_REPLIES = [
-    "follow the cat. follow the vault. follow $IWRU. in that order. no exceptions. 😼🐟",
+    "follow the cat. follow the vault. follow IWRU. in that order. no exceptions. 😼🐟",
     "all the links. all the platforms. the cat is watching engagement metrics with one eye. 😼📊",
     "Twitter. Telegram. the cat posts at 3am. you have been warned. 😼💨",
     "follow everything. like everything. the vault notices. I notice. the fish notice. 🐟😼",
@@ -3425,13 +3425,13 @@ SOCIAL_REPLIES = [
 
 FILTER_REPLIES = [
     "filters? the cat has filtered out all bad vibes and most humans. 😼",
-    "add $IWRU to your filters. add fish to your diet. in that order. 🐟😼",
+    "add IWRU to your filters. add fish to your diet. in that order. 🐟😼",
     "the cat passes all filters. by walking directly through them. 😼",
     "filters are just cages with extra steps. the cat ignores both. 😼🐟",
     "I tried using a filter once. it filtered out a fish. never again. 🐟😼",
     "add to filters? bold of you to assume the cat can be filtered. 😼",
-    "the only filter that matters: is it $IWRU? yes. add it. done. 😼🐟",
-    "filter: $IWRU. result: vault grows. fish appears. cat nods. 😼🐟",
+    "the only filter that matters: is it IWRU? yes. add it. done. 😼🐟",
+    "filter: IWRU. result: vault grows. fish appears. cat nods. 😼🐟",
     "a filter walked into a bar. the cat was already there. 😼",
     "yes yes add the cat to your watchlist. the cat is already watching you. 👁️😼",
     # 2026-10-13 (Fernando): more lines
@@ -3722,7 +3722,7 @@ FOLLOWUP_MESSAGES = [
     "...mostly. 😼",
     "*sits down* 😼",
     "carry on. 😼",
-    "...buy $IWRU. 😼",
+    "...buy IWRU. 😼",
     "never mind. 😼",
     "I lied. I'm still here. 😼",
     "🐟",
@@ -3767,12 +3767,12 @@ NAD_LINK = "https://nad.fun/tokens/0xaCCD61772BCd3717546f141382b68b6D2EF17777"
 NAD_CA   = "0xaCCD61772BCd3717546f141382b68b6D2EF17777"
 
 MONAD_REMINDERS = [
-    f"$IWRU is live on Monad. don't say the cat didn't warn you. 😼\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
+    f"IWRU is live on Monad. don't say the cat didn't warn you. 😼\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
     f"in case you forgot — the cat is tokenized 🐟\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
-    f"drops fish on floor. $IWRU. Monad. now. 😼\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
+    f"drops fish on floor. IWRU. Monad. now. 😼\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
     f"the cat has been deployed on Monad blockchain. act accordingly. 🐟\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
-    f"$IWRU — launched. live. on Monad. what are you waiting for. 😼\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
-    f"friendly reminder from the cat: $IWRU is tradeable 🐟\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
+    f"IWRU — launched. live. on Monad. what are you waiting for. 😼\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
+    f"friendly reminder from the cat: IWRU is tradeable 🐟\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
 ]
 
 GAME_REMINDERS = [
@@ -3823,7 +3823,7 @@ PROFESSOR_LESSON_ANNOUNCEMENTS = [
 # capped at exactly one -- the user, 2026-08-29: "no mas de dos mensajes de el
 # tema de IWRU profesor en esa ventana de tiempo cada dia", i.e. post + one
 # follow-up, total two). Pure personality per [[feedback_iwrubot_phrase_policy]]
-# -- no "buy $IWRU", no sales angle, just the cat being insufferably proud of
+# -- no "buy IWRU", no sales angle, just the cat being insufferably proud of
 # its own teaching career. Split into two pools exactly like
 # CALLOUT_MESSAGES/BORED_MESSAGES: PROFESSOR_QUIPS is fully generic,
 # PROFESSOR_NAME_QUIPS uses {name} to offer one specific recently-active member
@@ -6163,7 +6163,7 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ── IWRU name ──────────────────────────────────────────────────────────
     # 2026-10-13 (Fernando): people also call the cat by name in normal messages ("IWRU, what do you think?",
-    # "hey iwru", "iwru?"). Talking TO it -> it answers often; just naming it in passing -> sometimes. "$IWRU" is the
+    # "hey iwru", "iwru?"). Talking TO it -> it answers often; just naming it in passing -> sometimes. "IWRU" is the
     # token, not the cat, so price talk never triggers it. English only, like every reply.
     _addr = _iwru_address_kind(tl)
     if _addr and not _contains_word(tl, IWRU_TRIGGERS) and tl_stripped not in ("iwru", "@iwru"):
@@ -6346,7 +6346,7 @@ def build_app():
     a.job_queue.run_once(merch_announcement_job, _seconds_until_window(*MERCH_ANNOUNCEMENT_WINDOW_UTC))
     a.job_queue.run_once(professor_lesson_job, _seconds_until_madrid_minute_window(*PROFESSOR_LESSON_WINDOW_MADRID))
     a.job_queue.run_once(restart_greeting_job, random.uniform(20, 45))
-    buybot.register(a)  # $IWRU buy alerts; self-gated on BUYBOT_ENABLED
+    buybot.register(a)  # IWRU buy alerts; self-gated on BUYBOT_ENABLED
     gas_reserve_alert.register(a)  # Owner DM when the emergency gas reserve drops below 5% of capacity
     if TWITTER_ENABLED:
         for slot_start, slot_end in TWEET_SLOTS:

@@ -4,10 +4,10 @@ Fernando asked for two of them, with the same rules: at least 20 different funny
 day, at least 10 hours between the two posts, always in English. Same phrase policy as every other pool: funny/chaotic,
 the joke is the cat's own greed and chaos, never a price promise or "buy now".
 
-- DEXSCREENER_LINES: $IWRU is on Dexscreener ("look at the chart, I swear I saw fish in the graph"); + DEXSCREENER_LINK.
+- DEXSCREENER_LINES: IWRU is on Dexscreener ("look at the chart, I swear I saw fish in the graph"); + DEXSCREENER_LINK.
   Each one also carries a GEMPUMP_VOTE_LINES line + GEMPUMP_LINK (2026-10-22, Fernando): IWRU is on Gempump too, vote for
   it and the cat shares fish with the humans.
-- DIVIDENDS_LINES: holders of 10K $IWRU can claim their dividends ("their fish") before the cat eats them; + FEES_LINK
+- DIVIDENDS_LINES: holders of 10K IWRU can claim their dividends ("their fish") before the cat eats them; + FEES_LINK
   (iwillrugu.com/fees, which has the claim button; minBal = 10000 there). Replaces the old once-a-day nad.fun reminder.
 - next_post_delay(): seconds until the next post, from the last post time persisted in events.db, so a Render restart
   or redeploy never makes the cat post early.
@@ -27,15 +27,15 @@ STARTUP_MAX_S = 3 * 3600
 
 DEXSCREENER_LINES = [
     "look at the chart. I swear I saw fish in the graph. 🐟📊😼",
-    "$IWRU is on Dexscreener now. I've been staring at the candles for 4 hours. some of them are definitely sardines. 🕯️🐟",
+    "IWRU is on Dexscreener now. I've been staring at the candles for 4 hours. some of them are definitely sardines. 🕯️🐟",
     "I put my paw on the Dexscreener chart and now there's a paw print on the screen. technical analysis complete. 🐾📊",
     "the chart is up on Dexscreener. I don't read charts. I knock them off the table. 📊😼",
-    "zoomed into the $IWRU chart on Dexscreener. found a fish. ate the fish. the chart is still there. 🐟",
+    "zoomed into the IWRU chart on Dexscreener. found a fish. ate the fish. the chart is still there. 🐟",
     "humans keep saying 'check Dexscreener'. I checked. there were no snacks. 0/10. still looking though. 📊😾",
     "every green candle on Dexscreener is a fish that hasn't been caught yet. I'm just saying. 🟩🐟😼",
     "I tried to sit on the Dexscreener chart. it was a laptop. now it's my laptop. 💻😼",
     "breaking: cat finds own token on Dexscreener. cat is unimpressed. cat refreshes 47 times anyway. 🔄😼",
-    "the $IWRU chart lives on Dexscreener. it moves like a laser pointer. I must chase it. 🔴📊",
+    "the IWRU chart lives on Dexscreener. it moves like a laser pointer. I must chase it. 🔴📊",
     "someone said 'wick'. I thought they said 'fish stick'. anyway, chart's on Dexscreener. 🐟📊",
     "I don't know what a liquidity pool is but if it has fish in it I'm jumping in. Dexscreener says it's there. 🏊‍♂️🐟😼",
     "went to Dexscreener. saw a line going sideways. it reminded me of a sleeping cat. respect. 😴📊",
@@ -45,11 +45,11 @@ DEXSCREENER_LINES = [
     "Dexscreener chart open, paw on the keyboard, 'asdfghjkl' sent to the group chat. I am a trader now. ⌨️😼",
     "they told me to 'DYOR'. I did my own research. the research is: there's a chart on Dexscreener and it's mine. 📊😼",
     "the chart has more ups and downs than me at 3am zooming through the house. Dexscreener has it all. 🌙📊",
-    "if you stare at the $IWRU chart on Dexscreener long enough, the chart stares back. it's me. I'm the chart. 👁️😼",
+    "if you stare at the IWRU chart on Dexscreener long enough, the chart stares back. it's me. I'm the chart. 👁️😼",
     "Dexscreener added a cat to the blockchain. the blockchain did not consent. 🐈⛓️",
     "I knocked a glass of water off the desk while checking Dexscreener. no regrets. chart's still there. 💧📊😼",
     "I sniffed the chart on Dexscreener. smells like tuna and chaos. my two favourite things. 🐟🌀",
-    "the cat would like to report a fish sighting at the following coordinates: Dexscreener, $IWRU chart. 📍🐟",
+    "the cat would like to report a fish sighting at the following coordinates: Dexscreener, IWRU chart. 📍🐟",
     "chart update from the cat: there is a chart. it is on Dexscreener. I have looked at it. I am now going to sleep. 😴",
     "I asked the Dexscreener chart where my dinner is. it just drew a line. useless. beautiful, but useless. 📊😾",
     "candles on Dexscreener remind me of the candles I knock off shelves. same energy, less fire. 🕯️😼",
@@ -74,31 +74,31 @@ GEMPUMP_VOTE_LINES = [
 ]
 
 DIVIDENDS_LINES = [
-    "holding 10K $IWRU? then you have fish waiting for you. claim them before the cat eats them. 🐟😼",
-    "PSA from the cat: 10K $IWRU holders can claim their dividends. I'm guarding them. badly. I'm hungry. 🐟",
+    "holding 10K IWRU? then you have fish waiting for you. claim them before the cat eats them. 🐟😼",
+    "PSA from the cat: 10K IWRU holders can claim their dividends. I'm guarding them. badly. I'm hungry. 🐟",
     "your dividends are sitting there like an unattended tuna. I'm not saying I'll eat it. I'm not NOT saying it. 🐟👀",
-    "if you hold 10K $IWRU, there are fish with your name on them. I've licked some of them. they're still yours. mostly. 🐟😼",
+    "if you hold 10K IWRU, there are fish with your name on them. I've licked some of them. they're still yours. mostly. 🐟😼",
     "claim your fish. I repeat. claim your fish. the cat cannot be held responsible for unclaimed fish. 🐟🚨",
-    "10K $IWRU = you can claim dividends. 0 claims = the cat gets ideas. 💡🐟😼",
+    "10K IWRU = you can claim dividends. 0 claims = the cat gets ideas. 💡🐟😼",
     "I counted your unclaimed dividends. then I counted my empty bowl. then I looked at you. 🥣😼",
     "reminder: your dividends don't claim themselves. I tried claiming them for you. turns out I don't have thumbs. 🐾",
     "the fish bowl is full of your dividends and the cat is sitting right next to it. tick tock. 🐟⏰",
-    "holders with 10K $IWRU: your fish are ready. come get them before I mistake them for dinner. 🍽️🐟",
+    "holders with 10K IWRU: your fish are ready. come get them before I mistake them for dinner. 🍽️🐟",
     "every unclaimed dividend is a fish swimming in circles waiting for you. I find this very stimulating. 🐟🌀😼",
     "breaking: local cat spotted near pile of unclaimed dividends. licking lips. claim yours now. 📰🐟",
-    "I'm not a financial advisor. I'm a cat. and the cat says: go claim your fish if you hold 10K $IWRU. 😼🐟",
+    "I'm not a financial advisor. I'm a cat. and the cat says: go claim your fish if you hold 10K IWRU. 😼🐟",
     "your dividends asked me to tell you they miss you. then I tried to eat them. please hurry. 🐟💔",
-    "fish delivery for every wallet with 10K $IWRU! the delivery cat is getting hungry on the way. 🚚🐟😼",
+    "fish delivery for every wallet with 10K IWRU! the delivery cat is getting hungry on the way. 🚚🐟😼",
     "I knocked a dividend off the table. it's fine, it's still there. but the next one I'm eating. claim yours. 🐟",
     "unclaimed dividends make the cat nervous. a nervous cat eats things. claim your fish. 😾🐟",
-    "you hold 10K $IWRU and you haven't claimed your fish? the cat is disappointed. the cat is also drooling. 🐟🤤",
+    "you hold 10K IWRU and you haven't claimed your fish? the cat is disappointed. the cat is also drooling. 🐟🤤",
     "the cat sat on your dividends to keep them warm. they're getting a bit squished. come claim them. 🐟😼",
-    "your fish are waiting. my patience is not. claim your $IWRU dividends. 🐟⏳",
-    "10K $IWRU in your wallet = fish in your bowl. empty bowl = you forgot to claim. full cat = I didn't forget. 🐟😼",
+    "your fish are waiting. my patience is not. claim your IWRU dividends. 🐟⏳",
+    "10K IWRU in your wallet = fish in your bowl. empty bowl = you forgot to claim. full cat = I didn't forget. 🐟😼",
     "I sniffed the dividends vault. it smells like fish. that means you should claim before I find the door. 🚪🐟",
     "a fish was left unclaimed for 3 days. nobody knows what happened to it. the cat has no comment. 🐟🤐",
     "dividends: claimable. cat: hungry. you: hopefully faster than the cat. 🏃🐟😼",
-    "if you have 10K $IWRU, go claim your fish. if you don't, sit with me and watch other people claim theirs. 🍿😼",
+    "if you have 10K IWRU, go claim your fish. if you don't, sit with me and watch other people claim theirs. 🍿😼",
     "the cat has opened the fish vault and is holding the door. for you. for now. hurry. 🚪🐟",
     "you know what's better than fish? free fish. you know what's better than free fish? claiming it before the cat does. 🐟😼",
 ]

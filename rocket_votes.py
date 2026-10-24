@@ -1,10 +1,10 @@
-"""rocket_votes.py -- the cat asks for 🚀 votes on the $IWRU Dexscreener page (2026-10-23).
+"""rocket_votes.py -- the cat asks for 🚀 votes on the IWRU Dexscreener page (2026-10-23).
 
 Fernando: cat phrases, at least 8 a day, spread over the whole day to cover several time zones. A Dexscreener rocket is
-one vote per person, forever, so the lines also talk to people who already voted (bring a human friend).
+one vote per person PER DAY (Fernando 2026-10-24), so the lines also remind people to come back tomorrow.
 
-- One post in each 3h window of the Europe/Madrid day (SLOTS_MADRID, 8 a day), at a random minute 30-150 into the window,
-  so two posts are always at least an hour apart. The last posted slot ("YYYY-MM-DD:slot", Madrid date) is persisted in
+- One post every 3 hours (SLOTS_MADRID, 8 a day: 01:30, 04:30 ... 22:30 Madrid, SLOT_OFFSET_MIN),
+  never less than an hour apart (DST nights). The last posted slot ("YYYY-MM-DD:slot", Madrid date) is persisted in
   events.db by the caller, so a Render restart never posts the same slot twice.
 - Each post carries the REAL rocket count on its VOTE button, read from the endpoint the Dexscreener page itself uses
   (ROCKETS_API). If the read fails, the button says just VOTE -- never a made-up number.
@@ -14,7 +14,8 @@ one vote per person, forever, so the lines also talk to people who already voted
        voting at once can't take each other's rocket. Whoever taps Vote meanwhile waits in a queue and is called next.
     2. RECORDS ONLY: a vote is paid only when the count beats the highest count ever seen (the record, which never
        goes down). Removing a rocket and putting it back never beats the record, so it never pays.
-    3. One code per Telegram account, forever (a Dexscreener rocket is once per person), and only group members.
+    3. One code per Telegram account per day (DAY = Europe/Madrid calendar day, like the monthly statistics; a
+       Dexscreener rocket is once per person per day), enforced by the database (UNIQUE(tg_id, day)); only group members.
     4. No data = no pay: if Dexscreener can't be read nothing is paid; a jump of more than JUMP_FREEZE rockets between
        two reads freezes payouts until the Owner looks (bot farm or bad data).
     5. Dexscreener lag: after "I voted" the bot keeps re-reading for up to CLAIM_WAIT_S and answers by itself.
@@ -32,7 +33,9 @@ DEXSCREENER_LINK = "https://dexscreener.com/monad/0x0caaf82370766e76e150a5610c16
 ROCKETS_API = "https://io.dexscreener.com/hype/reactions/dexPair/" + PAIR
 
 SLOTS_MADRID = [(h, h + 3) for h in range(0, 24, 3)]  # (start hour, end hour), 8 windows
-SLOT_OFFSET_MIN = (30, 150)                            # minutes into the window
+# Fernando 2026-10-24: the vote reminder every 3 hours, so people keep seeing it: always 90 min into each window
+# (01:30, 04:30, ... 22:30 Madrid), exactly 3h apart (2h/4h only on the two DST nights). Was a random minute 30-150.
+SLOT_OFFSET_MIN = (90, 90)                             # minutes into the window
 
 ROCKET_LINES = [
     "I tried to press 🚀 with my nose. still unpressed. help.",
@@ -47,8 +50,8 @@ ROCKET_LINES = [
     "2 seconds. one 🚀. I spend longer staring at walls.",
     "the 💩 button is not for my litter report. press 🚀. 🚀",
     "every 🚀 lifts my tail. it's at half mast. 🐈",
-    "already voted 🚀? legend. now drag a friend here. 😼",
-    "one 🚀 per human, ever. don't waste a once-in-a-lifetime button.",
+    "voted 🚀 today? legend. same time tomorrow. 😼",
+    "one 🚀 per human per day. today's is still waiting. ⏰",
     "I meowed at the 🚀 for an hour. it didn't press itself. 🙀",
     "rockets are just fast cats without fur. give us one. 🚀",
     "one tap, one 🚀, one smug cat. 😼",
@@ -92,7 +95,7 @@ ROCKET_LINES = [
     "my tail is a 🚀 antenna. it detects you haven't voted.",
     "lunch break? coffee? bathroom? perfect time for 🚀.",
     "I'd vote 🚀 myself but I bit the phone. long story.",
-    "new rule: every human taps 🚀 once. rule by: the cat.",
+    "new rule: every human taps 🚀 once a day. rule by: the cat.",
     "rocket count low, cat mood low. coincidence? no. 😾",
     "one 🚀 from you, one purr from me. fair trade.",
 ]
@@ -117,6 +120,11 @@ ALERT_MAX = 200  # Telegram's limit for the pop-up that answers a button tap
 def vote_button_text(count):
     """The VOTE button with the real 🚀 total; without a read, just VOTE (never a made-up number)."""
     return "🚀 VOTE" if count is None else f"🚀 VOTE · {count} rockets"
+
+
+def day_key(ts):
+    """The Madrid calendar day of a unix time, "YYYY-MM-DD": one paid vote per person per day."""
+    return datetime.fromtimestamp(ts, tz=MADRID_TZ).strftime("%Y-%m-%d")
 
 
 def month_start(now):
@@ -144,7 +152,7 @@ def stats_text(rows, now):
 
 
 def fetch_rocket_count(timeout=8):
-    """The real 🚀 total for the $IWRU pair, or None if Dexscreener can't be read right now."""
+    """The real 🚀 total for the IWRU pair, or None if Dexscreener can't be read right now."""
     req = urllib.request.Request(ROCKETS_API, headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -216,9 +224,16 @@ class RocketLedger:
         self.new_code = new_code  # tg_id -> one-time Essence code
         self.c.executescript("""
             CREATE TABLE IF NOT EXISTS rv_state (k TEXT PRIMARY KEY, v TEXT);
-            CREATE TABLE IF NOT EXISTS rv_votes (tg_id INTEGER PRIMARY KEY, name TEXT, ts REAL, level INTEGER, code TEXT);
+            CREATE TABLE IF NOT EXISTS rv_paid (id INTEGER PRIMARY KEY AUTOINCREMENT, tg_id INTEGER, name TEXT, ts REAL,
+                                                day TEXT, level INTEGER, code TEXT, UNIQUE(tg_id, day));
             CREATE TABLE IF NOT EXISTS rv_queue (tg_id INTEGER PRIMARY KEY, name TEXT, ts REAL, alive REAL, seq INTEGER);
         """)
+        # 2026-10-24: rv_votes (one row per person, forever) -> rv_paid (one per person per day); old rows are kept
+        if self.c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rv_votes'").fetchone():
+            for tg, name, ts, level, code in self.c.execute("SELECT tg_id, name, ts, level, code FROM rv_votes").fetchall():
+                self.c.execute("INSERT OR IGNORE INTO rv_paid(tg_id,name,ts,day,level,code) VALUES(?,?,?,?,?,?)",
+                               (tg, name, ts, day_key(ts), level, code))
+            self.c.execute("DROP TABLE rv_votes")
         self.c.commit()
 
     def _get(self, k, cast=None):
@@ -248,8 +263,16 @@ class RocketLedger:
             return None
         return tg, self._get("lock_name")
 
-    def paid_code(self, tg_id):
-        row = self.c.execute("SELECT code FROM rv_votes WHERE tg_id=?", (tg_id,)).fetchone()
+    def paid_code(self, tg_id, now):
+        """Today's code (Madrid day) if tg_id was already paid today, else None."""
+        row = self.c.execute("SELECT code FROM rv_paid WHERE tg_id=? AND day=?", (tg_id, day_key(now))).fetchone()
+        return row[0] if row else None
+
+    def _just_paid(self, tg_id, now):
+        """The code of a payment in this turn or today: a claim right after midnight must not mistake a turn the watch
+        paid at 23:59 for an expired one (that voter would be told "your turn ran out" just after getting the code)."""
+        row = self.c.execute("SELECT code FROM rv_paid WHERE tg_id=? AND (day=? OR ts >= ?) ORDER BY ts DESC LIMIT 1",
+                             (tg_id, day_key(now), now - MAX_TURN_S)).fetchone()
         return row[0] if row else None
 
     def observe(self, now, count):
@@ -312,13 +335,13 @@ class RocketLedger:
 
     def start(self, tg_id, name, now, count, is_member=True):
         """The voter tapped Vote. Returns one of:
-        ('paid', code)    already got their code (it is re-sent)
+        ('paid', code)    already paid today (today's code is re-sent; tomorrow they can vote again)
         ('not_member',)   not in the IWRU group
         ('no_data',)      Dexscreener can't be read now
         ('frozen',)       payouts frozen
         ('wait', pos)     someone else's turn (or someone queued first): queued at position pos
         ('turn', until)   their turn, until `until`"""
-        code = self.paid_code(tg_id)
+        code = self.paid_code(tg_id, now)
         if code:
             return ("paid", code)
         if not is_member:
@@ -359,7 +382,7 @@ class RocketLedger:
         ('not_yet',)    no new record yet (keep re-reading)
         ('no_turn',)    not their turn (expired, or never started)
         ('no_data',) / ('frozen',)"""
-        code = self.paid_code(tg_id)
+        code = self._just_paid(tg_id, now)
         if code:
             return ("already", code)
         h = self.holder(now)
@@ -372,8 +395,8 @@ class RocketLedger:
         if count <= self.record():
             return ("not_yet",)
         code = self.new_code(tg_id)
-        self.c.execute("INSERT INTO rv_votes(tg_id,name,ts,level,code) VALUES(?,?,?,?,?)",
-                       (tg_id, h[1], now, count, code))
+        self.c.execute("INSERT INTO rv_paid(tg_id,name,ts,day,level,code) VALUES(?,?,?,?,?,?)",
+                       (tg_id, h[1], now, day_key(now), count, code))
         self._set("record", count)  # one code per turn, even if two rockets landed in it
         self._set("lock_tg", None)
         self._set("lock_until", None)
@@ -382,11 +405,12 @@ class RocketLedger:
 
     def month_stats(self, now):
         """This month's paid votes per Telegram account (from day 1, 00:00 Madrid): [(name, votes)], most first, then
-        whoever got there first. A Dexscreener rocket is once per person, so today every row says 1."""
+        whoever got there first (at most one a day each)."""
         return [(r[0], r[1]) for r in self.c.execute(
-            "SELECT MAX(name), COUNT(*), MIN(ts) FROM rv_votes WHERE ts >= ? AND ts <= ? GROUP BY tg_id "
+            "SELECT (SELECT name FROM rv_paid p2 WHERE p2.tg_id=p.tg_id ORDER BY ts DESC LIMIT 1), COUNT(*), MIN(ts) "
+            "FROM rv_paid p WHERE ts >= ? AND ts <= ? GROUP BY tg_id "
             "ORDER BY COUNT(*) DESC, MIN(ts)", (month_start(now), now))]
 
     def ranking(self):
         """Real voters, first to last: (name, unix time of the vote, Essence earned)."""
-        return [(r[0], r[1], ESSENCE_PER_VOTE) for r in self.c.execute("SELECT name, ts FROM rv_votes ORDER BY ts")]
+        return [(r[0], r[1], ESSENCE_PER_VOTE) for r in self.c.execute("SELECT name, ts FROM rv_paid ORDER BY ts")]

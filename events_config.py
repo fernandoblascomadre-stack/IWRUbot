@@ -42,7 +42,7 @@ def _bool_env(name: str) -> bool:
 
 
 # ══════════════════════════════════════════════════════════════════════════
-#  BUYBOT ($IWRU buy alerts, see buybot.py)
+#  BUYBOT (IWRU buy alerts, see buybot.py)
 # ══════════════════════════════════════════════════════════════════════════
 # Off until switched on from Render: the poller hits a public RPC every few
 # seconds, so it should never start by accident (e.g. on a local run someone
@@ -64,7 +64,7 @@ BUYBOT_POLL_SECONDS = _safe_int_env("BUYBOT_POLL_SECONDS", 20)
 # for a range it will refuse.
 BUYBOT_MAX_PAGES_PER_TICK = _safe_int_env("BUYBOT_MAX_PAGES_PER_TICK", 20)
 
-# $IWRU on Monad (chain 143) -- the same address bot.py already links as NAD_CA.
+# IWRU on Monad (chain 143) -- the same address bot.py already links as NAD_CA.
 BUYBOT_TOKEN = "0xaCCD61772BCd3717546f141382b68b6D2EF17777"
 BUYBOT_RPC_URLS = [
     u.strip()
@@ -77,7 +77,7 @@ BUYBOT_EXPLORER = "https://monadscan.com"
 # process cwd, same as ASSETS_DIR below. A missing file is not fatal: the
 # alert falls back to text-only rather than being dropped.
 BUYBOT_IMAGE = pathlib.Path(__file__).parent / "assets" / "buybot" / "buy.jpg"
-# Where the buttons point. The chart is nad.fun for as long as $IWRU sits on
+# Where the buttons point. The chart is nad.fun for as long as IWRU sits on
 # the bonding curve: there is no DEX pair yet, so there is no Dexscreener or
 # GeckoTerminal chart to link either.
 BUYBOT_CHART_URL = os.environ.get("BUYBOT_CHART_URL") or f"https://nad.fun/tokens/{BUYBOT_TOKEN}"

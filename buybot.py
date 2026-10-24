@@ -1,11 +1,11 @@
-"""$IWRU buy alerts on Monad (chain 143).
+"""IWRU buy alerts on Monad (chain 143).
 
 Watches the token's own ERC-20 Transfer logs over plain JSON-RPC and posts a
 detailed alert for every buy above a USD floor.
 
 WHY THIS SHAPE
 --------------
-* **Detection is "tokens leaving the market address".** $IWRU is still on a
+* **Detection is "tokens leaving the market address".** IWRU is still on a
   nad.fun bonding curve (`market_type: V2_CURVE`), so there is no DEX pair and
   no Swap event to decode -- a buy is simply the curve sending tokens to the
   buyer. The market address is read from nad.fun's API and refreshed every
@@ -322,7 +322,7 @@ def _native_spent(tx: dict, receipt_needed: bool) -> float:
 
 
 def _balance_before(holder: str, block_number: int) -> Optional[float]:
-    """Holder's $IWRU balance one block before the buy.
+    """Holder's IWRU balance one block before the buy.
 
     Returns None when the RPC has no historical state (non-archive nodes
     prune it), in which case the alert simply omits the holder badge rather

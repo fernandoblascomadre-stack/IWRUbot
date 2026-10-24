@@ -353,6 +353,46 @@ async def main():
     check("/rockets: exactly the 4 people paid", text.count("· +20 Essence") == 4 and "total: 4 rockets · 80 Essence" in text, text)
 
 
+    print("next day: vote again")
+    clock.t = rv.month_start(clock.t) + 3 * 86400 + 10 * 3600           # day 4 of the month, 10:00 Madrid
+    await start(ana)
+    check("a new day: ana gets a new turn", "your turn" in last_to(1)["text"], last_to(1)["text"])
+    counter["n"] += 1
+    await rb.turn_watch_job(ctx())
+    codes = [x["text"].split("\n\n")[1] for x in bot.sent if x["chat"] == 1 and "20 Essence:" in x["text"]]
+    check("and a second, different code", len(codes) == 2 and codes[0] != codes[1], codes)
+    await start(ana)
+    check("tapping VOTE again the same day: today's code and 'come back tomorrow'", codes[1] in last_to(1)["text"]
+          and "tomorrow" in last_to(1)["text"], last_to(1)["text"])
+    check("Statistics count her votes of this month", "@ana 🚀1" in (await stats(ana))["text"])
+
+    print("writing vote in the chat")
+
+    async def say(chat_id, kind, text):
+        upd = types.SimpleNamespace(effective_message=types.SimpleNamespace(text=text),
+                                    effective_chat=types.SimpleNamespace(id=chat_id, type=kind))
+        before = len(bot.sent)
+        await rb.on_vote_word(upd, ctx())
+        return bot.sent[before:]
+    rb._vote_word_last.clear()
+    old = db.get_config("rv_last_msg").split(",")
+    out = await say(GROUP, "supergroup", "vote")
+    check("'vote' in the group: the whole post (sticker, line, VOTE · count, Statistics)",
+          [m["text"] for m in out][0] == "<sticker>" and out[1]["text"] in rv.ROCKET_LINES
+          and [b.text for b in buttons(out[1])] == [f"🚀 VOTE · {counter['n']} rockets", "📊 Statistics"], out)
+    check("and it replaces the previous post: one block in the chat", all((GROUP, int(i)) in bot.deleted for i in old)
+          and db.get_config("rv_post_msg") == str(out[1]["id"]), old)
+    check("written again right away: no second post (60 s)", await say(GROUP, "supergroup", "VOTE!") == [])
+    clock.t += rb.VOTE_WORD_COOLDOWN_S + 1
+    check("a minute later it works again, also as /vote@bot", len(await say(GROUP, "supergroup", "/vote@IWRUcatBot")) == 2)
+    clock.t += rb.VOTE_WORD_COOLDOWN_S + 1
+    check("a sentence with the word does nothing", await say(GROUP, "supergroup", "I'll vote later") == [])
+    dm = await say(77, "private", "vote")
+    check("in a private chat too (and that one doesn't replace the group post)", len(dm) == 2
+          and db.get_config("rv_post_msg") != str(dm[1]["id"]))
+    check("another group the bot is in: nothing", await say(-100999, "group", "vote") == [])
+
+
 asyncio.run(main())
 print(f"rocket bot: {ok} ok, {fail} failed")
 sys.exit(1 if fail else 0)

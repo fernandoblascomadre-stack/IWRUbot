@@ -15,17 +15,19 @@ Flow:
   PARADOX where the Catch card codes are, and a public shout-out in the group.
 - Every POLL_S: one read of the counter (rocket_votes.observe: votes outside the bot become the record, a big jump
   freezes payouts and DMs the Owner), and the next one in the queue is called when the turn is free.
+- Writing "vote" (or /vote) in the group or in a private chat brings up the vote post (VOTE_WORD_COOLDOWN_S per chat).
 - /rockets: the real voters (name, date, Essence). /rocketsunfreeze (Owner): resume payouts after a freeze.
 """
 import asyncio
 import os
 import random
+import re
 import time
 from datetime import datetime, timezone
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import TelegramError
-from telegram.ext import CallbackQueryHandler, CommandHandler
+from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, filters
 
 import db
 import events_config as cfg
@@ -40,6 +42,8 @@ GROUP_LINK = "https://t.me/iwillrug_u"
 PARADOX_HOME = "https://iwillrugu.com/paradox/#/"
 POLL_S = 60
 CHECK_EVERY_S = 10
+VOTE_WORD = re.compile(r"\W*/?vote(@\w+)?\W*", re.IGNORECASE)
+VOTE_WORD_COOLDOWN_S = 60  # per chat: "vote" written 10 times in a row brings up one post
 MEMBER_STATUSES = {"member", "administrator", "creator", "owner"}
 
 DM_TURN = (
@@ -55,7 +59,8 @@ DM_WAIT = ("🚀 someone is launching a rocket right now. you're #{pos} in line:
            "⚠️ DON'T vote on Dexscreener yet: a rocket only counts for you during YOUR turn. 🐾")
 DM_CHECKING = "🔍 checking the rocket counter… (up to {minutes} minutes)"
 DM_PAID = "🎉 your rocket is in! here's your code for 20 Essence:\n\n{code}\n\nredeem it here (logged in to your account): {link}"
-DM_ALREADY = "you already launched your rocket 🚀 (one per person, forever). your code:\n\n{code}\n\nredeem it here: {link}"
+DM_ALREADY = ("you already launched today's rocket 🚀 (one a day). today's code:\n\n{code}\n\nredeem it here: {link}\n\n"
+              "come back tomorrow for another one. 🐾")
 DM_NOT_MEMBER = "join the IWRU group first, then tap 🚀 VOTE there again: {group} 🐾"
 DM_NO_DATA = "I can't read the rocket counter right now. 😿 try again in a few minutes."
 DM_FROZEN = "rocket rewards are paused for a moment while the cat checks something. try again later. 🐾"
@@ -66,6 +71,7 @@ DM_NO_TURN = ("your turn ran out ⏰ tap 🚀 VOTE in the group to get a new one
 OWNER_FROZEN = "⚠️ rocket votes: the 🚀 count jumped from {old} to {new} between two reads. payouts are frozen. /rocketsunfreeze to resume."
 
 _ledger = None
+_vote_word_last = {}
 _checking = set()
 _bags = {}
 
@@ -296,37 +302,68 @@ def _schedule_post(job_queue):
     job_queue.run_once(post_job, delay, data=key, name="rocket_post")
 
 
+async def send_post(bot, chat_id):
+    """The vote post: sticker, one short cat line, VOTE · count + Statistics. In the group it replaces the previous
+    post (both messages deleted) and becomes the one whose VOTE count refresh_button keeps up to date."""
+    count = await read_count()
+    text = _pick(rv.ROCKET_LINES)  # Fernando 2026-10-24: just the short cat line; the count is on the VOTE button
+    if count is not None:
+        ledger().observe(time.time(), count)
+    group = chat_id == cfg.EVENTS_CHAT_ID
+    if group:
+        for prev in (db.get_config("rv_last_msg") or "").split(","):
+            if prev.isdigit():
+                try:
+                    await bot.delete_message(chat_id=chat_id, message_id=int(prev))
+                except TelegramError:
+                    pass  # too old (48h) or already gone
+    ids = []
+    if os.path.isfile(STICKER):
+        try:
+            with open(STICKER, "rb") as f:
+                ids.append((await bot.send_sticker(chat_id=chat_id, sticker=f)).message_id)
+        except TelegramError as e:
+            print(f"[rocket] sticker failed, text only: {e}", flush=True)
+    msg = await bot.send_message(chat_id=chat_id, text=text, reply_markup=_vote_keyboard(bot.username, count))
+    ids.append(msg.message_id)
+    if group:
+        db.set_config("rv_last_msg", ",".join(str(i) for i in ids))
+        db.set_config("rv_post_msg", str(msg.message_id))
+        db.set_config("rv_button_count", "" if count is None else str(count))
+
+
 async def post_job(context):
     key = context.job.data
     try:
         db.set_config("rv_slot_last", key)  # before sending: a restart mid-send never posts this slot twice
-        count = await read_count()
-        text = _pick(rv.ROCKET_LINES)  # Fernando 2026-10-24: just the short cat line; the count is on the VOTE button
-        if count is not None:
-            ledger().observe(time.time(), count)
-        bot = context.bot
-        for prev in (db.get_config("rv_last_msg") or "").split(","):
-            if prev.isdigit():
-                try:
-                    await bot.delete_message(chat_id=cfg.EVENTS_CHAT_ID, message_id=int(prev))
-                except TelegramError:
-                    pass  # too old (48h) or already gone
-        ids = []
-        if os.path.isfile(STICKER):
-            try:
-                with open(STICKER, "rb") as f:
-                    ids.append((await bot.send_sticker(chat_id=cfg.EVENTS_CHAT_ID, sticker=f)).message_id)
-            except TelegramError as e:
-                print(f"[rocket] sticker failed, text only: {e}", flush=True)
-        msg = await bot.send_message(chat_id=cfg.EVENTS_CHAT_ID, text=text, reply_markup=_vote_keyboard(bot.username, count))
-        ids.append(msg.message_id)
-        db.set_config("rv_last_msg", ",".join(str(i) for i in ids))
-        db.set_config("rv_post_msg", str(msg.message_id))
-        db.set_config("rv_button_count", "" if count is None else str(count))
+        await send_post(context.bot, cfg.EVENTS_CHAT_ID)
     except Exception as e:
         print(f"[rocket] post: {e}", flush=True)
     finally:
         _schedule_post(context.application.job_queue)
+
+
+def is_vote_word(text):
+    """Fernando 2026-10-24: writing "vote" in the chat brings up the vote post ("vote", "VOTE!", "/vote", "vote 🚀",
+    "/vote@IWRUbot"); a sentence that only contains the word ("I'll vote later") does not."""
+    return bool(VOTE_WORD.fullmatch((text or "").strip()))
+
+
+async def on_vote_word(update, context):
+    msg = update.effective_message
+    if msg is None or not is_vote_word(msg.text):
+        return
+    chat_id = update.effective_chat.id
+    if chat_id != cfg.EVENTS_CHAT_ID and update.effective_chat.type != "private":
+        return  # only the IWRU group and private chats with the bot, never some other group
+    now = time.time()
+    if now - _vote_word_last.get(chat_id, 0) < VOTE_WORD_COOLDOWN_S:
+        return  # the post from a moment ago is still right there: no flood of posts
+    _vote_word_last[chat_id] = now
+    try:
+        await send_post(context.bot, chat_id)
+    except Exception as e:
+        print(f"[rocket] vote word: {e}", flush=True)
 
 
 async def cmd_rockets(update, context):
@@ -359,6 +396,8 @@ def register(app):
     app.add_handler(CallbackQueryHandler(on_stats, pattern=r"^rv:stats$"))
     app.add_handler(CommandHandler("rockets", cmd_rockets))
     app.add_handler(CommandHandler("rocketsunfreeze", cmd_unfreeze))
+    # group 1: runs alongside the normal handlers (bot.py's catch-all still sees the message for its bookkeeping)
+    app.add_handler(MessageHandler(filters.TEXT, on_vote_word), group=1)
     app.job_queue.run_repeating(poll_job, POLL_S, first=30)
     app.job_queue.run_repeating(turn_watch_job, CHECK_EVERY_S, first=CHECK_EVERY_S)
     _schedule_post(app.job_queue)
