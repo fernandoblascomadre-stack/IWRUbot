@@ -50,7 +50,7 @@ class FakeBot:
     username = "IWRUcatBot"
 
     def __init__(self):
-        self.sent, self.deleted, self.members, self.n, self.blocked = [], [], {}, 100, set()
+        self.sent, self.deleted, self.members, self.n, self.blocked, self.edits = [], [], {}, 100, set(), []
 
     async def send_message(self, chat_id, text, reply_markup=None, **kw):
         if chat_id in self.blocked:
@@ -64,6 +64,12 @@ class FakeBot:
         data = sticker.read()
         assert data[:4] == b"RIFF" and data[8:12] == b"WEBP", "a sticker must be a WEBP file"
         return await self.send_message(chat_id, "<sticker>")
+
+    async def edit_message_reply_markup(self, chat_id, message_id, reply_markup=None, **kw):
+        self.edits.append((chat_id, message_id, reply_markup))
+        for m in self.sent:
+            if m["chat"] == chat_id and m["id"] == message_id:
+                m["kb"] = reply_markup
 
     async def delete_message(self, chat_id, message_id):
         self.deleted.append((chat_id, message_id))
@@ -128,6 +134,16 @@ def buttons(m):
     return [b for row in m["kb"].inline_keyboard for b in row] if m["kb"] else []
 
 
+async def stats(u):
+    got = {}
+
+    async def answer(text=None, show_alert=False, **kw):
+        got.update(text=text, show_alert=show_alert)
+    upd = types.SimpleNamespace(callback_query=types.SimpleNamespace(from_user=u, answer=answer))
+    await rb.on_stats(upd, ctx())
+    return got
+
+
 async def ranking_text():
     out = []
 
@@ -159,17 +175,34 @@ async def main():
     await rb.post_job(ctx("2026-10-24:3"))
     p = last_to(GROUP)
     b = buttons(p)
-    check("the post has a cat line, the real count and how to vote",
-          "🚀 rockets on Dexscreener right now: 5" in p["text"] and rv.HOW_LINE in p["text"], p["text"])
-    check("one 🚀 VOTE button that opens the private chat with the bot",
-          len(b) == 1 and b[0].text == "🚀 VOTE" and b[0].url == "https://t.me/IWRUcatBot?start=rocket", b)
+    check("the post text is just one short cat line", p["text"] in rv.ROCKET_LINES and len(p["text"]) <= 100, p["text"])
+    check("VOTE button with the real count, opening the private chat with the bot",
+          b[0].text == "🚀 VOTE · 5 rockets" and b[0].url == "https://t.me/IWRUcatBot?start=rocket", b)
+    check("under it, the 📊 Statistics button", len(b) == 2 and b[1].text == "📊 Statistics"
+          and b[1].callback_data == "rv:stats" and len(p["kb"].inline_keyboard) == 2, b)
     check("the slot is saved (a restart never posts it twice)", db.get_config("rv_slot_last") == "2026-10-24:3")
     first_id = p["id"]
     counter["n"] = 6  # someone voted on the website, outside the bot
     await rb.post_job(ctx("2026-10-24:4"))
     p = last_to(GROUP)
     check("the next post deletes the previous one", (GROUP, first_id) in bot.deleted, bot.deleted)
-    check("and shows the real rise since the last post", "right now: 6 (+1 since my last nap" in p["text"], p["text"])
+    check("and its button shows the new real count", buttons(p)[0].text == "🚀 VOTE · 6 rockets", buttons(p))
+    texts = []
+    rb._bags.clear()
+    for i in range(len(rv.ROCKET_LINES)):
+        await rb.post_job(ctx(f"2026-10-24:x{i}"))
+        texts.append(last_to(GROUP)["text"])
+    check("the cat line changes: every line once before any repeats", sorted(texts) == sorted(rv.ROCKET_LINES))
+    saved = rb.read_count
+
+    async def no_read():
+        return None
+    rb.read_count = no_read
+    await rb.post_job(ctx("2026-10-24:nodata"))
+    check("Dexscreener can't be read: the button says just VOTE, never a made-up number",
+          buttons(last_to(GROUP))[0].text == "🚀 VOTE", buttons(last_to(GROUP)))
+    rb.read_count = saved
+    await rb.post_job(ctx("2026-10-24:back"))
 
     print("sticker (Fernando's transparent image)")
     from PIL import Image, ImageDraw
@@ -186,7 +219,7 @@ async def main():
     await rb.post_job(ctx("2026-10-24:5"))
     new_msgs = bot.sent[before:]
     check("with the image: the sticker, then the text with the VOTE button right under it",
-          [x["text"] for x in new_msgs][0] == "<sticker>" and buttons(new_msgs[1])[0].text == "🚀 VOTE", new_msgs)
+          [x["text"] for x in new_msgs][0] == "<sticker>" and buttons(new_msgs[1])[0].text.startswith("🚀 VOTE"), new_msgs)
     ids = [x["id"] for x in new_msgs]
     await rb.post_job(ctx("2026-10-24:6"))
     check("the next post deletes both (sticker and text)", all((GROUP, i) in bot.deleted for i in ids), (ids, bot.deleted[-3:]))
@@ -216,6 +249,15 @@ async def main():
     await start(ana)
     check("tapping VOTE again resends the SAME code, never a second", code in last_to(1)["text"]
           and "already launched" in last_to(1)["text"])
+    post = [m for m in bot.sent if m["chat"] == GROUP and m["kb"]][-1]
+    check("the post's VOTE button now shows 7 (edited, not reposted)", buttons(post)[0].text == "🚀 VOTE · 7 rockets"
+          and bot.edits and bot.edits[-1][1] == post["id"], buttons(post))
+    n_edits = len(bot.edits)
+    await rb.poll_job(ctx())
+    check("no change in the count: no extra edit", len(bot.edits) == n_edits, bot.edits[n_edits:])
+    pop = await stats(bob)
+    check("📊 Statistics: a pop-up (only for whoever tapped) with this month's voters", pop["show_alert"] is True
+          and pop["text"].startswith("📊 ") and "1 rocket" in pop["text"] and "1. @ana 🚀1" in pop["text"], pop)
     check("/rockets shows the real voter", "@ana" in await ranking_text() and "total: 1 rockets · 20 Essence" in await ranking_text())
 
     print("the bot spots the rocket by itself")
@@ -296,6 +338,18 @@ async def main():
     check("fay can't be reached: her turn is released at once and gus is called",
           rb.ledger().holder(clock.t) == (7, "@gus") and "your turn" in last_to(7)["text"], rb.ledger().holder(clock.t))
     text = await ranking_text()
+    counter["n"] += 1                                       # a vote on the website: the button follows within a poll
+    await rb.poll_job(ctx())
+    post = [m for m in bot.sent if m["chat"] == GROUP and m["kb"]][-1]
+    check("a vote outside the bot also shows on the button after the next poll",
+          buttons(post)[0].text == f"🚀 VOTE · {counter['n']} rockets", buttons(post))
+    pop = (await stats(ana))["text"]
+    check("Statistics: the 4 paid people of this month, in the order they voted", pop.count("🚀1") == 4
+          and "4 rockets" in pop and pop.index("@ana") < pop.index("@hal") < pop.index("@bob"), pop)
+    clock.t = rv.month_start(clock.t) + 40 * 86400         # into next month
+    clock.t = rv.month_start(clock.t) + 60                  # 1 minute past day 1, 00:00 Madrid
+    check("on day 1 the statistics start again from zero", "no rockets yet" in (await stats(ana))["text"],
+          (await stats(ana))["text"])
     check("/rockets: exactly the 4 people paid", text.count("· +20 Essence") == 4 and "total: 4 rockets · 80 Essence" in text, text)
 
 

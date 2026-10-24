@@ -234,12 +234,42 @@ def test_restart_after_a_missed_slot_posts_soon():
     assert key == "2026-10-24:3" and 60 <= delay <= 300
 
 
-def test_post_text_uses_only_the_real_count():
-    line = rv.ROCKET_LINES[0]
-    assert "rockets" not in rv.compose(line, None, 5).split("\n\n")[1]   # no read -> no number at all
-    assert rv.compose(line, 7, 5).split("\n\n")[1] == "🚀 rockets on Dexscreener right now: 7 (+2 since my last nap 🐾)"
-    assert rv.compose(line, 7, 7).split("\n\n")[1] == "🚀 rockets on Dexscreener right now: 7"
-    assert rv.compose(line, 7, None).split("\n\n")[1] == "🚀 rockets on Dexscreener right now: 7"
+def test_vote_button_uses_only_the_real_count():
+    assert rv.vote_button_text(7) == "🚀 VOTE · 7 rockets"
+    assert rv.vote_button_text(0) == "🚀 VOTE · 0 rockets"
+    assert rv.vote_button_text(None) == "🚀 VOTE"                       # no read -> no number at all
+
+
+def _madrid(*a):
+    return datetime(*a, tzinfo=rv.MADRID_TZ).timestamp()
+
+
+def test_monthly_statistics_restart_on_day_1_madrid():
+    # day 1 00:00 Madrid, both sides of both DST changes and across a year
+    for y, m in ((2026, 10), (2026, 11), (2027, 1), (2027, 3), (2027, 4)):
+        start = _madrid(y, m, 1)
+        assert rv.month_start(start) == start and rv.month_start(start + 20 * 86400) == start
+        assert rv.month_start(start - 1) < start                          # 23:59:59 the day before = last month
+    L = ledger()
+    for i, (tg, when) in enumerate(((1, _madrid(2026, 10, 31, 23, 59)), (2, _madrid(2026, 11, 1, 0, 0, 30)),
+                                    (3, _madrid(2026, 11, 15)))):
+        L.c.execute("INSERT INTO rv_votes(tg_id,name,ts,level,code) VALUES(?,?,?,?,?)", (tg, f"u{tg}", when, 10 + i, "C"))
+    assert L.month_stats(_madrid(2026, 10, 31, 23, 59, 30)) == [("u1", 1)]
+    assert L.month_stats(_madrid(2026, 11, 20)) == [("u2", 1), ("u3", 1)]   # u1 voted in October: not in November
+    assert L.month_stats(_madrid(2026, 12, 1, 0, 1)) == []
+    assert "November: 2 rockets" in rv.stats_text(L.month_stats(_madrid(2026, 11, 20)), _madrid(2026, 11, 20))
+
+
+def test_statistics_pop_up_fits_telegram():
+    now = _madrid(2026, 11, 3)
+    for n in (0, 1, 5, 12, 40, 300):
+        rows = [(f"@someone_long_name_{i}", 1) for i in range(n)]
+        t = rv.stats_text(rows, now)
+        assert len(t) <= rv.ALERT_MAX, (n, len(t))
+        shown = t.count("🚀1")
+        assert shown == n or f"+{n - shown} more" in t, t        # nobody silently missing
+        if n:
+            assert f"November: {n} rocket" in t
 
 
 def test_cat_lines_policy():
@@ -336,7 +366,6 @@ def test_release_frees_the_turn_for_the_next():
 
 def test_the_texts_tell_people_to_wait_for_their_turn():
     import rocket_bot as rb
-    assert "tap VOTE first" in rv.HOW_LINE and "open the page and tap" not in rv.HOW_LINE
     assert "DON'T vote on Dexscreener yet" in rb.DM_WAIT
 
 

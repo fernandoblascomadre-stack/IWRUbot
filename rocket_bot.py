@@ -5,9 +5,10 @@ OFF unless ROCKET_VOTES_ENABLED=1 (and CATCH_PRIZE_SECRET, which signs the Essen
 
 Flow:
 - 8 posts a day in the group (rocket_votes.SLOTS_MADRID): Fernando's image as a sticker (assets/rocket_vote.webp,
-  transparent background; skipped while it is missing) and right under it a short cat line, the real rocket count and
-  a 🚀 VOTE button. The button opens a private chat with the bot (deep link ?start=rocket -- a plain link button can't
-  tell the bot who tapped it). Each post deletes the previous one (both messages), so the chat never fills up.
+  transparent background; skipped while it is missing) and right under it a short rotating cat line with two buttons:
+  "🚀 VOTE · <real rocket count>" (kept up to date by refresh_button) and "📊 Statistics" (a pop-up with this month's
+  voters, restarting on day 1, 00:00 Madrid). VOTE opens a private chat with the bot (deep link ?start=rocket -- a
+  plain link button can't tell the bot who tapped it). Each post deletes the previous one (both messages).
 - Private chat: only group members; the bot gives the voter an exclusive turn (or a place in the queue) with two
   buttons, "Open Dexscreener" and "I voted". After "I voted" it re-reads the counter every CHECK_EVERY_S for up to
   rocket_votes.CLAIM_WAIT_S: a new record -> a one-time code for 20 Essence (prize_code.new_essence_code), redeemed in
@@ -105,8 +106,32 @@ def _turn_keyboard():
     ])
 
 
-def _vote_keyboard(bot_username):
-    return InlineKeyboardMarkup([[InlineKeyboardButton("🚀 VOTE", url=f"https://t.me/{bot_username}?start=rocket")]])
+def _vote_keyboard(bot_username, count):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(rv.vote_button_text(count), url=f"https://t.me/{bot_username}?start=rocket")],
+        [InlineKeyboardButton(rv.STATS_BUTTON, callback_data="rv:stats")],
+    ])
+
+
+async def refresh_button(bot, count):
+    """Keeps the 🚀 total on the last post's VOTE button in step with the real counter (one edit per change)."""
+    mid = db.get_config("rv_post_msg")
+    if count is None or not (mid or "").isdigit() or db.get_config("rv_button_count") == str(count):
+        return
+    try:
+        await bot.edit_message_reply_markup(chat_id=cfg.EVENTS_CHAT_ID, message_id=int(mid),
+                                            reply_markup=_vote_keyboard(bot.username, count))
+    except TelegramError as e:
+        if "not modified" not in str(e).lower():
+            print(f"[rocket] button count not updated: {e}", flush=True)
+            return
+    db.set_config("rv_button_count", str(count))
+
+
+async def on_stats(update, context):
+    """📊 Statistics: a pop-up with this month's voters (restarts on day 1, 00:00 Madrid), only for whoever tapped."""
+    now = time.time()
+    await update.callback_query.answer(rv.stats_text(ledger().month_stats(now), now), show_alert=True)
 
 
 async def is_member(bot, user_id):
@@ -204,6 +229,7 @@ async def deliver(bot, uid, name, code):
                                text=_pick(rv.SHOUTOUT_LINES).format(name=name, n=ledger().record()))
     except TelegramError as e:
         print(f"[rocket] shout-out failed: {e}", flush=True)
+    await refresh_button(bot, ledger().record())  # the new rocket shows on the VOTE button at once
 
 
 async def call_next(bot):
@@ -258,6 +284,7 @@ async def poll_job(context):
                 await context.bot.send_message(chat_id=cfg.BOT_OWNER_ID, text=OWNER_FROZEN.format(old=old, new=count))
             except TelegramError:
                 pass
+        await refresh_button(context.bot, count)
         await call_next(context.bot)
     except Exception as e:
         print(f"[rocket] poll: {e}", flush=True)
@@ -274,11 +301,9 @@ async def post_job(context):
     try:
         db.set_config("rv_slot_last", key)  # before sending: a restart mid-send never posts this slot twice
         count = await read_count()
-        last = db.get_config("rv_post_count")
-        text = rv.compose(_pick(rv.ROCKET_LINES), count, int(last) if last and last.isdigit() else None)
+        text = _pick(rv.ROCKET_LINES)  # Fernando 2026-10-24: just the short cat line; the count is on the VOTE button
         if count is not None:
             ledger().observe(time.time(), count)
-            db.set_config("rv_post_count", str(count))
         bot = context.bot
         for prev in (db.get_config("rv_last_msg") or "").split(","):
             if prev.isdigit():
@@ -293,9 +318,11 @@ async def post_job(context):
                     ids.append((await bot.send_sticker(chat_id=cfg.EVENTS_CHAT_ID, sticker=f)).message_id)
             except TelegramError as e:
                 print(f"[rocket] sticker failed, text only: {e}", flush=True)
-        msg = await bot.send_message(chat_id=cfg.EVENTS_CHAT_ID, text=text, reply_markup=_vote_keyboard(bot.username))
+        msg = await bot.send_message(chat_id=cfg.EVENTS_CHAT_ID, text=text, reply_markup=_vote_keyboard(bot.username, count))
         ids.append(msg.message_id)
         db.set_config("rv_last_msg", ",".join(str(i) for i in ids))
+        db.set_config("rv_post_msg", str(msg.message_id))
+        db.set_config("rv_button_count", "" if count is None else str(count))
     except Exception as e:
         print(f"[rocket] post: {e}", flush=True)
     finally:
@@ -329,6 +356,7 @@ def register(app):
         print("[rocket] disabled -- set ROCKET_VOTES_ENABLED=1 (needs CATCH_PRIZE_SECRET)", flush=True)
         return
     app.add_handler(CallbackQueryHandler(on_voted, pattern=r"^rv:voted$"))
+    app.add_handler(CallbackQueryHandler(on_stats, pattern=r"^rv:stats$"))
     app.add_handler(CommandHandler("rockets", cmd_rockets))
     app.add_handler(CommandHandler("rocketsunfreeze", cmd_unfreeze))
     app.job_queue.run_repeating(poll_job, POLL_S, first=30)

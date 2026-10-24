@@ -6,8 +6,8 @@ one vote per person, forever, so the lines also talk to people who already voted
 - One post in each 3h window of the Europe/Madrid day (SLOTS_MADRID, 8 a day), at a random minute 30-150 into the window,
   so two posts are always at least an hour apart. The last posted slot ("YYYY-MM-DD:slot", Madrid date) is persisted in
   events.db by the caller, so a Render restart never posts the same slot twice.
-- Each post carries the REAL rocket count, read from the endpoint the Dexscreener page itself uses (ROCKETS_API), and how
-  many were added since the previous post. If the read fails, the post goes out without the count -- never a made-up one.
+- Each post carries the REAL rocket count on its VOTE button, read from the endpoint the Dexscreener page itself uses
+  (ROCKETS_API). If the read fails, the button says just VOTE -- never a made-up number.
 - Rewards (RocketLedger, below; DRAFT, not wired into bot.py yet): Dexscreener only says HOW MANY rockets, never WHO,
   so a vote is paid only under rules that make the counter itself the proof:
     1. ONE voter at a time (an exclusive turn, LOCK_S): every rocket that lands during your turn is yours, so two people
@@ -106,10 +106,41 @@ SHOUTOUT_LINES = [
     "liftoff! 🚀 #{n} by {name}, +20 Essence. the cat salutes with one paw.",
 ]
 
-COUNT_LINE = "🚀 rockets on Dexscreener right now: {n}"
-COUNT_UP_LINE = "🚀 rockets on Dexscreener right now: {n} (+{d} since my last nap 🐾)"
-HOW_LINE = "👉 tap VOTE first: the cat gives you your turn, then you vote and get 20 Essence (one vote per person, forever)"
-BUTTON_TEXT = "🚀 Vote on Dexscreener"
+# 2026-10-24 (Fernando): the group post is the image + one short cat line + two buttons: "🚀 VOTE · <real count>" and,
+# under it, "📊 Statistics" (this month's voters, counted from day 1, 00:00 Madrid). The count lives on the button.
+STATS_BUTTON = "📊 Statistics"
+MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November",
+          "December"]
+ALERT_MAX = 200  # Telegram's limit for the pop-up that answers a button tap
+
+
+def vote_button_text(count):
+    """The VOTE button with the real 🚀 total; without a read, just VOTE (never a made-up number)."""
+    return "🚀 VOTE" if count is None else f"🚀 VOTE · {count} rockets"
+
+
+def month_start(now):
+    """Unix time of day 1, 00:00 Madrid, of the month `now` falls in: the monthly statistics restart there."""
+    local = datetime.fromtimestamp(now, tz=MADRID_TZ)
+    return datetime(local.year, local.month, 1, tzinfo=MADRID_TZ).timestamp()
+
+
+def stats_text(rows, now):
+    """The 📊 Statistics pop-up: this month's paid votes per person ([(name, votes)], most first), cut to ALERT_MAX."""
+    month = MONTHS[datetime.fromtimestamp(now, tz=MADRID_TZ).month - 1]
+    if not rows:
+        return f"📊 {month}: no rockets yet. be the first: tap 🚀 VOTE. 🐾"
+    total = sum(n for _, n in rows)
+    lines = [f"📊 {month}: {total} rocket{'s' if total != 1 else ''}"]
+    for i, (name, n) in enumerate(rows):
+        line = f"{i + 1}. {name} 🚀{n}"
+        left = len(rows) - i - 1                      # rows still to show after this one
+        tail = f"\n+{left} more" if left else ""
+        if len("\n".join(lines + [line]) + tail) > ALERT_MAX:
+            lines.append(f"+{left + 1} more")
+            break
+        lines.append(line)
+    return "\n".join(lines)
 
 
 def fetch_rocket_count(timeout=8):
@@ -121,18 +152,6 @@ def fetch_rocket_count(timeout=8):
         return int(total) if isinstance(total, (int, float)) and total >= 0 else None
     except Exception:
         return None
-
-
-def compose(line, count, last_count):
-    """Post text: the cat line, the real count (with the rise since the last post, if any) and how to vote."""
-    parts = [line]
-    if count is not None:
-        if isinstance(last_count, int) and count > last_count:
-            parts.append(COUNT_UP_LINE.format(n=count, d=count - last_count))
-        else:
-            parts.append(COUNT_LINE.format(n=count))
-    parts.append(HOW_LINE)
-    return "\n\n".join(parts)
 
 
 def slot_key(dt):
@@ -360,6 +379,13 @@ class RocketLedger:
         self._set("lock_until", None)
         self.c.commit()
         return ("paid", code)
+
+    def month_stats(self, now):
+        """This month's paid votes per Telegram account (from day 1, 00:00 Madrid): [(name, votes)], most first, then
+        whoever got there first. A Dexscreener rocket is once per person, so today every row says 1."""
+        return [(r[0], r[1]) for r in self.c.execute(
+            "SELECT MAX(name), COUNT(*), MIN(ts) FROM rv_votes WHERE ts >= ? AND ts <= ? GROUP BY tg_id "
+            "ORDER BY COUNT(*) DESC, MIN(ts)", (month_start(now), now))]
 
     def ranking(self):
         """Real voters, first to last: (name, unix time of the vote, Essence earned)."""
