@@ -31,6 +31,7 @@ import gas_reserve_alert
 import paradox_cards
 import cat_posts
 import rocket_bot
+import fish_alert
 import events_config as cfg
 
 # chats pre-registered via env var (KNOWN_CHAT_IDS="-1003859192674,-100...") so
@@ -6321,6 +6322,7 @@ async def _conflict_handler(update, context):
 
 def build_app():
     a = ApplicationBuilder().token(TOKEN).build()
+    fish_alert.register(a)  # IWRU FISH ALERT join requests + cat stays quiet there; self-gated on FISH_CHAT_ID
     events.register(a)
     rocket_bot.register(a)  # Dexscreener 🚀 votes; self-gated on ROCKET_VOTES_ENABLED, before the catch-all below
     a.add_handler(CommandHandler("raid", cmd_raid))
