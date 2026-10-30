@@ -12,6 +12,10 @@ Tools service (IWRU TOOLS/server, on the VPS); this file only answers Telegram:
   (or Unfollow, under the private copies) reaches this bot; it asks the Tools service (POST /internal/follow, signed the
   same way), which saves it and sends the "you now follow" private message; the bot only shows the little pop-up and,
   in a private chat, flips the button.
+- NEW FISH (2026-10-30, Fernando): under every new-token alert the service posts the NEW FISH sticker with ACTIVATE;
+  a press is asked to the service (POST /internal/new-fish), which sends every new token in private from then on, with
+  ACTIVATE · DEACTIVATE side by side under the sticker; in private a single DEACTIVATE that flips. Here: the pop-up
+  and, in a private chat, flipping that one button.
 - The cat stays quiet in that group: a group -1 handler stops every update from FISH_CHAT_ID before bot.py's chatter,
   reactions and bookkeeping see it, so the group never becomes one of the "known chats" the reminders post to.
 
@@ -158,6 +162,95 @@ async def on_follow_button(update, context):
     raise ApplicationHandlerStop
 
 
+NEW_FISH_PATTERN = r"^nf:(on|off)$"
+
+
+def signed_new_fish(tg_id, on, now=None, secret=None):
+    body = json.dumps({"on": bool(on), "tg_id": int(tg_id), "ts": int(now if now is not None else time.time())},
+                      separators=(",", ":"))
+    sig = hmac.new((secret if secret is not None else TOOLS_INTERNAL_SECRET).encode(), body.encode(), hashlib.sha256).hexdigest()
+    return body, sig
+
+
+def ask_new_fish(tg_id, on, opener=urllib.request.urlopen):
+    """{'ok': bool, 'reason': str} from the Tools service, or None when it can't be asked."""
+    body, sig = signed_new_fish(tg_id, on)
+    req = urllib.request.Request(f"{TOOLS_API_URL}/internal/new-fish", data=body.encode(), method="POST",
+                                 headers={"content-type": "application/json", "x-iwru-signature": sig})
+    try:
+        with opener(req, timeout=TIMEOUT_S) as r:
+            data = json.loads(r.read())
+            return data if isinstance(data, dict) and "reason" in data else None
+    except Exception as e:
+        print(f"[fish] new-fish: tools service unreachable for {tg_id}: {e}", flush=True)
+        return None
+
+
+def new_fish_popup(answer, bot_username=""):
+    """(text, show_alert) for the pop-up after ACTIVATE / DEACTIVATE (2026-10-30, Fernando: NEW FISH)."""
+    if answer is None:
+        return "🙀 The cat is busy. Try again in a minute.", True
+    reason = answer.get("reason")
+    if reason == "activated":
+        return "🐟 NEW FISH alerts ON. Every new token will also reach your private chat with the bot.", False
+    if reason == "already-active":
+        return "NEW FISH alerts are already ON for you.", False
+    if reason in ("deactivated", "not-active"):
+        return "NEW FISH alerts OFF. No more new-token alerts in private.", False
+    if reason == "no-access":
+        return "Only IWRU FISH ALERT members can activate this. Lock IWRU at iwillrugu.com/tools", True
+    if reason == "cannot-dm":
+        who = f"@{bot_username}" if bot_username else "the bot"
+        return f"The bot can't write to you yet. Open {who} in private, tap Start, then press ACTIVATE again.", True
+    return "That didn't work. Try again in a minute.", True
+
+
+def flipped_new_fish_markup(markup, on):
+    """Private chat: the single NEW FISH button switched (ON shows DEACTIVATE, OFF shows ACTIVATE). A row that holds
+    both (the group's, under the sticker) is left alone."""
+    if not markup:
+        return None
+    rows, changed = [], False
+    for row in markup.inline_keyboard:
+        nf = [b for b in row if getattr(b, "callback_data", None) in ("nf:on", "nf:off")]
+        if len(nf) != 1:
+            rows.append(list(row))
+            continue
+        new_row = []
+        for b in row:
+            if b is nf[0]:
+                b = (InlineKeyboardButton("DEACTIVATE", callback_data="nf:off") if on
+                     else InlineKeyboardButton("ACTIVATE", callback_data="nf:on"))
+                changed = True
+            new_row.append(b)
+        rows.append(new_row)
+    return InlineKeyboardMarkup(rows) if changed else None
+
+
+async def on_new_fish_button(update, context):
+    q = update.callback_query
+    m = re.match(NEW_FISH_PATTERN, q.data or "")
+    if not m:
+        return
+    on = m.group(1) == "on"
+    answer = await asyncio.to_thread(ask_new_fish, q.from_user.id, on)
+    text, alert = new_fish_popup(answer, getattr(context.bot, "username", "") or "")
+    try:
+        await q.answer(text=text, show_alert=alert)
+    except Exception as e:
+        print(f"[fish] new-fish answer failed for {q.from_user.id}: {e}", flush=True)
+    # in the private chat the single DEACTIVATE / ACTIVATE button turns into the other one; under the group's sticker both
+    # sit side by side for everyone and never change (Fernando 2026-10-30)
+    if answer and answer.get("ok") and q.message is not None and getattr(q.message.chat, "type", "") == "private":
+        markup = flipped_new_fish_markup(q.message.reply_markup, answer.get("reason") in ("activated", "already-active"))
+        if markup is not None:
+            try:
+                await q.message.edit_reply_markup(reply_markup=markup)
+            except Exception as e:
+                print(f"[fish] new-fish button not flipped for {q.from_user.id}: {e}", flush=True)
+    raise ApplicationHandlerStop
+
+
 def register(app):
     if not ENABLED:
         print("[fish] disabled -- set FISH_CHAT_ID, TOOLS_API_URL and TOOLS_INTERNAL_SECRET", flush=True)
@@ -166,6 +259,7 @@ def register(app):
     app.add_handler(ChatJoinRequestHandler(on_join_request, chat_id=chat), group=-2)
     # Follow / Unfollow under the alerts (group and private copies); before the quiet handler below, and it stops there
     app.add_handler(CallbackQueryHandler(on_follow_button, pattern=FOLLOW_PATTERN), group=-2)
+    app.add_handler(CallbackQueryHandler(on_new_fish_button, pattern=NEW_FISH_PATTERN), group=-2)
     # group -1 runs before bot.py's handlers (group 0) and events/rocket (group 1); the stop ends processing there
     app.add_handler(TypeHandler(object, _quiet_other_updates), group=-1)
     print(f"[fish] on: join requests for {FISH_CHAT_ID} decided by {TOOLS_API_URL}", flush=True)

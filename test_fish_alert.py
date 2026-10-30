@@ -202,5 +202,78 @@ class FollowTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(q.answer.call_args.kwargs["show_alert"])
 
 
+class NewFishTest(unittest.IsolatedAsyncioTestCase):
+    def test_signed_body(self):
+        body, sig = fa.signed_new_fish(42, True, now=7, secret="k")
+        self.assertEqual(body, '{"on":true,"tg_id":42,"ts":7}')
+        self.assertEqual(sig, hmac.new(b"k", body.encode(), hashlib.sha256).hexdigest())
+
+    def test_ask_posts_to_internal_new_fish(self):
+        opener = mock.Mock(return_value=_Resp(b'{"ok": true, "reason": "activated"}'))
+        self.assertEqual(fa.ask_new_fish(1, True, opener=opener)["reason"], "activated")
+        self.assertTrue(opener.call_args[0][0].full_url.endswith("/internal/new-fish"))
+        self.assertIsNone(fa.ask_new_fish(1, True, opener=mock.Mock(side_effect=OSError("down"))))
+
+    def test_pattern_and_popups(self):
+        self.assertRegex("nf:on", fa.NEW_FISH_PATTERN)
+        self.assertRegex("nf:off", fa.NEW_FISH_PATTERN)
+        self.assertNotRegex("nf:maybe", fa.NEW_FISH_PATTERN)
+        self.assertIn("ON", fa.new_fish_popup({"reason": "activated"})[0])
+        self.assertIn("OFF", fa.new_fish_popup({"reason": "deactivated"})[0])
+        self.assertIn("@IWRUbot", fa.new_fish_popup({"reason": "cannot-dm"}, "IWRUbot")[0])
+        for r in ("activated", "already-active", "deactivated", "no-access", "cannot-dm", "x"):
+            self.assertLessEqual(len(fa.new_fish_popup({"reason": r}, "IWRUbot")[0]), 200)
+
+    def _press(self, data, chat_type, markup=None):
+        q = mock.Mock()
+        q.data = data
+        q.from_user.id = 42
+        q.answer = mock.AsyncMock()
+        q.message.chat.type = chat_type
+        q.message.reply_markup = markup
+        q.message.edit_reply_markup = mock.AsyncMock()
+        upd = mock.Mock()
+        upd.callback_query = q
+        ctx = mock.Mock()
+        ctx.bot.username = "IWRUbot"
+        return upd, ctx, q
+
+    async def test_activate_in_group_keeps_the_sticker_button(self):
+        upd, ctx, q = self._press("nf:on", "supergroup")
+        with mock.patch.object(fa, "ask_new_fish", return_value={"ok": True, "reason": "activated"}) as ask:
+            with self.assertRaises(fa.ApplicationHandlerStop):
+                await fa.on_new_fish_button(upd, ctx)
+        ask.assert_called_once_with(42, True)
+        q.message.edit_reply_markup.assert_not_called()
+
+    async def test_deactivate_in_private_flips_only_that_button(self):
+        markup = fa.InlineKeyboardMarkup([
+            [fa.InlineKeyboardButton("Follow", callback_data="fw:0x" + "ab" * 20), fa.InlineKeyboardButton("Buy IWRU", url="https://nad.fun/x")],
+            [fa.InlineKeyboardButton("DEACTIVATE", callback_data="nf:off")],
+        ])
+        upd, ctx, q = self._press("nf:off", "private", markup)
+        with mock.patch.object(fa, "ask_new_fish", return_value={"ok": True, "reason": "deactivated"}) as ask:
+            with self.assertRaises(fa.ApplicationHandlerStop):
+                await fa.on_new_fish_button(upd, ctx)
+        ask.assert_called_once_with(42, False)
+        rows = q.message.edit_reply_markup.call_args.kwargs["reply_markup"].inline_keyboard
+        self.assertEqual([[b.text for b in r] for r in rows], [["Follow", "Buy IWRU"], ["ACTIVATE"]])
+        self.assertEqual(rows[1][0].callback_data, "nf:on")
+
+    async def test_the_sticker_pair_never_changes(self):
+        pair = fa.InlineKeyboardMarkup([[fa.InlineKeyboardButton("ACTIVATE", callback_data="nf:on"),
+                                         fa.InlineKeyboardButton("DEACTIVATE", callback_data="nf:off")]])
+        self.assertIsNone(fa.flipped_new_fish_markup(pair, True))
+        self.assertIsNone(fa.flipped_new_fish_markup(pair, False))
+
+    async def test_service_down_nothing_flips(self):
+        markup = fa.InlineKeyboardMarkup([[fa.InlineKeyboardButton("DEACTIVATE", callback_data="nf:off")]])
+        upd, ctx, q = self._press("nf:off", "private", markup)
+        with mock.patch.object(fa, "ask_new_fish", return_value=None):
+            with self.assertRaises(fa.ApplicationHandlerStop):
+                await fa.on_new_fish_button(upd, ctx)
+        q.message.edit_reply_markup.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
