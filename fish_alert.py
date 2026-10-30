@@ -119,7 +119,7 @@ def follow_popup(answer, bot_username=""):
         who = f"@{bot_username}" if bot_username else "the bot"
         return f"The bot can't write to you yet. Open {who} in private, tap Start, then press Follow again.", True
     if reason == "too-many":
-        return "You follow 50 tokens already. Unfollow one first.", True
+        return "You follow 5 tokens already (the most). Unfollow one first.", True
     return "This alert can't be followed.", True
 
 

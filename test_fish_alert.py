@@ -145,6 +145,7 @@ class FollowTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(fa.follow_popup(None)[1])
         for t, _ in [fa.follow_popup({"reason": r, "symbol": "X"}) for r in ("following", "already-following", "unfollowed", "no-access", "cannot-dm", "too-many", "bad-request")] + [fa.follow_popup(None)]:
             self.assertLessEqual(len(t), 200, "Telegram pop-up limit")
+        self.assertIn("5 tokens", fa.follow_popup({"reason": "too-many"})[0])
 
     def test_pattern(self):
         self.assertRegex("fw:" + TOK, fa.FOLLOW_PATTERN)
