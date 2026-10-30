@@ -116,5 +116,90 @@ class QuietTest(unittest.IsolatedAsyncioTestCase):
         await fa._quiet_other_updates(upd, None)  # no exception
 
 
+TOK = "0x" + "ab" * 20
+
+
+class FollowTest(unittest.IsolatedAsyncioTestCase):
+    def test_signed_follow_body(self):
+        body, sig = fa.signed_follow(42, TOK, True, now=7, secret="k")
+        self.assertEqual(body, '{"follow":true,"tg_id":42,"token":"%s","ts":7}' % TOK)
+        self.assertEqual(sig, hmac.new(b"k", body.encode(), hashlib.sha256).hexdigest())
+
+    def test_ask_follow_posts_to_internal_follow(self):
+        opener = mock.Mock(return_value=_Resp(b'{"ok": true, "reason": "following", "symbol": "FISH"}'))
+        self.assertEqual(fa.ask_follow(1, TOK, True, opener=opener)["reason"], "following")
+        req = opener.call_args[0][0]
+        self.assertTrue(req.full_url.endswith("/internal/follow"))
+        self.assertEqual(req.get_header("X-iwru-signature"), hmac.new(fa.TOOLS_INTERNAL_SECRET.encode(), req.data, hashlib.sha256).hexdigest())
+
+    def test_ask_follow_unreachable_is_none(self):
+        self.assertIsNone(fa.ask_follow(1, TOK, True, opener=mock.Mock(side_effect=OSError("down"))))
+
+    def test_popups(self):
+        self.assertIn("You now follow FISH", fa.follow_popup({"reason": "following", "symbol": "FISH"})[0])
+        self.assertIn("Unfollowed FISH", fa.follow_popup({"reason": "unfollowed", "symbol": "FISH"})[0])
+        t, alert = fa.follow_popup({"reason": "cannot-dm"}, "IWRUbot")
+        self.assertIn("@IWRUbot", t)
+        self.assertTrue(alert)
+        self.assertTrue(fa.follow_popup({"reason": "no-access"})[1])
+        self.assertTrue(fa.follow_popup(None)[1])
+        for t, _ in [fa.follow_popup({"reason": r, "symbol": "X"}) for r in ("following", "already-following", "unfollowed", "no-access", "cannot-dm", "too-many", "bad-request")] + [fa.follow_popup(None)]:
+            self.assertLessEqual(len(t), 200, "Telegram pop-up limit")
+
+    def test_pattern(self):
+        self.assertRegex("fw:" + TOK, fa.FOLLOW_PATTERN)
+        self.assertRegex("uf:" + TOK, fa.FOLLOW_PATTERN)
+        self.assertNotRegex("catch:1", fa.FOLLOW_PATTERN)
+        self.assertNotRegex("fw:0x12", fa.FOLLOW_PATTERN)
+
+    def _press(self, data, chat_type, markup=None):
+        q = mock.Mock()
+        q.data = data
+        q.from_user.id = 42
+        q.answer = mock.AsyncMock()
+        q.message.chat.type = chat_type
+        q.message.reply_markup = markup
+        q.message.edit_reply_markup = mock.AsyncMock()
+        upd = mock.Mock()
+        upd.callback_query = q
+        ctx = mock.Mock()
+        ctx.bot.username = "IWRUbot"
+        return upd, ctx, q
+
+    def _markup(self, first):
+        return fa.InlineKeyboardMarkup([[first, fa.InlineKeyboardButton("Buy IWRU", url="https://nad.fun/x"),
+                                         fa.InlineKeyboardButton("🚀 Vote IWRU", url="https://dexscreener.com/x")]])
+
+    async def test_follow_in_group_popup_and_stop(self):
+        upd, ctx, q = self._press("fw:" + TOK, "supergroup")
+        with mock.patch.object(fa, "ask_follow", return_value={"ok": True, "reason": "following", "symbol": "FISH"}) as ask:
+            with self.assertRaises(fa.ApplicationHandlerStop):
+                await fa.on_follow_button(upd, ctx)
+        ask.assert_called_once_with(42, TOK, True)
+        self.assertIn("FISH", q.answer.call_args.kwargs["text"])
+        q.message.edit_reply_markup.assert_not_called()  # the group's buttons are the same for everyone
+
+    async def test_unfollow_in_private_flips_button_keeps_others(self):
+        markup = self._markup(fa.InlineKeyboardButton("Unfollow", callback_data="uf:" + TOK))
+        upd, ctx, q = self._press("uf:" + TOK, "private", markup)
+        with mock.patch.object(fa, "ask_follow", return_value={"ok": True, "reason": "unfollowed", "symbol": "FISH"}) as ask:
+            with self.assertRaises(fa.ApplicationHandlerStop):
+                await fa.on_follow_button(upd, ctx)
+        ask.assert_called_once_with(42, TOK, False)
+        new = q.message.edit_reply_markup.call_args.kwargs["reply_markup"].inline_keyboard[0]
+        self.assertEqual([b.text for b in new], ["Follow", "Buy IWRU", "🚀 Vote IWRU"])
+        self.assertEqual(new[0].callback_data, "fw:" + TOK)
+        self.assertEqual(new[1].url, "https://nad.fun/x")
+
+    async def test_service_down_no_flip(self):
+        markup = self._markup(fa.InlineKeyboardButton("Unfollow", callback_data="uf:" + TOK))
+        upd, ctx, q = self._press("uf:" + TOK, "private", markup)
+        with mock.patch.object(fa, "ask_follow", return_value=None):
+            with self.assertRaises(fa.ApplicationHandlerStop):
+                await fa.on_follow_button(upd, ctx)
+        q.message.edit_reply_markup.assert_not_called()
+        self.assertTrue(q.answer.call_args.kwargs["show_alert"])
+
+
 if __name__ == "__main__":
     unittest.main()
