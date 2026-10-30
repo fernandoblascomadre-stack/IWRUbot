@@ -6377,7 +6377,10 @@ while True:
         # Telegram's side, unrelated to anything set here before), which
         # would make on_message_reaction/MessageReactionHandler register
         # successfully but silently never actually fire.
-        app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
+        # timeout=50 (Fernando 2026-10-30, Render bandwidth): each getUpdates waits up to 50 s for something to
+        # happen instead of 10, so ~5x fewer requests while idle. Updates still arrive at once (Telegram answers
+        # the moment one comes in); python-telegram-bot adds this wait to the read timeout itself.
+        app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES, timeout=50)
         break
     except Exception as e:
         print(f"[restart] {e} — retrying in 35s", flush=True)

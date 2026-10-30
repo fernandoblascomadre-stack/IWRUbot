@@ -318,18 +318,39 @@ async def send_post(bot, chat_id):
                 except TelegramError:
                     pass  # too old (48h) or already gone
     ids = []
-    if os.path.isfile(STICKER):
-        try:
-            with open(STICKER, "rb") as f:
-                ids.append((await bot.send_sticker(chat_id=chat_id, sticker=f)).message_id)
-        except TelegramError as e:
-            print(f"[rocket] sticker failed, text only: {e}", flush=True)
+    sticker_id = await _send_sticker(bot, chat_id)
+    if sticker_id is not None:
+        ids.append(sticker_id)
     msg = await bot.send_message(chat_id=chat_id, text=text, reply_markup=_vote_keyboard(bot.username, count))
     ids.append(msg.message_id)
     if group:
         db.set_config("rv_last_msg", ",".join(str(i) for i in ids))
         db.set_config("rv_post_msg", str(msg.message_id))
         db.set_config("rv_button_count", "" if count is None else str(count))
+
+
+async def _send_sticker(bot, chat_id):
+    """The rocket sticker; message_id or None. Uploaded once (163 KB), then sent by the file_id Telegram gave back
+    (Fernando 2026-10-30: Render bandwidth; 8 posts a day re-uploaded it every time). A file_id Telegram no longer
+    accepts is forgotten and the file is uploaded again in the same call."""
+    cached = db.get_config("rv_sticker_file_id")
+    if cached:
+        try:
+            return (await bot.send_sticker(chat_id=chat_id, sticker=cached)).message_id
+        except TelegramError as e:
+            print(f"[rocket] cached sticker refused ({e}), uploading it again", flush=True)
+            db.set_config("rv_sticker_file_id", "")
+    if not os.path.isfile(STICKER):
+        return None
+    try:
+        with open(STICKER, "rb") as f:
+            msg = await bot.send_sticker(chat_id=chat_id, sticker=f)
+        if getattr(msg, "sticker", None) is not None and getattr(msg.sticker, "file_id", None):
+            db.set_config("rv_sticker_file_id", msg.sticker.file_id)
+        return msg.message_id
+    except TelegramError as e:
+        print(f"[rocket] sticker failed, text only: {e}", flush=True)
+        return None
 
 
 async def post_job(context):

@@ -60,10 +60,24 @@ class FakeBot:
         self.sent.append({"chat": chat_id, "text": text, "kb": reply_markup, "id": self.n})
         return Msg(self.n)
 
+    uploads = 0
+    by_id = 0
+    refuse_ids = False
+
     async def send_sticker(self, chat_id, sticker, **kw):
-        data = sticker.read()
-        assert data[:4] == b"RIFF" and data[8:12] == b"WEBP", "a sticker must be a WEBP file"
-        return await self.send_message(chat_id, "<sticker>")
+        if isinstance(sticker, str):  # a file_id from an earlier upload (2026-10-30: uploaded once only)
+            if self.refuse_ids:
+                from telegram.error import BadRequest
+                raise BadRequest("wrong file identifier")
+            assert sticker == "STICKER-FILE-ID", sticker
+            self.by_id += 1
+        else:
+            data = sticker.read()
+            assert data[:4] == b"RIFF" and data[8:12] == b"WEBP", "a sticker must be a WEBP file"
+            self.uploads += 1
+        m = await self.send_message(chat_id, "<sticker>")
+        m.sticker = types.SimpleNamespace(file_id="STICKER-FILE-ID")
+        return m
 
     async def edit_message_reply_markup(self, chat_id, message_id, reply_markup=None, **kw):
         self.edits.append((chat_id, message_id, reply_markup))
@@ -391,6 +405,14 @@ async def main():
     check("in a private chat too (and that one doesn't replace the group post)", len(dm) == 2
           and db.get_config("rv_post_msg") != str(dm[1]["id"]))
     check("another group the bot is in: nothing", await say(-100999, "group", "vote") == [])
+
+    # 2026-10-30 (Render bandwidth): the 163 KB sticker is uploaded once, then sent by its file_id
+    check("the sticker was uploaded once and then sent by its id", bot.uploads == 1 and bot.by_id >= 3, (bot.uploads, bot.by_id))
+    bot.refuse_ids = True  # Telegram forgot the id: upload again, keep posting
+    clock.t += rb.VOTE_WORD_COOLDOWN_S + 1
+    out = await say(GROUP, "supergroup", "vote")
+    check("a refused id: uploaded again in the same post, nothing lost", bot.uploads == 2 and out[0]["text"] == "<sticker>"
+          and db.get_config("rv_sticker_file_id") == "STICKER-FILE-ID", (bot.uploads, out))
 
 
 asyncio.run(main())
