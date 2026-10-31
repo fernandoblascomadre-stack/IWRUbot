@@ -277,3 +277,59 @@ class NewFishTest(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PersonalInviteTest(unittest.IsolatedAsyncioTestCase):
+    """2026-10-31 (Fernando, option A): the personal 1-minute link says which wallet; no Telegram login on the web."""
+
+    def test_body_carries_the_link_used_and_the_name(self):
+        body, sig = fa.signed_request(7, -100, now=5, secret="k", invite_link="https://t.me/+abc", tg_name="@fish")
+        self.assertEqual(json.loads(body), {"chat_id": "-100", "tg_id": 7, "ts": 5, "invite_link": "https://t.me/+abc", "tg_name": "@fish"})
+        self.assertEqual(sig, hmac.new(b"k", body.encode(), hashlib.sha256).hexdigest())
+
+    def _update(self, link="https://t.me/+abc", username="fish"):
+        req = mock.Mock()
+        req.chat.id = int(fa.FISH_CHAT_ID)
+        req.from_user.id = 7
+        req.from_user.username = username
+        req.invite_link.invite_link = link
+        req.user_chat_id = 7
+        order = []
+        req.approve = mock.AsyncMock(side_effect=lambda: order.append("approve"))
+        req.decline = mock.AsyncMock()
+        upd = mock.Mock()
+        upd.chat_join_request = req
+        ctx = mock.Mock()
+        ctx.bot.username = "IWRUbot"
+        ctx.bot.send_message = mock.AsyncMock(side_effect=lambda *a, **k: order.append("welcome"))
+        return upd, req, ctx, order
+
+    async def test_link_reaches_the_service_and_welcome_goes_before_approval(self):
+        upd, req, ctx, order = self._update()
+        with mock.patch.object(fa, "ask_tools", return_value={"approve": True}) as ask:
+            await fa.on_join_request(upd, ctx)
+        self.assertEqual(ask.call_args.kwargs["invite_link"], "https://t.me/+abc")
+        self.assertEqual(ask.call_args.kwargs["tg_name"], "@fish")
+        self.assertEqual(order, ["welcome", "approve"], "the bot may only write while the request is open")
+        args, kwargs = ctx.bot.send_message.call_args
+        self.assertEqual(args[0], 7)
+        self.assertEqual(kwargs["reply_markup"].inline_keyboard[0][0].url, "https://t.me/IWRUbot?start=fish")
+
+    async def test_no_welcome_when_refused_and_a_failed_welcome_never_blocks_approval(self):
+        upd, req, ctx, order = self._update()
+        with mock.patch.object(fa, "ask_tools", return_value={"approve": False, "reason": "invite-used"}):
+            await fa.on_join_request(upd, ctx)
+        ctx.bot.send_message.assert_not_called()
+        req.decline.assert_awaited_once()
+        upd, req, ctx, order = self._update()
+        ctx.bot.send_message = mock.AsyncMock(side_effect=RuntimeError("Forbidden"))
+        with mock.patch.object(fa, "ask_tools", return_value={"approve": True}):
+            await fa.on_join_request(upd, ctx)
+        req.approve.assert_awaited_once()
+
+    async def test_start_fish_confirms(self):
+        upd = mock.Mock()
+        upd.effective_message.reply_text = mock.AsyncMock()
+        with self.assertRaises(fa.ApplicationHandlerStop):
+            await fa.on_start_fish(upd, None)
+        self.assertIn("Done", upd.effective_message.reply_text.call_args[0][0])

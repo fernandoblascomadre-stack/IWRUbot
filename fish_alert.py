@@ -32,7 +32,7 @@ import urllib.request
 import re
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationHandlerStop, CallbackQueryHandler, ChatJoinRequestHandler, TypeHandler
+from telegram.ext import ApplicationHandlerStop, CallbackQueryHandler, ChatJoinRequestHandler, MessageHandler, TypeHandler, filters
 
 FISH_CHAT_ID = os.environ.get("FISH_CHAT_ID", "").strip()
 TOOLS_API_URL = os.environ.get("TOOLS_API_URL", "").strip().rstrip("/")
@@ -41,17 +41,24 @@ ENABLED = bool(FISH_CHAT_ID and TOOLS_API_URL and TOOLS_INTERNAL_SECRET)
 TIMEOUT_S = 10
 
 
-def signed_request(tg_id, chat_id, now=None, secret=None):
-    """Body + signature exactly as the Tools service checks them (HMAC-SHA256 of the raw body, hex)."""
-    body = json.dumps({"chat_id": str(chat_id), "tg_id": int(tg_id), "ts": int(now if now is not None else time.time())},
-                      separators=(",", ":"))
+def signed_request(tg_id, chat_id, now=None, secret=None, invite_link=None, tg_name=None):
+    """Body + signature exactly as the Tools service checks them (HMAC-SHA256 of the raw body, hex).
+
+    2026-10-31 (Fernando, option A): the personal link the person used (made by the Tools service for one wallet,
+    1 minute) goes along: that link is what says which wallet they come from. No Telegram login on the web any more."""
+    data = {"chat_id": str(chat_id), "tg_id": int(tg_id), "ts": int(now if now is not None else time.time())}
+    if invite_link:
+        data["invite_link"] = str(invite_link)
+    if tg_name:
+        data["tg_name"] = str(tg_name)[:64]
+    body = json.dumps(data, separators=(",", ":"))
     sig = hmac.new((secret if secret is not None else TOOLS_INTERNAL_SECRET).encode(), body.encode(), hashlib.sha256).hexdigest()
     return body, sig
 
 
-def ask_tools(tg_id, chat_id, opener=urllib.request.urlopen):
+def ask_tools(tg_id, chat_id, opener=urllib.request.urlopen, invite_link=None, tg_name=None):
     """{'approve': bool, 'reason': str} from the Tools service, or None when it can't be asked."""
-    body, sig = signed_request(tg_id, chat_id)
+    body, sig = signed_request(tg_id, chat_id, invite_link=invite_link, tg_name=tg_name)
     req = urllib.request.Request(f"{TOOLS_API_URL}/internal/join-request", data=body.encode(), method="POST",
                                  headers={"content-type": "application/json", "x-iwru-signature": sig})
     try:
@@ -67,11 +74,16 @@ async def on_join_request(update, context):
     req = update.chat_join_request
     if not req or str(req.chat.id) != FISH_CHAT_ID:
         return
-    answer = await asyncio.to_thread(ask_tools, req.from_user.id, req.chat.id)
+    link = getattr(getattr(req, "invite_link", None), "invite_link", None)
+    user = req.from_user
+    name = f"@{user.username}" if getattr(user, "username", None) else (getattr(user, "first_name", None) or None)
+    answer = await asyncio.to_thread(ask_tools, user.id, req.chat.id, invite_link=link if isinstance(link, str) else None,
+                                     tg_name=name if isinstance(name, str) else None)
     if answer is None:
         return  # left pending: fail closed
     try:
         if answer.get("approve") is True:
+            await send_welcome(req, context)  # only possible before the request is answered
             await req.approve()
             print(f"[fish] approved {req.from_user.id}", flush=True)
         else:
@@ -79,6 +91,37 @@ async def on_join_request(update, context):
             print(f"[fish] declined {req.from_user.id} ({answer.get('reason')})", flush=True)
     except Exception as e:
         print(f"[fish] approve/decline failed for {req.from_user.id}: {e}", flush=True)
+
+
+WELCOME = ("🐟 <b>Welcome to IWRU FISH ALERT!</b>\n"
+           "Your request is approved: you're in the channel.\n\n"
+           "Tap <b>▶️ START</b> below so the cat can write to you in private: you'll get a heads-up if your Locker "
+           "drops under $3 (36 h to top up), and your Follow / NEW FISH alerts.")
+START_DONE = ("✅ <b>Done.</b> The cat can now write to you in private: Locker heads-ups and your Follow / NEW FISH "
+              "alerts arrive here. 😼")
+
+
+async def send_welcome(req, context):
+    """A private hello with a START button (2026-10-31): without the Telegram login on the web the bot may only write
+    to someone while their join request is open (user_chat_id), so this is the moment to ask them to start the bot.
+    Never blocks the approval."""
+    chat_id = getattr(req, "user_chat_id", None)
+    bot = getattr(context, "bot", None)
+    if not chat_id or bot is None:
+        return
+    try:
+        url = f"https://t.me/{bot.username}?start=fish"
+        await bot.send_message(chat_id, WELCOME, parse_mode="HTML", disable_web_page_preview=True,
+                               reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("▶️ START", url=url)]]))
+    except Exception as e:  # noqa: BLE001
+        print(f"[fish] welcome not delivered to {getattr(req.from_user, 'id', '?')}: {e}", flush=True)
+
+
+async def on_start_fish(update, context):
+    """'/start fish' in private (the START button of the welcome): just confirm; starting the bot is what allows DMs."""
+    if update.effective_message:
+        await update.effective_message.reply_text(START_DONE, parse_mode="HTML")
+    raise ApplicationHandlerStop
 
 
 FOLLOW_PATTERN = r"^(fw|uf):0x[0-9a-f]{40}$"
@@ -257,6 +300,7 @@ def register(app):
         return
     chat = int(FISH_CHAT_ID)
     app.add_handler(ChatJoinRequestHandler(on_join_request, chat_id=chat), group=-2)
+    app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.Regex(r"^/start fish$"), on_start_fish), group=-2)
     # Follow / Unfollow under the alerts (group and private copies); before the quiet handler below, and it stops there
     app.add_handler(CallbackQueryHandler(on_follow_button, pattern=FOLLOW_PATTERN), group=-2)
     app.add_handler(CallbackQueryHandler(on_new_fish_button, pattern=NEW_FISH_PATTERN), group=-2)
