@@ -5726,6 +5726,8 @@ async def nft_reminder_job(context: ContextTypes.DEFAULT_TYPE):
 TWICE_DAILY_POSTS = {
     "dexscreener": ("dex_post", cat_posts.DEXSCREENER_LINES, f"📊 {cat_posts.DEXSCREENER_LINK}\n🗳️ vote IWRU → {cat_posts.GEMPUMP_LINK}"),
     "dividends": ("dividends_post", cat_posts.DIVIDENDS_LINES, f"🐟 claim here → {cat_posts.FEES_LINK}"),
+    # 2026-10-31 (Fernando): "My name is I Will Rug U..." + the Locker of IWRU Tools, normal group only
+    "transparency": ("transparency_post", cat_posts.TRANSPARENCY_LINES, f"🔐 see it all → {cat_posts.TOOLS_LOCKER_LINK}"),
 }
 # 2026-10-22 (Fernando): the Dexscreener post also says IWRU is on Gempump and asks for votes (the cat shares fish)
 TWICE_DAILY_EXTRA = {"dexscreener": cat_posts.GEMPUMP_VOTE_LINES}

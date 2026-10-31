@@ -18,6 +18,8 @@ from datetime import datetime, timedelta, timezone
 DEXSCREENER_LINK = "https://dexscreener.com/monad/0x0caaf82370766e76e150a5610c16a306e254b8a7"
 FEES_LINK = "https://iwillrugu.com/fees/"
 GEMPUMP_LINK = "https://www.gempump.io/en/token/iwillrugu"
+# 2026-10-31 (Fernando): the transparency post links the Locker of IWRU Tools
+TOOLS_LOCKER_LINK = "https://iwillrugu.com/tools/#locker"
 
 MIN_GAP_S = 10 * 3600   # never two posts closer than 10h
 MAX_GAP_S = 13 * 3600   # 10-13h after the last one -> about two a day
@@ -71,6 +73,19 @@ GEMPUMP_VOTE_LINES = [
     "Gempump voting is open. I already voted for IWRU 47 times with my paw on the keyboard. your turn, humans. fish after. 🗳️⌨️🐟",
     "if IWRU climbs on Gempump I'm sharing the fish stash. yes, the secret one under the couch. vote. 🛋️🐟",
     "dear humans: one vote for IWRU on Gempump = one fish from me. this offer is valid until I get hungry. 🗳️🐟😼",
+]
+
+# 2026-10-31 (Fernando): in the normal group (never the FISH ALERT channel, which the bot never treats as a known chat),
+# about twice a day when the cat feels like it, well apart (same 10-13 h rule). His text first, then 6 lines with the
+# same meaning; + TOOLS_LOCKER_LINK.
+TRANSPARENCY_LINES = [
+    "My name is I Will Rug U. I only steal fish. 🐟\n\nEver met a more transparent token? Every bot, every contract, every transaction—tracked through clear, simple UIs.\n\nEven my rugs are public. 🐈‍⬛",
+    "They call me I Will Rug U. The only thing I steal is fish. 🐟\n\nShow me a token more see-through than this one. Every bot, every contract, every transaction, all on simple pages anyone can read.\n\nEven my rugs happen in public. 🐈‍⬛",
+    "I Will Rug U, at your service. Fish thief, nothing more. 🐟\n\nName one token more transparent. Every bot, every contract, every transaction is tracked on clean, easy screens.\n\nMy rugs? Also public. 🐈‍⬛",
+    "Hi, I'm I Will Rug U. I steal fish. Only fish. 🐟\n\nMost tokens hide things. I show everything: every bot, every contract, every transaction, on pages so simple a cat could read them.\n\nEven the rugs are on the record. 🐈‍⬛",
+    "The name's I Will Rug U. My only crime is fish. 🐟\n\nTransparency? Every bot I run, every contract I use, every transaction I make, tracked on clear, simple pages.\n\nI even rug in public. 🐈‍⬛",
+    "I Will Rug U here. Fish are the only thing I take. 🐟\n\nEver seen a token this open? Every bot, every contract, every transaction, laid out on clear and simple pages.\n\nNot even my rugs are secret. 🐈‍⬛",
+    "Me? I Will Rug U. Professional fish thief. 🐟\n\nFind me a more transparent token. Bots, contracts, transactions: every single one tracked on simple, honest pages.\n\nEven my rugs are out in the open. 🐈‍⬛",
 ]
 
 DIVIDENDS_LINES = [
