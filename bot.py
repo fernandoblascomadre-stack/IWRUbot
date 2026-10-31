@@ -3765,15 +3765,18 @@ FOLLOWUP_MESSAGES = [
 ]
 
 NAD_LINK = "https://nad.fun/tokens/0xaCCD61772BCd3717546f141382b68b6D2EF17777"
+# Chart since the 2026-10-14 graduation: the Dexscreener pair, same link as the
+# buy alerts. NAD_LINK stays only where nad.fun is the place to act (dividends).
+CHART_LINK = cfg.BUYBOT_CHART_URL
 NAD_CA   = "0xaCCD61772BCd3717546f141382b68b6D2EF17777"
 
 MONAD_REMINDERS = [
-    f"IWRU is live on Monad. don't say the cat didn't warn you. 😼\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
-    f"in case you forgot — the cat is tokenized 🐟\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
-    f"drops fish on floor. IWRU. Monad. now. 😼\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
-    f"the cat has been deployed on Monad blockchain. act accordingly. 🐟\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
-    f"IWRU — launched. live. on Monad. what are you waiting for. 😼\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
-    f"friendly reminder from the cat: IWRU is tradeable 🐟\n\n🟣 {NAD_LINK}\nca: `{NAD_CA}`",
+    f"IWRU is live on Monad. don't say the cat didn't warn you. 😼\n\n📊 {CHART_LINK}\nca: `{NAD_CA}`",
+    f"in case you forgot — the cat is tokenized 🐟\n\n📊 {CHART_LINK}\nca: `{NAD_CA}`",
+    f"drops fish on floor. IWRU. Monad. now. 😼\n\n📊 {CHART_LINK}\nca: `{NAD_CA}`",
+    f"the cat has been deployed on Monad blockchain. act accordingly. 🐟\n\n📊 {CHART_LINK}\nca: `{NAD_CA}`",
+    f"IWRU — launched. live. on Monad. what are you waiting for. 😼\n\n📊 {CHART_LINK}\nca: `{NAD_CA}`",
+    f"friendly reminder from the cat: IWRU is tradeable 🐟\n\n📊 {CHART_LINK}\nca: `{NAD_CA}`",
 ]
 
 GAME_REMINDERS = [
@@ -6227,7 +6230,10 @@ async def leer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if _contains_word(tl, CHART_TRIGGERS):
         if _speaks(0.37):  # +15% (was 0.32)
             await asyncio.sleep(random.uniform(1.0, 3.0))
-            await msg.reply_text(pick_phrase(CHART_REPLIES))
+            await msg.reply_text(
+                f"{pick_phrase(CHART_REPLIES)}\n\n📊 {CHART_LINK}",
+                disable_web_page_preview=True,
+            )
             return
         await _maybe_indifferent_react(context, msg)
 

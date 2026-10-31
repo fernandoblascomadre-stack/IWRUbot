@@ -5,13 +5,13 @@ detailed alert for every buy above a USD floor.
 
 WHY THIS SHAPE
 --------------
-* **Detection is "tokens leaving the market address".** IWRU is still on a
-  nad.fun bonding curve (`market_type: V2_CURVE`), so there is no DEX pair and
-  no Swap event to decode -- a buy is simply the curve sending tokens to the
-  buyer. The market address is read from nad.fun's API and refreshed every
-  minute, which is what makes this lifecycle-proof: when the token graduates,
-  the API starts returning the DEX pair instead and the same code keeps
-  working without a redeploy.
+* **Detection is "tokens leaving the market address".** Before 2026-10-14
+  IWRU sat on a nad.fun bonding curve (`market_type: V2_CURVE`); it then
+  graduated to the IWRU/WMON pair 0x0caaF823... (`V2_DEX`). A buy is the
+  market sending tokens out. The market address is read from nad.fun's API and
+  refreshed every minute, so the switch to the pair needed no redeploy. On
+  the pair the tokens often go to a contract first, so `_final_holder` follows
+  them to the real buyer and drops nad.fun's own fee buy & burn.
 * **Size comes from `tx.value`.** Curve buys are `payable` calls in native MON,
   so there is no WMON transfer to measure. Post-graduation swaps route WMON
   instead and `tx.value` is 0, so there is a WMON-leg fallback for that day.
@@ -45,6 +45,8 @@ TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523
 # ERC-20 balanceOf(address) selector, for the NEW HOLDER check
 BALANCE_OF_SELECTOR = "0x70a08231"
 WMON = "0x3bd359c1119da7da1d913d1c4d2b7c461115433a"
+DEAD = "0x000000000000000000000000000000000000dead"
+ZERO = "0x0000000000000000000000000000000000000000"
 
 # The public RPC refuses any eth_getLogs range wider than this.
 MAX_LOG_RANGE = 100
@@ -339,6 +341,55 @@ def _balance_before(holder: str, block_number: int) -> Optional[float]:
         return None
 
 
+def _is_plain_contract(address: str) -> bool:
+    """True for a contract (router, aggregator, fee splitter), False for a
+    wallet. An EIP-7702 wallet has code too, but only the 0xef0100 delegation
+    stub, and is still a person."""
+    try:
+        code = _rpc("eth_getCode", [address, "latest"]) or "0x"
+    except Exception:  # noqa: BLE001 -- unknown: treat as a wallet, as before
+        return False
+    return code not in ("0x", "0x0") and not code.lower().startswith("0xef0100")
+
+
+def _final_holder(log: dict, recipient: str) -> Optional[str]:
+    """Who actually ends up with the tokens the market handed out.
+
+    Since the graduation the market is a DEX pair, and the pair often pays a
+    contract rather than the buyer. Follow the tokens through contracts inside
+    the same transaction, later transfers only: ending in a wallet -> that
+    wallet bought; ending in 0xdead, address zero or back in the pair ->
+    nad.fun's own fee buy & burn / LP top-up (2026-10-14 tx 0xf0dc3d25...),
+    returns None so it is never announced.
+    """
+    if not _is_plain_contract(recipient):
+        return recipient
+    try:
+        receipt = _rpc("eth_getTransactionReceipt", [log["transactionHash"]])
+    except Exception as e:  # noqa: BLE001
+        print(f"[buybot] receipt for buyer lookup failed: {e}", flush=True)
+        return recipient
+    sinks = {DEAD, ZERO, _market_address()}
+    start = int(log.get("logIndex", "0x0"), 16)
+    holder = recipient
+    for other in receipt.get("logs", []):
+        topics = other.get("topics") or []
+        if (
+            int(other.get("logIndex", "0x0"), 16) <= start
+            or other.get("address", "").lower() != cfg.BUYBOT_TOKEN.lower()
+            or len(topics) < 3
+            or topics[0] != TRANSFER_TOPIC
+            or _topic_address(topics[1]) != holder
+        ):
+            continue
+        holder = _topic_address(topics[2])
+        if holder in sinks:
+            return None
+        if not _is_plain_contract(holder):
+            return holder
+    return holder
+
+
 def _build_alert_for(log: dict) -> Optional[dict]:
     """Turns one Transfer log into an alert payload, or None if it is not an
     announceable buy. Pure blocking work -- runs off the event loop."""
@@ -366,6 +417,10 @@ def _build_alert_for(log: dict) -> Optional[dict]:
     tx = _rpc("eth_getTransactionByHash", [log["transactionHash"]])
     if not tx:
         return None
+    buyer = _final_holder(log, recipient)
+    if not buyer:
+        _remember(key)  # protocol buy & burn / LP top-up: never a buy
+        return None
     mon = _native_spent(tx, receipt_needed=True)
     if mon <= 0:
         return None
@@ -381,7 +436,7 @@ def _build_alert_for(log: dict) -> Optional[dict]:
         return None
 
     block_number = int(log["blockNumber"], 16)
-    before = _balance_before(recipient, block_number)
+    before = _balance_before(buyer, block_number)
     price_usd = float(info.get("price_usd") or 0)
     supply = float(info.get("total_supply") or 0) / 1e18
     volume_native = float(info.get("volume") or 0) / 1e18
@@ -390,7 +445,7 @@ def _build_alert_for(log: dict) -> Optional[dict]:
         "usd": usd,
         "mon": mon,
         "tokens": tokens,
-        "buyer": recipient,
+        "buyer": buyer,
         "is_new_holder": before is not None and before <= 0,
         "position_before": before if before else 0.0,
         "price_usd": price_usd,
