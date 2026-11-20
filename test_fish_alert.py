@@ -327,6 +327,30 @@ class PersonalInviteTest(unittest.IsolatedAsyncioTestCase):
             await fa.on_join_request(upd, ctx)
         req.approve.assert_awaited_once()
 
+    async def test_welcome_never_claims_success_and_a_failed_approval_is_told(self):
+        # 2026-11-20 (Codex BOT-R1): the welcome used to say "approved: you're in" before approve() ran
+        self.assertNotIn("request is approved", fa.WELCOME)
+        self.assertNotIn("you're in the channel", fa.WELCOME)
+        with mock.patch.object(fa, "APPROVE_RETRY_S", 0):
+            # fails twice -> retried once, then the user is told how to get in (request still open)
+            upd, req, ctx, order = self._update()
+            req.approve = mock.AsyncMock(side_effect=RuntimeError("Bad Request: USER_ALREADY_PARTICIPANT? no: HIDE_REQUESTER_MISSING"))
+            with mock.patch.object(fa, "ask_tools", return_value={"approve": True}):
+                await fa.on_join_request(upd, ctx)
+            self.assertEqual(req.approve.await_count, 2)
+            texts = [c.args[1] for c in ctx.bot.send_message.call_args_list]
+            self.assertEqual(len(texts), 2)
+            self.assertIs(texts[0], fa.WELCOME)
+            self.assertIs(texts[1], fa.APPROVE_FAILED)
+            self.assertIn("iwillrugu.com/tools/#locker", fa.APPROVE_FAILED)
+            # fails once, then succeeds -> no failure notice
+            upd, req, ctx, order = self._update()
+            req.approve = mock.AsyncMock(side_effect=[RuntimeError("timeout"), None])
+            with mock.patch.object(fa, "ask_tools", return_value={"approve": True}):
+                await fa.on_join_request(upd, ctx)
+            self.assertEqual(req.approve.await_count, 2)
+            self.assertEqual([c.args[1] for c in ctx.bot.send_message.call_args_list], [fa.WELCOME])
+
     async def test_start_fish_confirms(self):
         upd = mock.Mock()
         upd.effective_message.reply_text = mock.AsyncMock()

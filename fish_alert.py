@@ -81,20 +81,32 @@ async def on_join_request(update, context):
                                      tg_name=name if isinstance(name, str) else None)
     if answer is None:
         return  # left pending: fail closed
+    if answer.get("approve") is True:
+        # 2026-11-20 (Codex BOT-R1, reproduced): the welcome said "approved: you're in" BEFORE approve() ran, so a failed
+        # approval had already been announced as a success. The welcome must still go first (the bot may only write while
+        # the request is open), so it now says the approval is under way; approve() gets one retry, and if it still fails
+        # the user is told (the request is still open, so the bot can still write) how to get in.
+        await send_welcome(req, context)
+        for attempt in (1, 2):
+            try:
+                await req.approve()
+                print(f"[fish] approved {req.from_user.id}", flush=True)
+                return
+            except Exception as e:  # noqa: BLE001
+                print(f"[fish] approve failed for {req.from_user.id} (attempt {attempt}): {e}", flush=True)
+                if attempt == 1:
+                    await asyncio.sleep(APPROVE_RETRY_S)
+        await send_approve_failed(req, context)
+        return
     try:
-        if answer.get("approve") is True:
-            await send_welcome(req, context)  # only possible before the request is answered
-            await req.approve()
-            print(f"[fish] approved {req.from_user.id}", flush=True)
-        else:
-            await req.decline()
-            print(f"[fish] declined {req.from_user.id} ({answer.get('reason')})", flush=True)
-    except Exception as e:
-        print(f"[fish] approve/decline failed for {req.from_user.id}: {e}", flush=True)
+        await req.decline()
+        print(f"[fish] declined {req.from_user.id} ({answer.get('reason')})", flush=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"[fish] decline failed for {req.from_user.id}: {e}", flush=True)
 
 
 WELCOME = ("🐟 <b>Welcome to IWRU FISH ALERT!</b>\n"
-           "Your request is approved: you're in the channel.\n\n"
+           "Your request is being approved: you'll be in the channel in a moment.\n\n"
            "Tap <b>▶️ START</b> below so the cat can write to you in private: you'll get a heads-up if your Locker "
            "drops under $3 (36 h to top up), and your Follow / NEW FISH alerts.")
 START_DONE = ("✅ <b>Done.</b> The cat can now write to you in private: Locker heads-ups and your Follow / NEW FISH "
@@ -115,6 +127,24 @@ async def send_welcome(req, context):
                                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("▶️ START", url=url)]]))
     except Exception as e:  # noqa: BLE001
         print(f"[fish] welcome not delivered to {getattr(req.from_user, 'id', '?')}: {e}", flush=True)
+
+
+APPROVE_RETRY_S = 2
+APPROVE_FAILED = ("⚠️ <b>Your request couldn't be completed right now.</b>\n"
+                  "You're not in the channel yet. Get a fresh invite from your Locker at "
+                  "https://iwillrugu.com/tools/#locker and send the request again in a few minutes.")
+
+
+async def send_approve_failed(req, context):
+    """The approval failed twice: say so while the request is still open (the only moment the bot may write)."""
+    chat_id = getattr(req, "user_chat_id", None)
+    bot = getattr(context, "bot", None)
+    if not chat_id or bot is None:
+        return
+    try:
+        await bot.send_message(chat_id, APPROVE_FAILED, parse_mode="HTML", disable_web_page_preview=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"[fish] approve-failed notice not delivered to {getattr(req.from_user, 'id', '?')}: {e}", flush=True)
 
 
 async def on_start_fish(update, context):
